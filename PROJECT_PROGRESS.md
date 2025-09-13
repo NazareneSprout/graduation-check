@@ -1,0 +1,82 @@
+# SakMvp1 프로젝트 진행 현황
+
+## 프로젝트 개요
+- **프로젝트명**: SakMvp1 (Android MVP 애플리케이션)
+- **저장소**: https://github.com/NazareneSprout/graduation-check
+- **플랫폼**: Android (Java 기반)
+- **개발 환경**: Android Studio, Gradle Kotlin DSL
+
+## 개발 진행 타임라인
+
+### 2025-09-13 (금요일)
+
+#### 15:49 - 프로젝트 초기화
+- **커미터**: stuKim0221
+- **작업 내용**:
+  - Android 프로젝트 초기 설정 완료
+  - 기본 Android 애플리케이션 구조 생성
+  - Gradle 빌드 시스템 설정
+  - 기본 Activity 및 레이아웃 파일 생성
+
+**주요 생성 파일들**:
+- Android 프로젝트 기본 구조 (46개 파일)
+- `app/build.gradle.kts` - 빌드 설정
+- `MainActivity.java` - 메인 액티비티
+- `activity_main.xml` - 메인 레이아웃
+- 리소스 파일들 (아이콘, 색상, 테마 등)
+
+#### 15:55 - Git 저장소 연동
+- **커미터**: GrapeKim
+- **작업 내용**:
+  - GitHub 저장소와 연동
+  - README.md 파일 추가
+
+#### 15:57 - 브랜치 병합
+- **커미터**: stuKim0221
+- **작업 내용**:
+  - main 브랜치 병합 완료
+  - 로컬과 원격 저장소 동기화
+
+## 현재 개발 상태
+
+### ✅ 완료된 작업
+- [x] Android 프로젝트 초기 설정
+- [x] 기본 애플리케이션 구조 생성
+- [x] Git 버전 관리 시스템 설정
+- [x] GitHub 저장소 연동
+
+### 🔄 진행 중인 작업
+
+### 📋 대기 중인 작업
+
+## 기술 스택
+
+### Android 개발
+- **언어**: Java
+- **최소 SDK**: 24 (Android 7.0)
+- **타겟 SDK**: 35 (Android 15)
+- **빌드 도구**: Gradle 8.0+
+- **라이브러리**: AndroidX, Material Design
+
+### 백엔드 서비스
+- **Firebase**: 분석 및 백엔드 서비스
+- **Cloud Functions**: Node.js 22 기반
+
+### 개발 도구
+- **IDE**: Android Studio
+- **버전 관리**: Git
+- **배포**: Firebase, Google Play Store (예정)
+
+## 팀 구성원
+- **stuKim0221** (kdw2770@naver.com) - 안드로이드 개발
+- **GrapeKim** (kdw2770@naver.com) - Git 관리 및 협업
+
+## 다음 단계 계획
+1. 핵심 비즈니스 로직 구현
+2. Firebase 백엔드 서비스 연동
+3. UI/UX 개선
+4. 테스트 및 디버깅
+5. 배포 준비
+
+---
+*마지막 업데이트: 2025-09-13*

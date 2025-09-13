@@ -1,13 +1,14 @@
 plugins {
     alias(libs.plugins.android.application)
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.sakmvp1"
+    namespace = "sprout.app.sakmvp1"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.sakmvp1"
+        applicationId = "sprout.app.sakmvp1"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -32,6 +33,17 @@ android {
 }
 
 dependencies {
+    // Firebase BOM
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+
+    // Firebase Analytics
+    implementation("com.google.firebase:firebase-analytics")
+
+    // Firebase Authentication (선택사항)
+    implementation("com.google.firebase:firebase-auth")
+
+    // Firebase Firestore (선택사항)
+    implementation("com.google.firebase:firebase-firestore")
 
     implementation(libs.appcompat)
     implementation(libs.material)

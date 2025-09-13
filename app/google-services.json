@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "944435622486",
+    "project_id": "nazarenesprout",
+    "storage_bucket": "nazarenesprout.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:944435622486:android:2fe9c5766b4c4e086001f7",
+        "android_client_info": {
+          "package_name": "sprout.app.sakmvp1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUbRn_dF0mGb7WzDzWpXCrIFZG9SmLL-o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

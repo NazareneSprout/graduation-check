@@ -1,4 +1,4 @@
-package com.example.sakmvp1;
+package sprout.app.sakmvp1;
 
 import org.junit.Test;
 
