@@ -1,3 +1,21 @@
 <resources>
-    <string name="app_name">SakMvp1</string>
+    <string name="app_name">good</string>
+    //로그인,회원가입
+    <string name="login" >로그인</string>  //로그인 페이지 로그인
+    <string name="userid" >아이디(이메일)</string> //로그인페이지 아이디
+    <string name="sign_up" >회원가입</string> //로그인,회원가입페이지 회원가입
+    <string name="loginauto">자동로그인</string> //로그인페이지 자동로그인 체크박스
+
+    <string name="email" >이메일</string> //회원가입페이지 이메일
+    <string name="password" >비밀번호</string> //로그인,회원가입페이지 전화번호
+    <string name="reallypassword">비밀번호 확인</string>
+    <string name="name" >이름</string> //회원가입페이지 이름
+    <string name="phone_number">전화번호</string> // 회원가입페이지 전화번호
+    <string name="birth_date">생년월일</string> //회원가입페이지 생년월일
+    <string name="male">남</string> //회원가입페이지 성별 선택
+    <string name="female">여</string> //회원가입페이지 성별 선택
+    <string name="back_to_login">뒤로가기</string> //회원가입페이지 뒤로가기
+    <string name="username">닉네임</string>
+    <string name="address">주소</string>
+
 </resources>
