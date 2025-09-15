@@ -8,8 +8,6 @@
     android:background="@color/white"
     android:padding="16dp">
 
-
-
     <EditText
         android:id="@+id/etUserid"
         android:layout_width="match_parent"
