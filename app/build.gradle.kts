@@ -34,16 +34,14 @@ android {
 
 dependencies {
     // Firebase BOM
-    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    implementation(platform("com.google.firebase:firebase-bom:32.8.1"))
 
-    // Firebase Analytics
+    // Firebase 모듈 (버전 생략)
     implementation("com.google.firebase:firebase-analytics")
-
-    // Firebase Authentication (선택사항)
-    implementation("com.google.firebase:firebase-auth")
-
-    // Firebase Firestore (선택사항)
-    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-database-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     implementation(libs.appcompat)
     implementation(libs.material)

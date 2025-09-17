@@ -26,6 +26,8 @@ public class MainActivity extends AppCompatActivity {
         FirebaseApp.initializeApp(this);
         mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
+
+
         // Firebase 연결 확인 로그
         Log.d("Firebase", "Firebase 초기화 완료");
 

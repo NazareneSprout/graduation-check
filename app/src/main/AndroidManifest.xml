@@ -13,15 +13,18 @@
         android:theme="@style/Theme.SakMvp1"
         android:testOnly="false"
         tools:targetApi="31">
-        <activity
-            android:name="sprout.app.sakmvp1.MainActivity"
-            android:exported="true">
+
+        <!-- Launcher Activity: LoginActivity로 변경 -->
+        <activity android:name=".Login.LoginActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".Login.SignUpActivity" />
+        <activity android:name="MainActivity"
+            android:windowSoftInputMode="adjustResize"/>
     </application>
 
 </manifest>

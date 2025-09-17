@@ -88,27 +88,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp">
 
-                <EditText
-                    android:id="@+id/etAddress"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="주소" />
-
-                <Button
-                    android:id="@+id/btnSelectAddress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="주소지 선택"
-                    android:layout_marginStart="8dp" />
             </LinearLayout>
-
-            <EditText
-                android:id="@+id/etDetailAddress"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="상세주소"
-                android:layout_marginTop="8dp"/>
 
             <RadioGroup
                 android:id="@+id/rgGender"
