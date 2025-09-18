@@ -1,7 +1,7 @@
 package sprout.app.sakmvp1.Login;
 
 import android.app.DatePickerDialog;
-import android.graphics.Color;
+import androidx.core.content.ContextCompat;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -11,15 +11,20 @@ import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import sprout.app.sakmvp1.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.Locale;
 
 public class SignUpActivity extends AppCompatActivity {
@@ -37,6 +42,7 @@ public class SignUpActivity extends AppCompatActivity {
     private RadioButton radioButtonMale;
     private RadioButton radioButtonFemale;
     private Button buttonRegister;
+    private Toolbar toolbar;
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
@@ -44,10 +50,27 @@ public class SignUpActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_sign_up);
+
+        // 시스템 UI 인셋 처리
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+
+        // 툴바 설정
+        toolbar = findViewById(R.id.toolbar_sign_up);
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
+
+        // 뒤로가기 버튼 클릭 리스너
+        toolbar.setNavigationOnClickListener(v -> onBackPressed());
 
         editTextEmail = findViewById(R.id.etEmail);
         editTextPassword = findViewById(R.id.etSignUpPassword);
@@ -80,13 +103,13 @@ public class SignUpActivity extends AppCompatActivity {
                 String confirm = s.toString();
                 if (confirm.isEmpty()) {
                     etConfirmPassword.setError(null);
-                    etConfirmPassword.setTextColor(Color.BLACK);
+                    etConfirmPassword.setTextColor(ContextCompat.getColor(SignUpActivity.this, android.R.color.black));
                 } else if (password.equals(confirm)) {
                     etConfirmPassword.setError(null);
-                    etConfirmPassword.setTextColor(Color.GREEN);
+                    etConfirmPassword.setTextColor(ContextCompat.getColor(SignUpActivity.this, android.R.color.holo_green_dark));
                 } else {
                     etConfirmPassword.setError("비밀번호가 일치하지 않습니다");
-                    etConfirmPassword.setTextColor(Color.RED);
+                    etConfirmPassword.setTextColor(ContextCompat.getColor(SignUpActivity.this, android.R.color.holo_red_dark));
                 }
             }
 
@@ -102,8 +125,8 @@ public class SignUpActivity extends AppCompatActivity {
         int day = c.get(Calendar.DAY_OF_MONTH);
 
         DatePickerDialog dialog = new DatePickerDialog(this,
-                (DatePicker view, int year1, int monthOfYear, int dayOfMonth) -> {
-                    String date = year1 + "-" + (monthOfYear + 1) + "-" + dayOfMonth;
+                (view, selectedYear, selectedMonth, selectedDay) -> {
+                    String date = selectedYear + "-" + (selectedMonth + 1) + "-" + selectedDay;
                     editTextBirthDate.setText(date);
                 }, year, month, day);
         dialog.show();
@@ -120,7 +143,7 @@ public class SignUpActivity extends AppCompatActivity {
         //String address = editTextAddress.getText().toString().trim();
         //String detailAddress = editTextDetailAddress.getText().toString().trim();
         String gender = radioButtonMale.isChecked() ? "Male" : "Female";
-        String signUpDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+        String signUpDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         if (email.isEmpty() || password.isEmpty() || name.isEmpty() || username.isEmpty()
                 || phone.isEmpty() || birthDate.isEmpty() || gender.isEmpty()) {

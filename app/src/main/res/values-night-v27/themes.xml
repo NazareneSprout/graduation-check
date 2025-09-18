@@ -1,0 +1,6 @@
+<resources>
+    <style name="Base.Theme.SakMvp1" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- API 27+ specific attributes for dark theme -->
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

@@ -19,3 +19,20 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Firebase 최적화
+-keep class com.google.firebase.** { *; }
+-keep class com.google.firebase.auth.** { *; }
+-keep class com.google.firebase.firestore.** { *; }
+-keep class com.google.firebase.database.** { *; }
+-keep class com.google.firebase.storage.** { *; }
+-dontwarn com.google.firebase.**
+
+
+# ViewPager2 최적화
+-keep class androidx.viewpager2.** { *; }
+-dontwarn androidx.viewpager2.**
+
+# Material Design 최적화
+-keep class com.google.android.material.** { *; }
+-dontwarn com.google.android.material.**

@@ -19,11 +19,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
         }
     }
     compileOptions {
@@ -33,8 +38,8 @@ android {
 }
 
 dependencies {
-    // Firebase BOM
-    implementation(platform("com.google.firebase:firebase-bom:32.8.1"))
+    // Firebase BOM (최신 버전)
+    implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
 
     // Firebase 모듈 (버전 생략)
     implementation("com.google.firebase:firebase-analytics")
@@ -42,6 +47,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
+
 
     implementation(libs.appcompat)
     implementation(libs.material)

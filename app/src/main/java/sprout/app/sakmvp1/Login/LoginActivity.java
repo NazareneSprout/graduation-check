@@ -9,7 +9,11 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import sprout.app.sakmvp1.R; // <- applicationId 기준 R
 import sprout.app.sakmvp1.MainActivity;
@@ -24,6 +28,7 @@ public class LoginActivity extends AppCompatActivity {
     private CheckBox cbAutoLogin;
     private Button btnLogin;
     private Button btnSignUp;
+    private Button btnTestAccess;
     private FirebaseAuth mAuth;
 
     private static final String PREFS_NAME = "user_prefs";
@@ -32,7 +37,15 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_login);
+
+        // 시스템 UI 인셋 처리
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
 
         mAuth = FirebaseAuth.getInstance();
 
@@ -41,6 +54,7 @@ public class LoginActivity extends AppCompatActivity {
         cbAutoLogin = findViewById(R.id.cbLoginauto);
         btnLogin = findViewById(R.id.btnLogin);
         btnSignUp = findViewById(R.id.btnSignUp);
+        btnTestAccess = findViewById(R.id.btnTestAccess);
 
         // 자동 로그인 체크
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -56,6 +70,13 @@ public class LoginActivity extends AppCompatActivity {
         // 같은 패키지 내 SignUpActivity 호출
         btnSignUp.setOnClickListener(v -> {
             startActivity(new Intent(LoginActivity.this, SignUpActivity.class));
+        });
+
+        // 테스트용 접속 버튼 (로그인 없이 바로 메인으로 이동)
+        btnTestAccess.setOnClickListener(v -> {
+            Toast.makeText(LoginActivity.this, "테스트 모드로 접속합니다", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+            // 로그인 화면으로 돌아갈 수 있도록 finish() 호출하지 않음
         });
     }
 

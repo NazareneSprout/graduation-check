@@ -11,7 +11,8 @@
       "Bash(./gradlew:*)",
       "Bash(adb:*)",
       "Bash(unzip:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
