@@ -1,5 +1,6 @@
 package sprout.app.sakmvp1;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -155,15 +156,17 @@ public class MainActivity extends AppCompatActivity {
     private void setupListeners() {
         // 메인 기능 버튼 클릭 리스너
         if (btnFunction1 != null) {
-            btnFunction1.setOnClickListener(v ->
-                Toast.makeText(this, "졸업 요건 분석", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction1.setOnClickListener(v -> {
+                Intent intent = new Intent(MainActivity.this, GraduationAnalysisActivity.class);
+                startActivity(intent);
+            });
         }
 
         if (btnFunction2 != null) {
-            btnFunction2.setOnClickListener(v ->
-                Toast.makeText(this, "기능2", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction2.setOnClickListener(v -> {
+                Intent intent = new Intent(MainActivity.this, DataViewerActivity.class);
+                startActivity(intent);
+            });
         }
 
         if (btnFunction3 != null) {
