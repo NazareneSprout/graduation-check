@@ -18,6 +18,7 @@
     <string name="username">닉네임</string>
     <string name="address">주소</string>
     <string name="test_access">테스트용 접속하기</string> //로그인페이지 테스트 접속
+    <string name="select_department">학과</string>
 
     <!-- 메인 화면 기능 버튼 -->
     <string name="function_1">졸업 요건 분석</string>

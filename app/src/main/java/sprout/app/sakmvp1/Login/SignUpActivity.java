@@ -5,10 +5,13 @@ import androidx.core.content.ContextCompat;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.RadioButton;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -21,10 +24,14 @@ import androidx.core.view.WindowInsetsCompat;
 import sprout.app.sakmvp1.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 public class SignUpActivity extends AppCompatActivity {
@@ -39,6 +46,8 @@ public class SignUpActivity extends AppCompatActivity {
     private EditText editTextBirthDate;
     //private EditText editTextAddress;
     //private EditText editTextDetailAddress;
+    private Spinner spinnerDepartment;
+    private EditText editTextStudentId;
     private RadioButton radioButtonMale;
     private RadioButton radioButtonFemale;
     private Button buttonRegister;
@@ -86,6 +95,9 @@ public class SignUpActivity extends AppCompatActivity {
         radioButtonFemale = findViewById(R.id.rbFemale);
         buttonRegister = findViewById(R.id.btnSubmitSignUp);
 
+        spinnerDepartment = findViewById(R.id.spinnerDepartment);
+        editTextStudentId = findViewById(R.id.etStudentId);
+
         // 날짜 선택 다이얼로그
         editTextBirthDate.setOnClickListener(v -> showDatePickerDialog());
 
@@ -116,6 +128,12 @@ public class SignUpActivity extends AppCompatActivity {
             @Override
             public void afterTextChanged(Editable s) {}
         });
+        // 학부 Spinner 불러오기
+        loadDepartments();
+
+        // 회원가입 버튼 클릭
+        buttonRegister.setOnClickListener(v -> registerUser());
+
     }
 
     private void showDatePickerDialog() {
@@ -131,6 +149,36 @@ public class SignUpActivity extends AppCompatActivity {
                 }, year, month, day);
         dialog.show();
     }
+    private void loadDepartments() {
+        db.collection("graduation_meta")
+                .document("catalog")
+                .collection("departments")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (!queryDocumentSnapshots.isEmpty()) {
+                        List<String> departmentList = new ArrayList<>();
+                        for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                            // doc.getId()를 사용하면 문서 ID가 학부 이름
+                            String departmentName = doc.getId();
+                            departmentList.add(departmentName);
+                        }
+                        Collections.sort(departmentList); // 가나다 순 정렬
+
+                        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                                SignUpActivity.this,
+                                android.R.layout.simple_spinner_item,
+                                departmentList
+                        );
+                        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                        spinnerDepartment.setAdapter(adapter);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(SignUpActivity.this, "학부 로딩 실패", Toast.LENGTH_SHORT).show();
+                    Log.e("Firestore", "학부 불러오기 실패", e);
+                });
+    }
+
 
     private void registerUser() {
         String email = editTextEmail.getText().toString().trim();
@@ -144,6 +192,11 @@ public class SignUpActivity extends AppCompatActivity {
         //String detailAddress = editTextDetailAddress.getText().toString().trim();
         String gender = radioButtonMale.isChecked() ? "Male" : "Female";
         String signUpDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        String studentId = editTextStudentId.getText().toString().trim();
+        String department = spinnerDepartment.getSelectedItem() != null ?
+                spinnerDepartment.getSelectedItem().toString() : "";
+
+
 
         if (email.isEmpty() || password.isEmpty() || name.isEmpty() || username.isEmpty()
                 || phone.isEmpty() || birthDate.isEmpty() || gender.isEmpty()) {
@@ -160,7 +213,7 @@ public class SignUpActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         User user = new User(
                                 name, username, email, phone, gender,
-                                birthDate, signUpDate
+                                birthDate, signUpDate, studentId, department
                         );
 
                         db.collection("users")
@@ -181,21 +234,22 @@ public class SignUpActivity extends AppCompatActivity {
     }
 
     public static class User {
-        public String name,username,email,phone,gender,birthDate,signUpDate;
+        public String name, username, email, phone, gender,
+                birthDate, signUpDate, studentId, department;
 
-        public User() {} // Firestore용 빈 생성자
+        public User() {}
 
         public User(String name, String username, String email, String phone, String gender,
-                    String birthDate, String signUpDate) {
+                    String birthDate, String signUpDate, String studentId, String department) {
             this.name = name;
             this.username = username;
             this.email = email;
             this.phone = phone;
             this.gender = gender;
             this.birthDate = birthDate;
-            //this.address = address;
-            //this.detailAddress = detailAddress;
             this.signUpDate = signUpDate;
+            this.studentId = studentId;
+            this.department = department;
         }
     }
 }
