@@ -32,9 +32,16 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
     private ProgressBar progressBar;
 
     private FirebaseDataManager dataManager;
-    private ArrayAdapter<String> studentIdAdapter;
-    private ArrayAdapter<String> departmentAdapter;
-    private ArrayAdapter<String> trackAdapter;
+    private CleanArrayAdapter<String> studentIdAdapter;
+    private CleanArrayAdapter<String> departmentAdapter;
+    private CleanArrayAdapter<String> trackAdapter;
+
+    // 깔끔한 스피너 어댑터 - 안내 문구 없이 실제 데이터만 표시
+    private static class CleanArrayAdapter<T> extends ArrayAdapter<T> {
+        public CleanArrayAdapter(android.content.Context context, int resource) {
+            super(context, resource);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,9 +49,10 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_graduation_analysis);
 
-        // 시스템 UI 인셋 처리
+        // 시스템 UI 인셋 처리 - 툴바와 상태바가 겹치지 않도록 상단 패딩 추가
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            // 상단 패딩을 추가하여 상태바와 겹치지 않도록 함
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
@@ -60,7 +68,7 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> onBackPressed());
 
         // Firebase 데이터 매니저 초기화
-        dataManager = new FirebaseDataManager();
+        dataManager = FirebaseDataManager.getInstance();
 
         // 스피너 초기화
         initSpinners();
@@ -80,26 +88,17 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
 
     private void setupSpinnerData() {
         // 학번 스피너 (Firebase에서 로드)
-        List<String> studentIdList = new ArrayList<>();
-        studentIdList.add("학번을 선택하세요");
-        studentIdAdapter = new ArrayAdapter<>(this,
-            android.R.layout.simple_spinner_item, studentIdList);
+        studentIdAdapter = new CleanArrayAdapter<>(this, android.R.layout.simple_spinner_item);
         studentIdAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerStudentId.setAdapter(studentIdAdapter);
 
         // 학부 스피너 (Firebase에서 로드)
-        List<String> departmentList = new ArrayList<>();
-        departmentList.add("학부를 선택하세요");
-        departmentAdapter = new ArrayAdapter<>(this,
-            android.R.layout.simple_spinner_item, departmentList);
+        departmentAdapter = new CleanArrayAdapter<>(this, android.R.layout.simple_spinner_item);
         departmentAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerDepartment.setAdapter(departmentAdapter);
 
         // 트랙 스피너 (학부 선택 후 로드)
-        List<String> trackList = new ArrayList<>();
-        trackList.add("트랙을 선택하세요");
-        trackAdapter = new ArrayAdapter<>(this,
-            android.R.layout.simple_spinner_item, trackList);
+        trackAdapter = new CleanArrayAdapter<>(this, android.R.layout.simple_spinner_item);
         trackAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerTrack.setAdapter(trackAdapter);
 
@@ -128,7 +127,6 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<String> years) {
                 studentIdAdapter.clear();
-                studentIdAdapter.add("학번을 선택하세요");
                 studentIdAdapter.addAll(years);
                 studentIdAdapter.notifyDataSetChanged();
                 Log.d(TAG, "학번 데이터 로드 성공: " + years.size() + "개");
@@ -148,7 +146,6 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<String> departments) {
                 departmentAdapter.clear();
-                departmentAdapter.add("학부를 선택하세요");
                 departmentAdapter.addAll(departments);
                 departmentAdapter.notifyDataSetChanged();
                 Log.d(TAG, "학부 데이터 로드 성공: " + departments.size() + "개");
@@ -169,14 +166,9 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
         spinnerDepartment.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
-                if (position > 0) {
+                if (position >= 0) {
                     String selectedDepartment = departmentAdapter.getItem(position);
                     loadTracksByDepartment(selectedDepartment);
-                } else {
-                    // 기본값으로 초기화
-                    trackAdapter.clear();
-                    trackAdapter.add("트랙을 선택하세요");
-                    trackAdapter.notifyDataSetChanged();
                 }
             }
 
@@ -190,7 +182,6 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<String> tracks) {
                 trackAdapter.clear();
-                trackAdapter.add("트랙을 선택하세요");
                 trackAdapter.addAll(tracks);
                 trackAdapter.notifyDataSetChanged();
                 Log.d(TAG, departmentName + " 트랙 데이터 로드 성공: " + tracks.size() + "개");
@@ -207,16 +198,17 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
 
 
     private void startGraduationAnalysis() {
-        String selectedYear = spinnerStudentId.getSelectedItem().toString();
-        String selectedDepartment = spinnerDepartment.getSelectedItem().toString();
-        String selectedTrack = spinnerTrack.getSelectedItem().toString();
-
-        if (selectedYear.equals("학번을 선택하세요") ||
-            selectedDepartment.equals("학부를 선택하세요") ||
-            selectedTrack.equals("트랙을 선택하세요")) {
+        // 선택된 값들 검증 - CleanArrayAdapter에서는 위치 기반으로 검증
+        if (spinnerStudentId.getSelectedItemPosition() == -1 ||
+            spinnerDepartment.getSelectedItemPosition() == -1 ||
+            spinnerTrack.getSelectedItemPosition() == -1) {
             Toast.makeText(this, "모든 항목을 선택해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        String selectedYear = spinnerStudentId.getSelectedItem().toString();
+        String selectedDepartment = spinnerDepartment.getSelectedItem().toString();
+        String selectedTrack = spinnerTrack.getSelectedItem().toString();
 
         showLoading(true);
         btnStartAnalysis.setEnabled(false);
@@ -229,11 +221,18 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
                     showLoading(false);
                     btnStartAnalysis.setEnabled(true);
 
+                    // 추가 졸업 요건 입력 화면으로 이동
+                    android.content.Intent intent = new android.content.Intent(GraduationAnalysisActivity.this, AdditionalRequirementsActivity.class);
+                    intent.putExtra("year", selectedYear);
+                    intent.putExtra("department", selectedDepartment);
+                    intent.putExtra("track", selectedTrack);
+                    startActivity(intent);
+                    btnStartAnalysis.setEnabled(true);
+
                     Log.d(TAG, "졸업 요건 로드 성공: " + requirements);
-                    // TODO: 졸업 요건 결과 화면으로 이동
                     Toast.makeText(GraduationAnalysisActivity.this,
                         "졸업 요건 분석 완료!\n" + selectedDepartment + " " + selectedTrack + " " + selectedYear + "학번",
-                        Toast.LENGTH_LONG).show();
+                        Toast.LENGTH_SHORT).show();
                 }
 
                 @Override

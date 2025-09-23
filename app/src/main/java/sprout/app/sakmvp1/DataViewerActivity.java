@@ -43,7 +43,7 @@ public class DataViewerActivity extends AppCompatActivity {
         setupListeners();
 
         try {
-            dataManager = new FirebaseDataManager();
+            dataManager = FirebaseDataManager.getInstance();
             Log.d(TAG, "FirebaseDataManager 초기화 성공");
 
             // Firebase 연결 테스트
@@ -206,27 +206,27 @@ public class DataViewerActivity extends AppCompatActivity {
             return;
         }
 
-        Log.d(TAG, "테스트 데이터 생성 시작");
-        dataManager.createTestData(new FirebaseDataManager.OnDocumentLoadedListener() {
-            @Override
-            public void onSuccess(Map<String, Object> document) {
-                Log.d(TAG, "테스트 데이터 생성 성공");
-                resultsList.clear();
-                resultsList.add("테스트 데이터 생성 성공:\n" + formatDocumentData(document));
-                resultsAdapter.notifyDataSetChanged();
-                Toast.makeText(DataViewerActivity.this, "테스트 데이터 생성 성공!", Toast.LENGTH_SHORT).show();
-            }
+        Log.d(TAG, "IT학부_멀티미디어_2020 문서 조회 시작");
+        Toast.makeText(this, "Firestore에서 IT학부_멀티미디어_2020 문서 조회 중...", Toast.LENGTH_SHORT).show();
 
-            @Override
-            public void onFailure(Exception e) {
-                Log.e(TAG, "테스트 데이터 생성 실패", e);
-                String errorMsg = "테스트 데이터 생성 실패: " + e.getMessage();
-                resultsList.clear();
-                resultsList.add(errorMsg);
-                resultsAdapter.notifyDataSetChanged();
-                Toast.makeText(DataViewerActivity.this, errorMsg, Toast.LENGTH_LONG).show();
-            }
-        });
+        // 새로운 상세 문서 구조 확인 메소드 사용
+        dataManager.inspectSpecificDocument("IT학부_멀티미디어_2020");
+
+        resultsList.clear();
+        resultsList.add("IT학부_멀티미디어_2020 문서 조회 중...");
+        resultsList.add("");
+        resultsList.add("Logcat에서 다음 태그로 결과 확인:");
+        resultsList.add("FirebaseDataManager");
+        resultsList.add("");
+        resultsList.add("찾고 있는 필드:");
+        resultsList.add("- 교양선택");
+        resultsList.add("- 소양");
+        resultsList.add("- 자율선택");
+        resultsList.add("- 전공필수");
+        resultsList.add("- 학부공통");
+        resultsAdapter.notifyDataSetChanged();
+
+        Toast.makeText(DataViewerActivity.this, "문서 조회 요청 완료! 로그를 확인하세요.", Toast.LENGTH_SHORT).show();
     }
 
     private void testFirebaseConnection() {

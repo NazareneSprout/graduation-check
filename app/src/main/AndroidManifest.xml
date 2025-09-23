@@ -28,6 +28,9 @@
 
         <activity android:name=".Login.SignUpActivity" />
         <activity android:name=".GraduationAnalysisActivity" />
+        <activity android:name=".AdditionalRequirementsActivity" />
+        <activity android:name=".CourseInputActivity" />
+        <activity android:name=".GraduationAnalysisResultActivity" />
         <activity android:name=".DataViewerActivity" />
         <activity android:name="MainActivity"
             android:windowSoftInputMode="adjustResize"/>
