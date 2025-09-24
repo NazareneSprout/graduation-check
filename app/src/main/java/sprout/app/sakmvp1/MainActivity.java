@@ -181,17 +181,21 @@ public class MainActivity extends AppCompatActivity {
             );
         }
 
-        // 하단 작은 버튼 클릭 리스너
+        // 하단 작은 버튼 클릭 리스너 웹사이트로 넘어가도록 변경
         if (btnFunction5 != null) {
-            btnFunction5.setOnClickListener(v ->
-                Toast.makeText(this, "기능5", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction5.setOnClickListener(v -> {
+                Intent intent = new Intent(MainActivity.this, WebViewActivity.class);
+                intent.putExtra("url", "https://www.kornu.ac.kr/user/academicCalenderList.mbs?academicIdx=3839052&id=kornukr_050100000000"); // 학사일정 URL
+                startActivity(intent);
+            });
         }
 
         if (btnFunction6 != null) {
-            btnFunction6.setOnClickListener(v ->
-                Toast.makeText(this, "기능6", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction6.setOnClickListener(v -> {
+                Intent intent = new Intent(MainActivity.this, WebViewActivity.class);
+                intent.putExtra("url", "https://www.kornu.ac.kr/mbs/kornukr/jsp/board/list.jsp?boardId=21&id=kornukr_080103000000"); // 학사공지 URL
+                startActivity(intent);
+            });
         }
 
         // 하단 네비게이션 클릭 리스너

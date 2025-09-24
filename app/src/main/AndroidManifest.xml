@@ -29,6 +29,7 @@
         <activity android:name=".Login.SignUpActivity" />
         <activity android:name=".GraduationAnalysisActivity" />
         <activity android:name=".DataViewerActivity" />
+        <activity android:name=".WebViewActivity" />
         <activity android:name="MainActivity"
             android:windowSoftInputMode="adjustResize"/>
     </application>
