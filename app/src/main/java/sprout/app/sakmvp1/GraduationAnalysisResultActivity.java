@@ -1,7 +1,10 @@
 package sprout.app.sakmvp1;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -42,6 +45,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     private String selectedYear, selectedDepartment, selectedTrack;
     private List<CourseInputActivity.Course> courseList;
     private AdditionalRequirementsActivity.AdditionalRequirements additionalRequirements;
+    private static List<CourseInputActivity.Course> staticCourseList;
     private static GraduationRequirements graduationRequirements;
     private static GraduationProgress graduationProgress;
     private static List<String> allMajorRequiredCourses;
@@ -54,6 +58,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     private static List<String> takenMajorAdvancedCourses;
     private static List<String> takenDepartmentCommonCourses;
     private static GeneralEducationAnalysis generalEducationAnalysis;
+    private static Map<String, Integer> courseCreditsMap = new HashMap<>(); // 모든 강의의 학점 정보 저장
 
     // Fragment에서 접근할 수 있도록 정적 필드 추가
     private static String staticSelectedYear;
@@ -63,14 +68,15 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        HighContrastHelper.applyHighContrastTheme(this);
+
         setContentView(R.layout.activity_graduation_analysis_result);
 
         getIntentData();
         initViews();
         setupToolbar();
 
-        // Firebase에서 IT학부 총 학점 조회 테스트
-        testLoadTotalCredits();
 
         performGraduationAnalysis();
     }
@@ -92,6 +98,11 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         if (additionalRequirements == null) {
             Log.w(TAG, "AdditionalRequirements 데이터가 없습니다. 기본값으로 설정합니다.");
             additionalRequirements = new AdditionalRequirementsActivity.AdditionalRequirements(0, 0, false, false);
+        }
+
+        // Firebase에서 학부 설정 로드 (캐시에 저장)
+        if (selectedDepartment != null) {
+            DepartmentConfig.loadDepartmentConfigFromFirebase(selectedDepartment, FirebaseDataManager.getInstance());
         }
     }
 
@@ -162,21 +173,16 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void testLoadTotalCredits() {
-        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
-        dataManager.loadTotalCredits("IT학부", new FirebaseDataManager.OnTotalCreditsLoadedListener() {
-            @Override
-            public void onSuccess(Integer totalCredits) {
-                Log.d(TAG, "=== IT학부 총 학점 조회 성공 ===");
-                Log.d(TAG, "IT학부 총 학점: " + totalCredits);
-            }
+    private void saveGraduationAnalysisResult() {
+        Toast.makeText(this, "분석이 완료되었습니다.", Toast.LENGTH_SHORT).show();
 
-            @Override
-            public void onFailure(Exception e) {
-                Log.e(TAG, "=== IT학부 총 학점 조회 실패 ===", e);
-            }
-        });
+        // 메인화면으로 이동
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        finish();
     }
+
 
     private void performGraduationAnalysis() {
         // 학생 정보 표시
@@ -187,6 +193,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         staticSelectedYear = selectedYear;
         staticSelectedDepartment = selectedDepartment;
         staticAdditionalRequirements = additionalRequirements;
+        staticCourseList = courseList;
 
         // 졸업 요건 설정
         graduationRequirements = new GraduationRequirements(selectedYear);
@@ -226,13 +233,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
 
     private static boolean isOldCurriculum(String year) {
-        if (year == null) return false;
-        try {
-            int yearInt = Integer.parseInt(year);
-            return yearInt >= 2020 && yearInt <= 2022;
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        return DepartmentConfig.isOldCurriculum(staticSelectedDepartment, year);
     }
 
     public static GraduationProgress getGraduationProgress() {
@@ -289,24 +290,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 new FirebaseDataManager.OnCreditRequirementsLoadedListener() {
                     @Override
                     public void onSuccess(FirebaseDataManager.CreditRequirements requirements) {
-                        // 20-22학번의 경우 교양필수 학점을 18학점으로 조정
-                        boolean isOld = isOldCurriculum(selectedYear);
-                        if (isOld && requirements.generalRequired != 18) {
-                            Log.d(TAG, "20-22학번 교양필수 학점 조정: " + requirements.generalRequired + " → 18학점");
-                            creditRequirements = new FirebaseDataManager.CreditRequirements(
-                                requirements.totalCredits,
-                                requirements.majorRequired,
-                                requirements.majorElective,
-                                18, // 교양필수를 18학점으로 조정
-                                requirements.generalElective,
-                                requirements.liberalArts,
-                                requirements.freeElective,
-                                requirements.departmentCommon,
-                                requirements.majorAdvanced
-                            );
-                        } else {
-                            creditRequirements = requirements;
-                        }
+                        // Firebase에서 로드된 학점 요구사항을 그대로 사용
+                        creditRequirements = requirements;
 
                         Log.d(TAG, "졸업이수학점 요건 로드 완료 (" + selectedYear + "학번 교양필수 " + creditRequirements.generalRequired + "학점): " + creditRequirements.toString());
 
@@ -322,17 +307,17 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(Exception e) {
                         Log.e(TAG, "졸업이수학점 요건 로드 실패", e);
-                        // 학번별 기본값으로 진행도 계산
-                        boolean isOld = isOldCurriculum(selectedYear);
-                        int generalRequiredCredits = isOld ? 18 : 16; // 20-22학번: 18학점, 23-25학번: 16학점
 
-                        creditRequirements = new FirebaseDataManager.CreditRequirements(
-                                130, 27, 18, generalRequiredCredits, 8, 6, 20, 36, 12);
-                        graduationProgress = calculateGraduationProgressWithRequirements(creditsByCategory, creditRequirements);
-                        Log.d(TAG, "기본 졸업이수학점 요건으로 진행도 계산 완료 (" + selectedYear + "학번 교양필수 " + generalRequiredCredits + "학점): " + creditRequirements.toString());
+                        // Firebase 데이터 로드 실패 시 사용자에게 알림
+                        runOnUiThread(() -> {
+                            Toast.makeText(GraduationAnalysisResultActivity.this,
+                                "졸업 요건 데이터를 불러올 수 없습니다. 네트워크 상태를 확인해주세요.",
+                                Toast.LENGTH_LONG).show();
+                        });
 
-                        // UI 업데이트 호출
-                        notifyUIUpdate();
+                        // Firebase에서 데이터를 가져올 수 없으면 분석을 중단
+                        Log.w(TAG, "Firebase 데이터 없이는 정확한 졸업 분석을 수행할 수 없습니다.");
+                        finish();
                     }
                 });
     }
@@ -442,8 +427,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         // 교양선택 역량 분석
         progress.competencyProgress = analyzeCompetencies();
 
-        Log.d(TAG, "넘침 학점 재분배 완료 - 총 " + overflowCredits + "학점이 " +
-              (isOldCurriculum ? "일반선택" : "잔여학점") + "으로 이동");
+        String overflowDestination = DepartmentConfig.getOverflowDestination(selectedDepartment, selectedYear);
+        Log.d(TAG, "넘침 학점 재분배 완료 - 총 " + overflowCredits + "학점이 " + overflowDestination + "으로 이동");
 
         return progress;
     }
@@ -466,6 +451,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 allMajorRequiredCourses.clear();
                 for (FirebaseDataManager.CourseInfo course : courses) {
                     allMajorRequiredCourses.add(course.getName());
+                    // 전공필수 과목의 학점 정보도 저장
+                    courseCreditsMap.put(course.getName(), course.getCredits());
                 }
                 loadMajorElectiveCourses(); // 다음 단계 진행
             }
@@ -473,9 +460,9 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             @Override
             public void onFailure(Exception e) {
                 Log.e(TAG, "전공필수 과목 로드 실패: " + e.getMessage());
-                // 기본값 설정
-                setDefaultMajorRequiredCourses();
-                loadMajorElectiveCourses(); // 다음 단계 진행
+                Toast.makeText(GraduationAnalysisResultActivity.this,
+                    "전공필수 과목 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                finish();
             }
         });
     }
@@ -491,6 +478,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 allMajorElectiveCourses.clear();
                 for (FirebaseDataManager.CourseInfo course : courses) {
                     allMajorElectiveCourses.add(course.getName());
+                    // 전공선택 과목의 학점 정보도 저장
+                    courseCreditsMap.put(course.getName(), course.getCredits());
                 }
                 loadMajorAdvancedOrDepartmentCommonCourses(); // 다음 단계 진행
             }
@@ -498,9 +487,9 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             @Override
             public void onFailure(Exception e) {
                 Log.e(TAG, "전공선택 과목 로드 실패: " + e.getMessage());
-                // 기본값 설정
-                setDefaultMajorElectiveCourses();
-                loadMajorAdvancedOrDepartmentCommonCourses(); // 다음 단계 진행
+                Toast.makeText(GraduationAnalysisResultActivity.this,
+                    "전공선택 과목 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                finish();
             }
         });
     }
@@ -508,39 +497,21 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     private void loadMajorAdvancedOrDepartmentCommonCourses() {
         FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
 
-        // 학번에 따라 전공심화 또는 학부공통 로드
-        boolean isOld = isOldCurriculum(selectedYear);
+        // DepartmentConfig를 사용하여 학부별 카테고리 결정
+        String categoryName = DepartmentConfig.getDepartmentCommonCategoryName(selectedDepartment, selectedYear);
+        Log.d(TAG, "학부: " + selectedDepartment + ", 학번: " + selectedYear + " -> 카테고리: " + categoryName);
 
-        if (isOld) {
-            // 20-22학번: 학부공통 과목 로드
+        if ("전공심화".equals(categoryName)) {
+            // 전공심화 과목 로드 - loadDepartmentCommonCourses 사용 (강의 입력과 동일한 메서드)
             dataManager.loadDepartmentCommonCourses(selectedDepartment, selectedTrack, selectedYear, new FirebaseDataManager.OnMajorCoursesLoadedListener() {
-                @Override
-                public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
-                    Log.d(TAG, "학부공통 과목 로드 성공: " + courses.size() + "개");
-                    allDepartmentCommonCourses.clear();
-                    for (FirebaseDataManager.CourseInfo course : courses) {
-                        allDepartmentCommonCourses.add(course.getName());
-                    }
-                    analyzeTakenCourses(); // 마지막 단계 진행
-                }
-
-                @Override
-                public void onFailure(Exception e) {
-                    Log.e(TAG, "학부공통 과목 로드 실패: " + e.getMessage());
-                    // 기본값 설정
-                    setDefaultDepartmentCommonCourses();
-                    analyzeTakenCourses(); // 마지막 단계 진행
-                }
-            });
-        } else {
-            // 23-25학번: 전공심화 과목 로드
-            dataManager.loadMajorCourses(selectedDepartment, selectedTrack, selectedYear, "전공심화", new FirebaseDataManager.OnMajorCoursesLoadedListener() {
                 @Override
                 public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
                     Log.d(TAG, "전공심화 과목 로드 성공: " + courses.size() + "개");
                     allMajorAdvancedCourses.clear();
                     for (FirebaseDataManager.CourseInfo course : courses) {
                         allMajorAdvancedCourses.add(course.getName());
+                        // 전공심화 과목의 학점 정보도 저장
+                        courseCreditsMap.put(course.getName(), course.getCredits());
                     }
                     analyzeTakenCourses(); // 마지막 단계 진행
                 }
@@ -548,56 +519,40 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(Exception e) {
                     Log.e(TAG, "전공심화 과목 로드 실패: " + e.getMessage());
-                    // 기본값 설정
-                    setDefaultMajorAdvancedCourses();
+                    Toast.makeText(GraduationAnalysisResultActivity.this,
+                        "전공심화 과목 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+            });
+        } else {
+            // 학부공통 과목 로드
+            dataManager.loadDepartmentCommonCourses(selectedDepartment, selectedTrack, selectedYear, new FirebaseDataManager.OnMajorCoursesLoadedListener() {
+                @Override
+                public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
+                    Log.d(TAG, "학부공통 과목 로드 성공: " + courses.size() + "개");
+                    allDepartmentCommonCourses.clear();
+                    for (FirebaseDataManager.CourseInfo course : courses) {
+                        allDepartmentCommonCourses.add(course.getName());
+                        // 학부공통 과목의 학점 정보도 저장
+                        courseCreditsMap.put(course.getName(), course.getCredits());
+                    }
                     analyzeTakenCourses(); // 마지막 단계 진행
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    Log.e(TAG, "학부공통 과목 로드 실패: " + e.getMessage());
+                    Toast.makeText(GraduationAnalysisResultActivity.this,
+                        "학부공통 과목 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                    finish();
                 }
             });
         }
     }
 
-    private void setDefaultMajorRequiredCourses() {
-        allMajorRequiredCourses.add("파이썬 프로그래밍");
-        allMajorRequiredCourses.add("컴퓨터 프로그래밍1");
-        allMajorRequiredCourses.add("컴퓨터프로그래밍2");
-        allMajorRequiredCourses.add("웹프로그래밍기초");
-        allMajorRequiredCourses.add("JAVA");
-        allMajorRequiredCourses.add("DB이론및실습");
-        allMajorRequiredCourses.add("모바일프로그래밍");
-        allMajorRequiredCourses.add("프로젝트실무1(종합설계)");
-        allMajorRequiredCourses.add("프로젝트실무2(종합설계)");
-    }
 
-    private void setDefaultMajorElectiveCourses() {
-        allMajorElectiveCourses.add("증강및가상현실");
-        allMajorElectiveCourses.add("디지털포렌식");
-        allMajorElectiveCourses.add("정보통신특론");
-        allMajorElectiveCourses.add("데이터마이닝");
-        allMajorElectiveCourses.add("컴퓨터비전및응용");
-        allMajorElectiveCourses.add("JAVA프레임워크");
-        allMajorElectiveCourses.add("모바일프로그래밍응용");
-        allMajorElectiveCourses.add("고급게임프로그래밍");
-        allMajorElectiveCourses.add("고급AI프로그래밍");
-        allMajorElectiveCourses.add("임베디드시스템");
-    }
 
-    private void setDefaultMajorAdvancedCourses() {
-        allMajorAdvancedCourses.add("영상편집실무1");
-        allMajorAdvancedCourses.add("3D그래픽");
-        allMajorAdvancedCourses.add("영상편집실무2");
-        allMajorAdvancedCourses.add("3D그래픽응용");
-        allMajorAdvancedCourses.add("메트페인팅");
-        allMajorAdvancedCourses.add("UI/UX디자인");
-        allMajorAdvancedCourses.add("VFX");
-    }
 
-    private void setDefaultDepartmentCommonCourses() {
-        allDepartmentCommonCourses.add("컴퓨터그래픽기초");
-        allDepartmentCommonCourses.add("IT개론");
-        allDepartmentCommonCourses.add("대학수학");
-        allDepartmentCommonCourses.add("일러스트레이션");
-        allDepartmentCommonCourses.add("웹디자인");
-    }
 
     private void analyzeTakenCourses() {
 
@@ -657,16 +612,17 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         totalOverflow = majorRequiredOverflow + majorElectiveOverflow + generalRequiredOverflow +
                        generalElectiveOverflow + liberalArtsOverflow;
 
-        // 학번에 따른 추가 카테고리 넘침 계산
-        if (isOldCurriculum) {
-            // 20-22학번: 학부공통에서 넘치는 학점도 계산
+        // DepartmentConfig 기반 추가 카테고리 넘침 계산
+        boolean usesOldCurriculum = DepartmentConfig.isOldCurriculum(staticSelectedDepartment, staticSelectedYear);
+        if (usesOldCurriculum) {
+            // 학부공통 사용하는 경우: 학부공통에서 넘치는 학점도 계산
             if (progress.departmentCommon != null) {
                 int departmentCommonOverflow = Math.max(0, progress.departmentCommon.earned - progress.departmentCommon.required);
                 totalOverflow += departmentCommonOverflow;
                 Log.d(TAG, "학부공통 넘침: " + departmentCommonOverflow + "학점");
             }
         } else {
-            // 23-25학번: 전공심화에서 넘치는 학점도 계산
+            // 전공심화 사용하는 경우: 전공심화에서 넘치는 학점도 계산
             if (progress.majorAdvanced != null) {
                 int majorAdvancedOverflow = Math.max(0, progress.majorAdvanced.earned - progress.majorAdvanced.required);
                 totalOverflow += majorAdvancedOverflow;
@@ -674,10 +630,11 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             }
         }
 
-        // 넘치는 학점들을 해당 목적지로 이동
+        // 넘치는 학점들을 DepartmentConfig 기반 목적지로 이동
         if (totalOverflow > 0) {
-            if (isOldCurriculum) {
-                // 20-22학번: 일반선택으로 이동
+            String destination = DepartmentConfig.getOverflowDestination(staticSelectedDepartment, staticSelectedYear);
+            if ("일반선택".equals(destination)) {
+                // 일반선택으로 이동
                 if (progress.generalSelection != null) {
                     int newGeneralSelectionEarned = progress.generalSelection.earned + totalOverflow;
                     progress.generalSelection = new CategoryProgress(newGeneralSelectionEarned, progress.generalSelection.required);
@@ -685,7 +642,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                           progress.generalSelection.earned + "/" + progress.generalSelection.required);
                 }
             } else {
-                // 23-25학번: 잔여학점으로 이동
+                // 잔여학점으로 이동
                 if (progress.remainingCredits != null) {
                     int newRemainingCreditsEarned = progress.remainingCredits.earned + totalOverflow;
                     progress.remainingCredits = new CategoryProgress(newRemainingCreditsEarned, progress.remainingCredits.required);
@@ -720,12 +677,12 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 progress.liberalArts.required
             );
 
-            if (isOldCurriculum && progress.departmentCommon != null) {
+            if (usesOldCurriculum && progress.departmentCommon != null) {
                 progress.departmentCommon = new CategoryProgress(
                     Math.min(progress.departmentCommon.earned, progress.departmentCommon.required),
                     progress.departmentCommon.required
                 );
-            } else if (!isOldCurriculum && progress.majorAdvanced != null) {
+            } else if (!usesOldCurriculum && progress.majorAdvanced != null) {
                 progress.majorAdvanced = new CategoryProgress(
                     Math.min(progress.majorAdvanced.earned, progress.majorAdvanced.required),
                     progress.majorAdvanced.required
@@ -761,64 +718,88 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             }
         }
 
-        // 교양필수 oneOf 그룹 분석 (23-25학번 기준)
-        analyzeGeneralRequiredGroups(takenGeneralRequired);
-
         generalEducationAnalysis.takenGeneralElective = takenGeneralElective;
         generalEducationAnalysis.takenLiberalArts = takenLiberalArts;
 
         Log.d(TAG, "교양 분석 완료 - 교양필수: " + takenGeneralRequired.size() + "과목, 교양선택: " + takenGeneralElective.size() + "과목, 소양: " + takenLiberalArts.size() + "과목");
+
+        // 교양 과목 학점 정보 로드 (교양필수가 있을 때만)
+        if (!takenGeneralRequired.isEmpty()) {
+            loadGeneralEducationCredits(takenGeneralRequired);
+        }
+
+        // 교양그룹 분석은 사용자 입력 유무와 관계없이 항상 실행
+        analyzeGeneralRequiredGroups(takenGeneralRequired);
+    }
+
+    private void loadGeneralEducationCredits(List<String> takenGeneralRequired) {
+        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
+
+        // 교양필수 과목 학점 정보 로드
+        dataManager.loadGeneralEducationCourses(selectedDepartment, selectedTrack, selectedYear, "교양필수", new FirebaseDataManager.OnMajorCoursesLoadedListener() {
+            @Override
+            public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
+                Log.d(TAG, "교양필수 과목 학점 정보 로드 성공: " + courses.size() + "개");
+                for (FirebaseDataManager.CourseInfo course : courses) {
+                    courseCreditsMap.put(course.getName(), course.getCredits());
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "교양필수 과목 학점 정보 로드 실패: " + e.getMessage());
+                // 실패 시에도 계속 진행
+            }
+        });
+    }
+
+    private void loadAllGeneralEducationCredits() {
+        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
+
+        // 모든 교양필수 과목들의 학점 정보 로드 (사용자 수강 여부와 관계없이)
+        dataManager.loadGeneralEducationCourses(selectedDepartment, selectedTrack, selectedYear, "교양필수", new FirebaseDataManager.OnMajorCoursesLoadedListener() {
+            @Override
+            public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
+                Log.d(TAG, "모든 교양필수 과목 학점 정보 로드 성공: " + courses.size() + "개");
+                for (FirebaseDataManager.CourseInfo course : courses) {
+                    courseCreditsMap.put(course.getName(), course.getCredits());
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "모든 교양필수 과목 학점 정보 로드 실패: " + e.getMessage());
+                // 실패 시에도 계속 진행
+            }
+        });
     }
 
     private void analyzeGeneralRequiredGroups(List<String> takenCourses) {
-        // 교양필수 oneOf 그룹 정의
-        Map<String, List<String>> oneOfGroups = new HashMap<>();
+        // Firebase에서 교양교육 그룹 정보 로드
+        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
+        dataManager.loadGeneralEducationGroups(selectedDepartment, selectedYear, new FirebaseDataManager.OnGeneralEducationGroupsLoadedListener() {
+            @Override
+            public void onSuccess(Map<String, List<String>> oneOfGroups, List<String> individualRequired) {
+                Log.d(TAG, "교양교육 그룹 로드 성공: " + oneOfGroups.size() + "개 그룹, " + individualRequired.size() + "개 개별 필수");
+                analyzeGroupsWithData(takenCourses, oneOfGroups, individualRequired);
 
-        // 그룹 1: 생애설계 관련 (1학점)
-        List<String> group1 = new ArrayList<>();
-        group1.add("생애설계와직업진로탐색");
-        group1.add("생애설계와직업진로1");
-        oneOfGroups.put("생애설계 그룹", group1);
+                // 교양필수 과목들의 학점 정보도 로드 (사용자 수강 여부와 관계없이)
+                loadAllGeneralEducationCredits();
+            }
 
-        // 그룹 2: 자기주도/생애설계2 (1학점)
-        List<String> group2 = new ArrayList<>();
-        group2.add("자기주도취업과창업");
-        group2.add("생애설계와직업진로2");
-        oneOfGroups.put("자기주도/생애설계2 그룹", group2);
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "교양교육 그룹 로드 실패: " + e.getMessage());
+                Toast.makeText(GraduationAnalysisResultActivity.this,
+                    "교양교육 그룹 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
+    }
 
-        // 그룹 3: 논리적사고 관련 (2학점)
-        List<String> group3 = new ArrayList<>();
-        group3.add("논리적사고와글쓰기");
-        group3.add("논리와비판적사고");
-        oneOfGroups.put("논리적사고 그룹", group3);
-
-        // 그룹 4: 기독교 관련 (2학점)
-        List<String> group4 = new ArrayList<>();
-        group4.add("성서와인간");
-        group4.add("하나님과세상");
-        group4.add("기독교와사회");
-        group4.add("기독교역사");
-        group4.add("인물로 보는 기독교");
-        oneOfGroups.put("기독교 그룹", group4);
-
-        // 20-22학번에만 추가되는 컴퓨터 관련 그룹 (둘 중 하나만 선택)
-        boolean isOldCurriculum = isOldCurriculum(selectedYear);
-        if (isOldCurriculum) {
-            List<String> group5 = new ArrayList<>();
-            group5.add("정보사회와컴퓨터");
-            group5.add("컴퓨터 코딩 이해하기");
-            oneOfGroups.put("컴퓨터 그룹", group5);
-            Log.d(TAG, "20-22학번용 컴퓨터 그룹 추가: 정보사회와컴퓨터, 컴퓨터 코딩 이해하기 (둘 중 하나 선택)");
-        }
-
-        // 개별 필수 과목들
-        List<String> individualRequired = new ArrayList<>();
-        individualRequired.add("Practical English1");
-        individualRequired.add("Practical English2");
-        individualRequired.add("발표와토론");
-        individualRequired.add("나눔리더십");
-        individualRequired.add("나눔실천");
-        individualRequired.add("장애인의이해");
+    private void analyzeGroupsWithData(List<String> takenCourses, Map<String, List<String>> oneOfGroups, List<String> individualRequired) {
+        // 먼저 모든 교양필수 과목들의 학점 정보를 courseCreditsMap에 저장
+        storeGeneralEducationCredits(oneOfGroups, individualRequired);
 
         // 그룹별 이수 상태 분석
         generalEducationAnalysis.oneOfGroupStatus = new HashMap<>();
@@ -835,7 +816,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             }
 
             OneOfGroupStatus status = new OneOfGroupStatus();
-            status.groupName = groupName;
+            status.groupName = getGroupDisplayName(groupName, groupCourses); // 과목 기반 동적 그룹명 생성
             status.requiredCourses = new ArrayList<>(groupCourses);
             status.takenCourse = takenCourse;
             status.isCompleted = takenCourse != null;
@@ -851,23 +832,107 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 교양필수 과목들의 학점 정보를 courseCreditsMap에 저장
+     */
+    private void storeGeneralEducationCredits(Map<String, List<String>> oneOfGroups, List<String> individualRequired) {
+        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
+
+        dataManager.loadGeneralEducationCourses(selectedDepartment, selectedTrack, selectedYear, "교양필수", new FirebaseDataManager.OnMajorCoursesLoadedListener() {
+            @Override
+            public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
+                Log.d(TAG, "교양필수 과목들의 학점 정보 courseCreditsMap에 저장 시작: " + courses.size() + "개");
+                for (FirebaseDataManager.CourseInfo course : courses) {
+                    courseCreditsMap.put(course.getName(), course.getCredits());
+                    Log.d(TAG, "교양필수 과목 학점 저장: " + course.getName() + " = " + course.getCredits() + "학점");
+                }
+                Log.d(TAG, "교양필수 과목들의 학점 정보 courseCreditsMap에 저장 완료");
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "교양필수 과목들의 학점 정보 저장 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * oneofgroup 그룹명을 과목 내용 기반으로 동적 생성
+     * 과목명을 분석하여 적절한 카테고리명을 자동으로 부여
+     */
+    private String getGroupDisplayName(String groupName, List<String> courses) {
+        if (courses == null || courses.isEmpty()) {
+            return groupName; // 과목이 없으면 원본 그룹명 반환
+        }
+
+        // 과목명을 분석하여 카테고리 결정
+        String firstCourse = courses.get(0);
+
+        // 생애설계/직업진로 관련 과목
+        if (containsAnyKeyword(courses, "생애설계", "직업진로", "취업", "창업")) {
+            return "학습혁신 그룹";
+        }
+
+        // 논리/사고/글쓰기 관련 과목
+        if (containsAnyKeyword(courses, "논리", "사고", "글쓰기", "비판적")) {
+            return "사고와표현 그룹";
+        }
+
+        // 기독교 관련 과목
+        if (containsAnyKeyword(courses, "성서", "하나님", "기독교", "인물로")) {
+            return "기독교적 공동체 그룹";
+        }
+
+        // 장애/다문화 관련 과목
+        if (containsAnyKeyword(courses, "장애인", "다문화", "자립생활")) {
+            return "장애공감 그룹";
+        }
+
+        // 영어 관련 과목
+        if (containsAnyKeyword(courses, "English", "Practical")) {
+            return "영어교육 그룹";
+        }
+
+        // 컴퓨터/정보 관련 과목
+        if (containsAnyKeyword(courses, "컴퓨터", "정보사회", "정보")) {
+            return "정보교육 그룹";
+        }
+
+        // 일반적인 이름 생성 (첫 번째 과목명 기반)
+        if (firstCourse.length() > 3) {
+            return firstCourse.substring(0, 3) + " 관련 그룹";
+        }
+
+        return groupName; // 기본값
+    }
+
+    /**
+     * 과목 리스트에서 특정 키워드들 중 하나라도 포함하는지 확인
+     */
+    private boolean containsAnyKeyword(List<String> courses, String... keywords) {
+        for (String course : courses) {
+            for (String keyword : keywords) {
+                if (course.contains(keyword)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // 졸업 요건 클래스
     public static class GraduationRequirements {
         public final boolean isOldCurriculum;
-        public final int totalRequired = 130;
+        public final int totalRequired;
 
         public GraduationRequirements(String year) {
             this.isOldCurriculum = isOldCurriculum(year);
+            this.totalRequired = creditRequirements != null ? creditRequirements.totalCredits : 0;
         }
 
         private boolean isOldCurriculum(String year) {
-            if (year == null) return false;
-            try {
-                int yearInt = Integer.parseInt(year);
-                return yearInt >= 2020 && yearInt <= 2022;
-            } catch (NumberFormatException e) {
-                return false;
-            }
+            return DepartmentConfig.isOldCurriculum(
+                GraduationAnalysisResultActivity.staticSelectedDepartment, year);
         }
     }
 
@@ -1021,8 +1086,10 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             // 학번에 따라 다른 레이아웃 사용
-            boolean isOldCurriculum = isOldCurriculum(selectedYear);
-            int layoutResource = isOldCurriculum ? R.layout.tab_overview_old : R.layout.tab_overview;
+            boolean shouldUseOldLayout = DepartmentConfig.shouldUseOldLayout(
+                GraduationAnalysisResultActivity.staticSelectedDepartment,
+                selectedYear);
+            int layoutResource = shouldUseOldLayout ? R.layout.tab_overview_old : R.layout.tab_overview;
 
             View view = inflater.inflate(layoutResource, container, false);
 
@@ -1139,13 +1206,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         }
 
         private boolean isOldCurriculum(String year) {
-            if (year == null) return false;
-            try {
-                int yearInt = Integer.parseInt(year);
-                return yearInt >= 2020 && yearInt <= 2022; // 20-22학번은 구 교육과정
-            } catch (NumberFormatException e) {
-                return false;
-            }
+            return DepartmentConfig.isOldCurriculum(
+                GraduationAnalysisResultActivity.staticSelectedDepartment, year);
         }
     }
 
@@ -1169,27 +1231,30 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             setupAccordion(view, R.id.accordion_major_advanced_header, R.id.accordion_major_advanced_content, R.id.accordion_major_advanced_icon);
             setupAccordion(view, R.id.accordion_department_common_header, R.id.accordion_department_common_content, R.id.accordion_department_common_icon);
 
-            // 학번에 따라 조건부 표시
-            boolean isOld = isOldCurriculum(GraduationAnalysisResultActivity.staticSelectedYear);
+            // DepartmentConfig에 따라 조건부 표시
+            String categoryName = DepartmentConfig.getDepartmentCommonCategoryName(
+                GraduationAnalysisResultActivity.staticSelectedDepartment,
+                GraduationAnalysisResultActivity.staticSelectedYear);
+
             View majorAdvancedContainer = view.findViewById(R.id.accordion_major_advanced_header).getParent() instanceof View ?
                 (View) view.findViewById(R.id.accordion_major_advanced_header).getParent() : null;
             View departmentCommonContainer = view.findViewById(R.id.accordion_department_common_container);
 
-            if (isOld) {
-                // 20-22학번: 학부공통 표시, 전공심화 숨김
-                if (majorAdvancedContainer != null) {
-                    majorAdvancedContainer.setVisibility(View.GONE);
-                }
-                if (departmentCommonContainer != null) {
-                    departmentCommonContainer.setVisibility(View.VISIBLE);
-                }
-            } else {
-                // 23-25학번: 전공심화 표시, 학부공통 숨김
+            if ("전공심화".equals(categoryName)) {
+                // 전공심화를 사용하는 학부/연도: 전공심화 표시, 학부공통 숨김
                 if (majorAdvancedContainer != null) {
                     majorAdvancedContainer.setVisibility(View.VISIBLE);
                 }
                 if (departmentCommonContainer != null) {
                     departmentCommonContainer.setVisibility(View.GONE);
+                }
+            } else {
+                // 학부공통을 사용하는 학부/연도: 학부공통 표시, 전공심화 숨김
+                if (majorAdvancedContainer != null) {
+                    majorAdvancedContainer.setVisibility(View.GONE);
+                }
+                if (departmentCommonContainer != null) {
+                    departmentCommonContainer.setVisibility(View.VISIBLE);
                 }
             }
 
@@ -1285,7 +1350,10 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
                 // 안내문구 추가
                 TextView guidanceText = new TextView(getContext());
-                guidanceText.setText("💡 전공필수는 반드시 필요한 학점입니다. 초과 이수한 학점은 잔여학점(23-25학번) 또는 일반선택(20-22학번)으로 인정됩니다.");
+                String overflowGuidance = DepartmentConfig.getOverflowGuidanceText(
+                    GraduationAnalysisResultActivity.staticSelectedDepartment,
+                    GraduationAnalysisResultActivity.staticSelectedYear);
+                guidanceText.setText("💡 전공필수는 반드시 필요한 학점입니다. " + overflowGuidance);
                 guidanceText.setTextSize(12);
                 guidanceText.setTextColor(0xFF666666);
                 guidanceText.setTypeface(null, android.graphics.Typeface.ITALIC);
@@ -1389,13 +1457,17 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 // 미이수 과목들 모두 추가
                 for (String course : allCourses) {
                     if (!takenCourses.contains(course)) {
-                        addMissingCourseItem(contentLayout, course, 3);
+                        int credits = getCourseCreditsFromFirebase(course);
+                        addMissingCourseItem(contentLayout, course, credits);
                     }
                 }
 
                 // 안내문구 추가
                 TextView guidanceText = new TextView(getContext());
-                guidanceText.setText("💡 전공선택은 필요한 학점만큼 수강하세요. 초과 이수한 학점은 잔여학점(23-25학번) 또는 일반선택(20-22학번)으로 인정됩니다.");
+                String overflowGuidance = DepartmentConfig.getOverflowGuidanceText(
+                    GraduationAnalysisResultActivity.staticSelectedDepartment,
+                    GraduationAnalysisResultActivity.staticSelectedYear);
+                guidanceText.setText("💡 전공선택은 필요한 학점만큼 수강하세요. " + overflowGuidance);
                 guidanceText.setTextSize(12);
                 guidanceText.setTextColor(0xFF666666);
                 guidanceText.setTypeface(null, android.graphics.Typeface.ITALIC);
@@ -1414,9 +1486,24 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             List<String> allCourses = getAllMajorAdvancedCourses();
             List<String> takenCourses = getTakenMajorAdvancedCourses();
 
-            if (progress == null || allCourses == null || takenCourses == null) return;
+            // 디버깅 로그 추가
+            Log.d(TAG, "===== 전공심화 아코디언 업데이트 =====");
+            Log.d(TAG, "progress: " + (progress != null ? "존재" : "null"));
+            Log.d(TAG, "allCourses: " + (allCourses != null ? allCourses.size() + "개" : "null"));
+            Log.d(TAG, "takenCourses: " + (takenCourses != null ? takenCourses.size() + "개" : "null"));
+            if (progress != null && progress.majorAdvanced != null) {
+                Log.d(TAG, "majorAdvanced progress: " + progress.majorAdvanced.earned + "/" + progress.majorAdvanced.required);
+            }
 
-            // 헤더 텍스트 업데이트 (이미 updateMajorAdvancedHeader에서 처리됨)
+            // 기본값 설정 - null인 경우 빈 리스트로 초기화
+            if (allCourses == null) {
+                allCourses = new ArrayList<>();
+                Log.w(TAG, "allMajorAdvancedCourses가 null입니다. 빈 리스트로 초기화합니다.");
+            }
+            if (takenCourses == null) {
+                takenCourses = new ArrayList<>();
+                Log.w(TAG, "takenMajorAdvancedCourses가 null입니다. 빈 리스트로 초기화합니다.");
+            }
 
             // 미이수 과목 목록 업데이트
             LinearLayout contentLayout = view.findViewById(R.id.accordion_major_advanced_content);
@@ -1424,40 +1511,83 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 // 기존 내용 제거
                 contentLayout.removeAllViews();
 
-                // 미이수 과목 헤더 추가
-                TextView missingHeader = new TextView(getContext());
-                missingHeader.setText("미이수 과목:");
-                missingHeader.setTextSize(14);
-                missingHeader.setTypeface(null, android.graphics.Typeface.BOLD);
-                missingHeader.setTextColor(0xFF000000);
-                LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-                headerParams.setMargins(0, 0, 0, dpToPx(8));
-                missingHeader.setLayoutParams(headerParams);
-                contentLayout.addView(missingHeader);
+                if (progress != null && progress.majorAdvanced != null && progress.majorAdvanced.isCompleted) {
+                    // 완료된 경우 - 교양필수처럼 완료 메시지 표시
+                    TextView completedText = new TextView(getContext());
+                    completedText.setText("✅ 전공심화 학점을 모두 취득했습니다!");
+                    completedText.setTextSize(16);
+                    completedText.setTypeface(null, android.graphics.Typeface.BOLD);
+                    completedText.setTextColor(0xFF4CAF50);
+                    completedText.setGravity(android.view.Gravity.CENTER);
+                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    );
+                    params.setMargins(0, 0, 0, dpToPx(16));
+                    completedText.setLayoutParams(params);
+                    contentLayout.addView(completedText);
+                } else {
+                    // 미완료된 경우 - 미이수 과목들 표시
+                    addSectionHeader(contentLayout, "🔍 미이수 전공심화 과목");
 
-                // 미이수 과목들 추가
-                for (String course : allCourses) {
-                    if (!takenCourses.contains(course)) {
-                        addMissingCourseItem(contentLayout, course, 3);
+                    if (!allCourses.isEmpty()) {
+                        // 미이수 과목들 추가
+                        boolean hasUncompletedCourses = false;
+                        for (String course : allCourses) {
+                            if (!takenCourses.contains(course)) {
+                                addMissingCourseItem(contentLayout, course, 3);
+                                hasUncompletedCourses = true;
+                            }
+                        }
+
+                        if (!hasUncompletedCourses) {
+                            // 모든 과목을 이수했지만 학점이 부족한 경우
+                            TextView noMissingText = new TextView(getContext());
+                            noMissingText.setText("📚 모든 전공심화 과목을 이수했습니다.\n필요 학점까지 추가 과목을 수강하세요.");
+                            noMissingText.setTextSize(14);
+                            noMissingText.setTextColor(0xFF666666);
+                            noMissingText.setGravity(android.view.Gravity.CENTER);
+                            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            );
+                            params.setMargins(0, dpToPx(8), 0, dpToPx(8));
+                            noMissingText.setLayoutParams(params);
+                            contentLayout.addView(noMissingText);
+                        }
+                    } else {
+                        // 전공심화 과목 데이터가 없는 경우
+                        TextView noDataText = new TextView(getContext());
+                        noDataText.setText("📚 전공심화 과목 정보를 불러오는 중입니다...\n또는 해당 학과에 전공심화 과목이 없습니다.");
+                        noDataText.setTextSize(14);
+                        noDataText.setTextColor(0xFF666666);
+                        noDataText.setGravity(android.view.Gravity.CENTER);
+                        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        );
+                        params.setMargins(0, dpToPx(8), 0, dpToPx(8));
+                        noDataText.setLayoutParams(params);
+                        contentLayout.addView(noDataText);
                     }
-                }
 
-                // 안내문구 추가
-                TextView guidanceText = new TextView(getContext());
-                guidanceText.setText("💡 전공심화는 필요한 학점만큼 수강하세요. 초과 이수한 학점은 잔여학점(23-25학번) 또는 일반선택(20-22학번)으로 인정됩니다.");
-                guidanceText.setTextSize(12);
-                guidanceText.setTextColor(0xFF666666);
-                guidanceText.setTypeface(null, android.graphics.Typeface.ITALIC);
-                LinearLayout.LayoutParams guidanceParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-                guidanceParams.setMargins(0, dpToPx(8), 0, dpToPx(8));
-                guidanceText.setLayoutParams(guidanceParams);
-                contentLayout.addView(guidanceText);
+                    // 안내문구 추가
+                    TextView guidanceText = new TextView(getContext());
+                    String overflowGuidance = DepartmentConfig.getOverflowGuidanceText(
+                        GraduationAnalysisResultActivity.staticSelectedDepartment,
+                        GraduationAnalysisResultActivity.staticSelectedYear);
+                    guidanceText.setText("💡 전공심화는 필요한 학점만큼 수강하세요. " + overflowGuidance);
+                    guidanceText.setTextSize(12);
+                    guidanceText.setTextColor(0xFF666666);
+                    guidanceText.setTypeface(null, android.graphics.Typeface.ITALIC);
+                    LinearLayout.LayoutParams guidanceParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    );
+                    guidanceParams.setMargins(0, dpToPx(8), 0, dpToPx(8));
+                    guidanceText.setLayoutParams(guidanceParams);
+                    contentLayout.addView(guidanceText);
+                }
             }
         }
 
@@ -1513,13 +1643,17 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 // 미이수 과목들 추가
                 for (String course : allCourses) {
                     if (!takenCourses.contains(course)) {
-                        addMissingCourseItem(contentLayout, course, 3);
+                        int credits = getCourseCreditsFromFirebase(course);
+                        addMissingCourseItem(contentLayout, course, credits);
                     }
                 }
 
                 // 안내문구 추가
                 TextView guidanceText = new TextView(getContext());
-                guidanceText.setText("💡 학부공통은 필요한 학점만큼 수강하세요. 초과 이수한 학점은 일반선택(20-22학번)으로 인정됩니다.");
+                String overflowGuidance = DepartmentConfig.getOverflowGuidanceText(
+                    GraduationAnalysisResultActivity.staticSelectedDepartment,
+                    GraduationAnalysisResultActivity.staticSelectedYear);
+                guidanceText.setText("💡 학부공통은 필요한 학점만큼 수강하세요. " + overflowGuidance);
                 guidanceText.setTextSize(12);
                 guidanceText.setTextColor(0xFF666666);
                 guidanceText.setTypeface(null, android.graphics.Typeface.ITALIC);
@@ -1627,7 +1761,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 contentLayout.removeAllViews();
 
                 if (progress.generalRequired.isCompleted) {
-                    // 완료된 경우
+                    // 완료된 경우 - 간단한 완료 메시지만 표시
                     TextView completedText = new TextView(getContext());
                     completedText.setText("✅ 교양필수 모든 과목을 이수했습니다!");
                     completedText.setTextSize(16);
@@ -1707,7 +1841,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             // 상태 텍스트 업데이트
             TextView statusText = view.findViewById(R.id.text_general_elective_status);
             if (statusText != null) {
-                int taken = analysis.takenGeneralElective.size() * 3; // 대부분 3학점으로 가정
+                int taken = calculateTotalCreditsByCategory(analysis.takenGeneralElective, "교양선택");
                 int required = progress.generalElective.required;
 
                 if (taken >= required) {
@@ -1808,6 +1942,75 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     contentLayout.addView(competencySection);
                 }
 
+                // 교양선택 안내 및 설명 섹션 추가
+                LinearLayout guideSection = new LinearLayout(getContext());
+                guideSection.setOrientation(LinearLayout.VERTICAL);
+                guideSection.setBackgroundResource(R.drawable.spinner_background);
+                guideSection.setPadding(dpToPx(16), dpToPx(12), dpToPx(16), dpToPx(12));
+                LinearLayout.LayoutParams guideParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+                guideParams.setMargins(0, dpToPx(8), 0, dpToPx(16));
+                guideSection.setLayoutParams(guideParams);
+
+                // 안내 헤더
+                TextView guideHeader = new TextView(getContext());
+                guideHeader.setText("💡 교양선택 이수 가이드");
+                guideHeader.setTextSize(16);
+                guideHeader.setTypeface(null, android.graphics.Typeface.BOLD);
+                guideHeader.setTextColor(0xFF333333);
+                guideHeader.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ));
+                guideSection.addView(guideHeader);
+
+                // 교양선택 이수 조건
+                TextView requirementsText = new TextView(getContext());
+                String requirements = "교양선택 이수 조건:\n" +
+                        "• 총 " + progress.generalElective.required + "학점 이수 필요\n" +
+                        "• 최소 " + progress.competencyProgress.requiredCompetencyCount + "개 역량 이수 필요";
+                requirementsText.setText(requirements);
+                requirementsText.setTextSize(14);
+                requirementsText.setTextColor(0xFF333333);
+                requirementsText.setTypeface(null, android.graphics.Typeface.BOLD);
+                LinearLayout.LayoutParams reqParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+                reqParams.setMargins(0, dpToPx(8), 0, dpToPx(12));
+                requirementsText.setLayoutParams(reqParams);
+                guideSection.addView(requirementsText);
+
+                // 현재 문서에 따른 오버플로우 처리 방식 결정
+                String overflowDestination;
+                if (progress.majorAdvanced != null && progress.majorAdvanced.required > 0) {
+                    // 전공심화가 있는 경우 (신 교육과정)
+                    overflowDestination = "잔여학점";
+                } else if (progress.departmentCommon != null && progress.departmentCommon.required > 0) {
+                    // 학부공통이 있는 경우 (구 교육과정)
+                    overflowDestination = "일반선택";
+                } else {
+                    // 기본값 (안전장치)
+                    overflowDestination = "잔여학점";
+                }
+
+                // 오버플로우 처리 안내
+                TextView overflowText = new TextView(getContext());
+                overflowText.setText("• 초과 이수한 학점은 " + overflowDestination + "으로 인정됩니다");
+                overflowText.setTextSize(14);
+                overflowText.setTextColor(0xFF333333);
+                LinearLayout.LayoutParams overflowParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+                overflowParams.setMargins(0, dpToPx(4), 0, 0);
+                overflowText.setLayoutParams(overflowParams);
+                guideSection.addView(overflowText);
+
+                contentLayout.addView(guideSection);
+
                 if (analysis.takenGeneralElective.isEmpty()) {
                     TextView noCoursesText = new TextView(getContext());
                     noCoursesText.setText("아직 이수한 교양선택 과목이 없습니다.");
@@ -1823,7 +2026,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     contentLayout.addView(noCoursesText);
                 } else {
                     for (String course : analysis.takenGeneralElective) {
-                        addTakenCourseItem(contentLayout, course, 3); // 3학점으로 가정
+                        int credits = getCourseCreditsFromFirebase(course);
+                        addTakenCourseItem(contentLayout, course, credits);
                     }
                 }
             }
@@ -1852,7 +2056,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             // 상태 텍스트 업데이트
             TextView statusText = view.findViewById(R.id.text_liberal_arts_status);
             if (statusText != null) {
-                int taken = analysis.takenLiberalArts.size() * 2; // 대부분 2학점으로 가정
+                int taken = calculateTotalCreditsByCategory(analysis.takenLiberalArts, "소양");
                 int required = progress.liberalArts.required;
 
                 if (taken >= required) {
@@ -1886,7 +2090,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     contentLayout.addView(noCoursesText);
                 } else {
                     for (String course : analysis.takenLiberalArts) {
-                        addTakenCourseItem(contentLayout, course, 2); // 2학점으로 가정
+                        int credits = getCourseCreditsFromFirebase(course);
+                        addTakenCourseItem(contentLayout, course, credits);
                     }
                 }
             }
@@ -1904,24 +2109,47 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             layoutParams.setMargins(0, 0, 0, dpToPx(6));
             groupLayout.setLayoutParams(layoutParams);
 
-            // 그룹 제목
+            // 그룹 제목 (가로 레이아웃으로 변경)
+            LinearLayout titleLayout = new LinearLayout(getContext());
+            titleLayout.setOrientation(LinearLayout.HORIZONTAL);
+            titleLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams titleLayoutParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            titleLayoutParams.setMargins(dpToPx(8), 0, dpToPx(8), dpToPx(4));
+            titleLayout.setLayoutParams(titleLayoutParams);
+
+            // 그룹 제목 텍스트
             TextView groupTitle = new TextView(getContext());
             groupTitle.setText("📚 " + groupStatus.groupName + " 중 1개 선택:");
             groupTitle.setTextSize(14);
             groupTitle.setTypeface(null, android.graphics.Typeface.BOLD);
             groupTitle.setTextColor(0xFF000000);
             LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1.0f
             );
-            titleParams.setMargins(dpToPx(8), 0, 0, dpToPx(4));
             groupTitle.setLayoutParams(titleParams);
-            groupLayout.addView(groupTitle);
+            titleLayout.addView(groupTitle);
 
-            // 선택 가능한 과목들
+            // 학점 표시 (그룹의 첫 번째 과목 기준으로 학점 계산)
+            int groupCredits = getCreditsForCourse(groupStatus.requiredCourses.get(0));
+            TextView creditText = new TextView(getContext());
+            creditText.setText(groupCredits + "학점");
+            creditText.setTextSize(14);
+            creditText.setTextColor(0xFF2196F3);
+            creditText.setTypeface(null, android.graphics.Typeface.BOLD);
+            titleLayout.addView(creditText);
+
+            groupLayout.addView(titleLayout);
+
+            // 선택 가능한 과목들 (학점 정보와 함께)
             for (String course : groupStatus.requiredCourses) {
+                int credits = getCreditsForCourse(course);
                 TextView courseText = new TextView(getContext());
-                courseText.setText("  • " + course);
+                courseText.setText("  • " + course + " (" + credits + "학점)");
                 courseText.setTextSize(12);
                 courseText.setTextColor(0xFF666666);
                 LinearLayout.LayoutParams courseParams = new LinearLayout.LayoutParams(
@@ -2003,14 +2231,35 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         }
 
         private int getCreditsForCourse(String courseName) {
-            // 과목별 학점 정보
-            if ("나눔리더십".equals(courseName) || "나눔실천".equals(courseName)) {
-                return 1;
-            } else if ("Practical English1".equals(courseName) || "Practical English2".equals(courseName) ||
-                      "발표와토론".equals(courseName) || "장애인의이해".equals(courseName)) {
-                return 2;
+            // 1순위: 동적으로 로드된 교양 과목 학점 정보
+            if (courseCreditsMap.containsKey(courseName)) {
+                return courseCreditsMap.get(courseName);
             }
-            return 3; // 기본값
+
+            // Firebase에서도 찾을 수 없는 경우, 사용자 입력 과목에서 학점 정보 확인
+            if (staticCourseList != null) {
+                for (CourseInputActivity.Course course : staticCourseList) {
+                    if (courseName.equals(course.getName())) {
+                        return course.getCredits();
+                    }
+                }
+            }
+
+            // 모든 곳에서 찾을 수 없는 경우 로그 남기고 1학점으로 설정 (최소값)
+            Log.w(TAG, "과목 '" + courseName + "'의 학점 정보를 찾을 수 없습니다. 1학점으로 설정합니다.");
+            return 1;
+        }
+
+        private int getCourseCreditsFromFirebase(String courseName) {
+            return getCreditsForCourse(courseName);
+        }
+
+        private int calculateTotalCreditsByCategory(List<String> courseNames, String category) {
+            int totalCredits = 0;
+            for (String courseName : courseNames) {
+                totalCredits += getCourseCreditsFromFirebase(courseName);
+            }
+            return totalCredits;
         }
 
         private int dpToPx(int dp) {
@@ -2038,7 +2287,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             // 학부별 추가 졸업 요건 로드
             loadDepartmentExtraRequirements(view);
 
-            // 임시 데이터로 기타 요건 상태 설정 (추후 실제 데이터로 교체 예정)
+            // 사용자 입력 데이터를 기반으로 기타 요건 상태 설정
             updateOthersData(view);
         }
 

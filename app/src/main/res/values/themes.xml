@@ -61,4 +61,38 @@
         <item name="android:lineSpacingExtra">0dp</item>
     </style>
 
+    <!-- High Contrast Theme -->
+    <style name="Theme.SakMvp1.HighContrast" parent="Base.Theme.SakMvp1">
+        <!-- High Contrast Colors -->
+        <item name="colorPrimary">@color/high_contrast_primary</item>
+        <item name="colorOnPrimary">@color/high_contrast_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/high_contrast_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/high_contrast_onPrimaryContainer</item>
+
+        <item name="colorSecondary">@color/high_contrast_secondary</item>
+        <item name="colorOnSecondary">@color/high_contrast_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/high_contrast_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/high_contrast_onSecondaryContainer</item>
+
+        <item name="colorError">@color/high_contrast_error</item>
+        <item name="colorOnError">@color/high_contrast_onError</item>
+        <item name="colorErrorContainer">@color/high_contrast_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/high_contrast_onErrorContainer</item>
+
+        <item name="android:colorBackground">@color/high_contrast_background</item>
+        <item name="colorOnBackground">@color/high_contrast_onBackground</item>
+        <item name="colorSurface">@color/high_contrast_surface</item>
+        <item name="colorOnSurface">@color/high_contrast_onSurface</item>
+        <item name="colorSurfaceVariant">@color/high_contrast_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/high_contrast_onSurfaceVariant</item>
+
+        <item name="colorOutline">@color/high_contrast_outline</item>
+        <item name="colorOutlineVariant">@color/high_contrast_outlineVariant</item>
+
+        <!-- Status and Navigation Bar -->
+        <item name="android:statusBarColor">@color/high_contrast_background</item>
+        <item name="android:navigationBarColor">@color/high_contrast_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
 </resources>

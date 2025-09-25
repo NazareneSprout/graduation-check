@@ -74,7 +74,22 @@
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -v time -s CourseInput:V GraduationResult:V)",
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -v time -s CourseInput:V GraduationResult:V FirebaseDataManager:V)",
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -d -v time -s FirebaseDataManager:V)",
-      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -d --pid=12976)"
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -d --pid=12976)",
+      "Bash(rm:*)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -v time -s CourseInput:V)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -d --pid=21655)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 1000 200)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input keyevent KEYCODE_BACK)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 950 150)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 1000 100)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 900 100)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell monkey -p sprout.app.sakmvp1 -c android.intent.category.LAUNCHER 1)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -d -v time -s FirebaseDataManager:V GraduationResult:V)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -v time -s SavedGraduationResult:V SavedOverviewFragment:V FirebaseDataManager:V GraduationResult:V)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe install -r \"C:\\Users\\jsk00\\AndroidStudioProjects\\SakMvp1\\app\\build\\outputs\\apk\\debug\\app-debug.apk\")",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input swipe 540 1200 540 800)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 540 1400)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -v time -s GraduationAnalysis:V FirebaseDataManager:V)"
     ],
     "deny": [],
     "ask": []

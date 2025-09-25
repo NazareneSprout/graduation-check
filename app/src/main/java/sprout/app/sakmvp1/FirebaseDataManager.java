@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FirebaseDataManager {
     private static final String TAG = "FirebaseDataManager";
@@ -25,6 +26,9 @@ public class FirebaseDataManager {
     private Map<String, List<String>> tracksCache = new HashMap<>();
     private Map<String, List<CourseInfo>> coursesCache = new HashMap<>();
     private Map<String, Object> graduationCache = new HashMap<>();
+
+    // 교양 문서 선택 캐시: "학부|연도" -> 최종 사용 문서ID(교양_학부_연도 또는 교양_공통_연도)
+    private final Map<String, String> generalDocCache = new ConcurrentHashMap<>();
 
     private FirebaseDataManager() {
         try {
@@ -43,6 +47,60 @@ public class FirebaseDataManager {
         return instance;
     }
 
+    // ---------- 공통 콜백/유틸 ----------
+
+    /** 교양 문서 선택 콜백 */
+    public interface OnGeneralDocResolvedListener {
+        void onResolved(String docId);    // 예: "교양_IT학부_2023" 또는 "교양_공통_2023"
+        void onNotFound();                // 둘 다 없을 때
+        void onError(Exception e);
+    }
+
+    /**
+     * 교양 문서 ID 결정:
+     * 1) "교양_{학부}_{연도}"가 존재하면 사용
+     * 2) 없으면 "교양_공통_{연도}" 사용
+     * 3) 둘 다 없으면 onNotFound
+     *  - 결과는 generalDocCache 에 캐싱
+     */
+    private void resolveGeneralDocId(String department, String year, OnGeneralDocResolvedListener cb) {
+        String dept = (department == null ? "" : department.trim());
+        String yr = (year == null ? "" : year.trim());
+
+        final String deptDocId = "교양_" + dept + "_" + yr;
+        final String commonDocId = "교양_공통_" + yr;
+        final String cacheKey = dept + "|" + yr;
+
+        // 캐시 히트
+        if (generalDocCache.containsKey(cacheKey)) {
+            cb.onResolved(generalDocCache.get(cacheKey));
+            return;
+        }
+
+        // 1순위: 학부 전용
+        db.collection("graduation_requirements").document(deptDocId).get()
+                .addOnSuccessListener(ds -> {
+                    if (ds.exists()) {
+                        generalDocCache.put(cacheKey, deptDocId);
+                        cb.onResolved(deptDocId);
+                    } else {
+                        // 2순위: 공통
+                        db.collection("graduation_requirements").document(commonDocId).get()
+                                .addOnSuccessListener(ds2 -> {
+                                    if (ds2.exists()) {
+                                        generalDocCache.put(cacheKey, commonDocId);
+                                        cb.onResolved(commonDocId);
+                                    } else {
+                                        cb.onNotFound();
+                                    }
+                                })
+                                .addOnFailureListener(cb::onError);
+                    }
+                })
+                .addOnFailureListener(cb::onError);
+    }
+
+    // ---------- 학번/학부/트랙 조회 ----------
 
     // 학번 데이터 조회
     public interface OnStudentYearsLoadedListener {
@@ -75,14 +133,7 @@ public class FirebaseDataManager {
                         }
                     }
 
-                    // 2024, 2025학번 추가 (2023 데이터와 동일하게 처리) - Set에 추가하여 중복 방지
-                    if (yearsSet.contains("2023")) {
-                        yearsSet.add("2024");
-                        yearsSet.add("2025");
-                    }
-
                     List<String> years = new ArrayList<>(yearsSet);
-
                     // 연도순으로 정렬 (최신년도가 먼저 오도록)
                     years.sort((a, b) -> b.compareTo(a));
 
@@ -182,7 +233,8 @@ public class FirebaseDataManager {
                 });
     }
 
-    // 졸업 요건 조회
+    // ---------- 졸업 요건/학점 ----------
+
     public interface OnGraduationRequirementsLoadedListener {
         void onSuccess(Map<String, Object> requirements);
         void onFailure(Exception e);
@@ -207,8 +259,8 @@ public class FirebaseDataManager {
         public int majorAdvanced;
 
         public CreditRequirements(int totalCredits, int majorRequired, int majorElective,
-                                int generalRequired, int generalElective, int liberalArts, int freeElective,
-                                int departmentCommon, int majorAdvanced) {
+                                  int generalRequired, int generalElective, int liberalArts, int freeElective,
+                                  int departmentCommon, int majorAdvanced) {
             this.totalCredits = totalCredits;
             this.majorRequired = majorRequired;
             this.majorElective = majorElective;
@@ -223,18 +275,14 @@ public class FirebaseDataManager {
         @Override
         public String toString() {
             return String.format("CreditRequirements{총이수: %d, 전공필수: %d, 전공선택: %d, 교양필수: %d, 교양선택: %d, 소양: %d, 자율선택: %d, 학부공통: %d, 전공심화: %d}",
-                totalCredits, majorRequired, majorElective, generalRequired, generalElective, liberalArts, freeElective, departmentCommon, majorAdvanced);
+                    totalCredits, majorRequired, majorElective, generalRequired, generalElective, liberalArts, freeElective, departmentCommon, majorAdvanced);
         }
     }
 
     public void loadGraduationRequirements(String department, String track, String year,
-                                         OnGraduationRequirementsLoadedListener listener) {
-        // 2023, 2024, 2025학번은 2023 데이터를 사용 (2020, 2021, 2022는 그대로 사용)
+                                           OnGraduationRequirementsLoadedListener listener) {
+        // 모든 학번은 해당 연도 그대로 사용
         String actualYear = year;
-        if ("2023".equals(year) || "2024".equals(year) || "2025".equals(year)) {
-            actualYear = "2023";
-            Log.d(TAG, year + "학번은 2023 데이터를 사용합니다");
-        }
 
         // 실제 문서 ID 형식: "IT학부_멀티미디어_2023"
         String documentId = department + "_" + track + "_" + actualYear;
@@ -254,14 +302,15 @@ public class FirebaseDataManager {
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "졸업 요건 조회 실패: " + documentId, e);
-                    listener.onFailure(e);
+                    String errorMsg = "졸업 요건 문서 조회 실패: " + documentId;
+                    Log.e(TAG, errorMsg, e);
+                    listener.onFailure(new Exception(errorMsg, e));
                 });
     }
 
     // 졸업이수학점 요건 로드
     public void loadCreditRequirements(String department, String track, String year,
-                                     OnCreditRequirementsLoadedListener listener) {
+                                       OnCreditRequirementsLoadedListener listener) {
         // 2023, 2024, 2025학번은 2023 데이터를 사용
         String actualYear = year;
         if ("2023".equals(year) || "2024".equals(year) || "2025".equals(year)) {
@@ -290,7 +339,7 @@ public class FirebaseDataManager {
 
     // 상세 졸업이수학점 요건 조회 (총 학점이 이미 확보된 상태)
     private void loadDetailedCreditRequirements(String documentId, int totalCredits,
-                                              OnCreditRequirementsLoadedListener listener) {
+                                                OnCreditRequirementsLoadedListener listener) {
         db.collection("graduation_requirements").document(documentId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
@@ -325,13 +374,15 @@ public class FirebaseDataManager {
                             listener.onFailure(new Exception("졸업이수학점 정보를 찾을 수 없습니다"));
                         }
                     } else {
-                        Log.w(TAG, "졸업이수학점 문서 없음: " + documentId);
-                        listener.onFailure(new Exception("해당 조건의 졸업이수학점 정보를 찾을 수 없습니다"));
+                        String errorMsg = "졸업이수학점 문서를 찾을 수 없습니다: " + documentId;
+                        Log.e(TAG, errorMsg);
+                        listener.onFailure(new Exception(errorMsg));
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "졸업이수학점 요건 조회 실패: " + documentId, e);
-                    listener.onFailure(e);
+                    String errorMsg = "졸업이수학점 문서 조회 실패: " + documentId;
+                    Log.e(TAG, errorMsg, e);
+                    listener.onFailure(new Exception(errorMsg, e));
                 });
     }
 
@@ -395,7 +446,7 @@ public class FirebaseDataManager {
 
         // 자율선택 학점은 총 학점에서 다른 모든 학점들을 빼서 계산
         int specifiedCredits = majorRequired + majorElective + generalRequired + generalElective +
-                              liberalArts + departmentCommon + majorAdvanced;
+                liberalArts + departmentCommon + majorAdvanced;
         int freeElective = totalCredits - specifiedCredits;
 
         // 자율선택이 음수가 되지 않도록 보정
@@ -416,8 +467,8 @@ public class FirebaseDataManager {
         Log.d(TAG, "자율선택: " + freeElective + " (계산됨: " + totalCredits + " - " + specifiedCredits + ")");
 
         return new CreditRequirements(totalCredits, majorRequired, majorElective,
-                                    generalRequired, generalElective, liberalArts, freeElective,
-                                    departmentCommon, majorAdvanced);
+                generalRequired, generalElective, liberalArts, freeElective,
+                departmentCommon, majorAdvanced);
     }
 
     // Firestore 데이터에서 CreditRequirements 객체 생성 (기존 방식)
@@ -452,7 +503,8 @@ public class FirebaseDataManager {
         return defaultValue;
     }
 
-    // 모든 컬렉션 데이터 조회
+    // ---------- 일반 Firestore 읽기 ----------
+
     public interface OnCollectionDataLoadedListener {
         void onSuccess(List<Map<String, Object>> documents);
         void onFailure(Exception e);
@@ -491,7 +543,6 @@ public class FirebaseDataManager {
                 });
     }
 
-    // 특정 문서 조회
     public interface OnDocumentLoadedListener {
         void onSuccess(Map<String, Object> document);
         void onFailure(Exception e);
@@ -513,7 +564,6 @@ public class FirebaseDataManager {
                 .addOnFailureListener(listener::onFailure);
     }
 
-    // 조건부 쿼리 조회
     public void loadDocumentsWithCondition(String collectionName, String field, Object value, OnCollectionDataLoadedListener listener) {
         db.collection(collectionName)
                 .whereEqualTo(field, value)
@@ -531,7 +581,6 @@ public class FirebaseDataManager {
                 .addOnFailureListener(listener::onFailure);
     }
 
-    // 모든 컬렉션 이름 조회
     public interface OnCollectionNamesLoadedListener {
         void onSuccess(List<String> collectionNames);
         void onFailure(Exception e);
@@ -550,7 +599,6 @@ public class FirebaseDataManager {
 
         listener.onSuccess(knownCollections);
     }
-
 
     // 테스트 데이터 생성 메서드
     public void createTestData(OnDocumentLoadedListener listener) {
@@ -583,18 +631,15 @@ public class FirebaseDataManager {
     public void testFirebaseConnection(OnConnectionTestListener listener) {
         Log.d(TAG, "Firebase 연결 테스트 시작");
 
-        // 가장 간단한 연결 테스트: Firebase settings 확인
         try {
             if (db == null) {
                 listener.onFailure(new Exception("Firestore 인스턴스가 null입니다"));
                 return;
             }
 
-            // FirebaseFirestore의 설정을 가져와서 연결 확인
             db.getFirestoreSettings();
             Log.d(TAG, "Firestore 설정 확인 완료");
 
-            // 간단한 읽기 테스트 (존재하지 않는 컬렉션이라도 권한 확인 가능)
             db.collection("connection_test").limit(1).get()
                     .addOnSuccessListener(querySnapshot -> {
                         Log.d(TAG, "Firebase 연결 테스트 성공");
@@ -625,6 +670,8 @@ public class FirebaseDataManager {
                 })
                 .addOnFailureListener(listener::onFailure);
     }
+
+    // ---------- 강의 로딩 ----------
 
     // 강의 정보를 담는 클래스
     public static class CourseInfo {
@@ -663,12 +710,8 @@ public class FirebaseDataManager {
     public void loadMajorCourses(String department, String track, String year, String category, OnMajorCoursesLoadedListener listener) {
         Log.d(TAG, "전공 강의 조회 시작: " + department + "_" + track + "_" + year);
 
-        // 2023, 2024, 2025학번은 2023 데이터를 사용 (2020, 2021, 2022는 그대로 사용)
+        // 모든 학번은 해당 연도 그대로 사용
         String actualYear = year;
-        if ("2023".equals(year) || "2024".equals(year) || "2025".equals(year)) {
-            actualYear = "2023";
-            Log.d(TAG, year + "학번은 2023 데이터를 사용합니다");
-        }
 
         // graduation_requirements 컬렉션에서 해당 학과/트랙의 전공 강의 조회
         String documentId = department + "_" + track + "_" + actualYear;
@@ -768,14 +811,15 @@ public class FirebaseDataManager {
                         Log.d(TAG, "전공 강의 로드 성공: " + majorCourses.size() + "개 - " + majorCourses);
                         listener.onSuccess(majorCourses);
                     } else {
-                        Log.w(TAG, "전공 강의 문서 없음: " + documentId);
-                        // 빈 리스트 반환
-                        listener.onSuccess(majorCourses);
+                        String errorMsg = "전공 강의 문서를 찾을 수 없습니다: " + documentId;
+                        Log.e(TAG, errorMsg);
+                        listener.onFailure(new Exception(errorMsg));
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "전공 강의 로드 실패: " + documentId, e);
-                    listener.onFailure(e);
+                    String errorMsg = "전공 강의 문서 조회 실패: " + documentId;
+                    Log.e(TAG, errorMsg, e);
+                    listener.onFailure(new Exception(errorMsg, e));
                 });
     }
 
@@ -806,115 +850,43 @@ public class FirebaseDataManager {
         return 0;
     }
 
-    // 교양 강의 목록 조회
+    // 교양 강의 목록 조회 (폴백: 교양_학부_연도 → 없으면 교양_공통_연도)
     public void loadGeneralEducationCourses(String department, String track, String year, String category, OnMajorCoursesLoadedListener listener) {
         Log.d(TAG, "=== 교양 강의 조회 시작 ===");
-        Log.d(TAG, "FirebaseDataManager 교양 조회 시작");
         Log.d(TAG, "입력값 - 학부: " + department + ", 트랙: " + track + ", 년도: " + year + ", 카테고리: " + category);
 
-        // 2022, 2024, 2025학번은 2023 데이터를 사용 (2020, 2021은 그대로 사용)
-        final String actualYear = ("2024".equals(year) || "2025".equals(year)) ? "2023" : year;
-        if (!actualYear.equals(year)) {
-            Log.d(TAG, year + "학번은 2023 데이터를 사용합니다");
-        }
-
-        // 교양 문서 형태: 교양_학부명_연도 (예: 교양_공통_2023, 교양_IT학부_2023)
-        // 먼저 해당 학부의 교양 문서를 시도하고, 없으면 공통 문서를 시도
-        String departmentSpecificDocId = "교양_" + department + "_" + actualYear;
-        String commonDocId = "교양_공통_" + actualYear;
-
-        Log.d(TAG, "실제 사용 년도: " + actualYear + " (입력 년도: " + year + ")");
-
-        Log.d(TAG, "교양 문서 조회 시도: " + departmentSpecificDocId + " -> " + commonDocId);
-
-        // 먼저 모든 문서를 조회해서 교양 관련 문서가 있는지 확인
-        Log.d(TAG, "디버깅: 모든 graduation_requirements 문서 조회");
-        db.collection("graduation_requirements")
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    Log.d(TAG, "전체 문서 수: " + querySnapshot.size());
-                    for (DocumentSnapshot doc : querySnapshot) {
-                        String docId = doc.getId();
-                        Log.d(TAG, "전체 문서: " + docId);
-                        if (docId.contains("교양")) {
-                            Log.d(TAG, "교양 관련 문서 발견: " + docId);
-                        }
-                        if (docId.contains("2023") && docId.contains("멀티미디어")) {
-                            Log.d(TAG, "2023 멀티미디어 관련 문서 발견: " + docId);
-                        }
-                    }
-                });
-
-        // 교양 문서 조회 순서
-        List<String> documentsToTry = new ArrayList<>();
-        String originalYear = year;
-
-        // 20, 21, 22학번은 해당 연도의 교양_공통 문서 직접 조회
-        if ("2020".equals(originalYear) || "2021".equals(originalYear) || "2022".equals(originalYear)) {
-            Log.d(TAG, originalYear + "학번은 교양_공통_" + originalYear + " 문서를 직접 조회");
-            documentsToTry.add("교양_공통_" + originalYear);
-
-            // 폴백으로 다른 연도 공통 문서들도 추가
-            if (!"2020".equals(originalYear)) documentsToTry.add("교양_공통_2020");
-            if (!"2021".equals(originalYear)) documentsToTry.add("교양_공통_2021");
-            if (!"2022".equals(originalYear)) documentsToTry.add("교양_공통_2022");
-        } else {
-            // 23학번 이후는 기존 로직: 학부별 우선, 연도별 우선
-
-            // 1순위: 같은 학부, 원래 연도 (교양_IT학부_2025)
-            documentsToTry.add("교양_" + department + "_" + originalYear);
-
-            // 2순위: 같은 학부, 변환된 연도 (교양_IT학부_2023)
-            if (!originalYear.equals(actualYear)) {
-                documentsToTry.add("교양_" + department + "_" + actualYear);
+        resolveGeneralDocId(department, year, new OnGeneralDocResolvedListener() {
+            @Override
+            public void onResolved(String docId) {
+                Log.d(TAG, "교양 문서 확정: " + docId);
+                db.collection("graduation_requirements").document(docId)
+                        .get()
+                        .addOnSuccessListener(snapshot -> {
+                            if (snapshot.exists()) {
+                                loadGeneralEducationFromDocument(snapshot, category, listener);
+                            } else {
+                                listener.onFailure(new Exception("교양 문서가 존재하지 않습니다: " + docId));
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "교양 문서 조회 실패: " + docId, e);
+                            listener.onFailure(e);
+                        });
             }
 
-            // 3순위: 공통, 원래 연도 (교양_공통_2025)
-            documentsToTry.add("교양_공통_" + originalYear);
-
-            // 4순위: 공통, 변환된 연도 (교양_공통_2023)
-            if (!originalYear.equals(actualYear)) {
-                documentsToTry.add("교양_공통_" + actualYear);
+            @Override
+            public void onNotFound() {
+                String msg = "교양 문서를 찾을 수 없습니다. 학부 전용/공통 문서가 모두 없음";
+                Log.e(TAG, msg);
+                listener.onFailure(new Exception(msg));
             }
 
-            // 5순위: 폴백 - 학부별 2020
-            documentsToTry.add("교양_" + department + "_2020");
-
-            // 6순위: 폴백 - 공통 2020
-            documentsToTry.add("교양_공통_2020");
-        }
-
-        Log.d(TAG, "교양 문서 조회 순서: " + documentsToTry);
-
-        tryDocumentsSequentially(documentsToTry, 0, category, listener);
-    }
-
-    // 교양 문서를 순차적으로 시도하는 헬퍼 메서드
-    private void tryDocumentsSequentially(List<String> documentsToTry, int index, String category, OnMajorCoursesLoadedListener listener) {
-        if (index >= documentsToTry.size()) {
-            Log.w(TAG, "모든 교양 문서 조회 실패, 빈 리스트 반환");
-            listener.onSuccess(new ArrayList<>());
-            return;
-        }
-
-        String docId = documentsToTry.get(index);
-        Log.d(TAG, "문서 조회 시도 [" + (index + 1) + "/" + documentsToTry.size() + "]: " + docId);
-
-        db.collection("graduation_requirements").document(docId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        Log.d(TAG, "교양 문서 발견: " + docId);
-                        loadGeneralEducationFromDocument(documentSnapshot, category, listener);
-                    } else {
-                        Log.d(TAG, "문서 없음: " + docId + ", 다음 문서 시도");
-                        tryDocumentsSequentially(documentsToTry, index + 1, category, listener);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "문서 조회 실패: " + docId, e);
-                    tryDocumentsSequentially(documentsToTry, index + 1, category, listener);
-                });
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "교양 문서 선택 중 오류", e);
+                listener.onFailure(e);
+            }
+        });
     }
 
     // 교양 문서에서 데이터를 추출하는 헬퍼 메서드
@@ -1035,19 +1007,17 @@ public class FirebaseDataManager {
         listener.onSuccess(resultCourses);
     }
 
-    // 학부공통 강의 목록 조회
+    // 학부공통/전공심화 강의 목록 조회
     public void loadDepartmentCommonCourses(String department, String track, String year, OnMajorCoursesLoadedListener listener) {
-        Log.d(TAG, "학부공통/전공심화 강의 조회 시작: " + department + "_" + track + "_" + year);
+        String categoryName = DepartmentConfig.getDepartmentCommonCategoryName(department, year);
+        Log.d(TAG, categoryName + " 강의 조회 시작: " + department + "_" + track + "_" + year);
 
-        // 2023, 2024, 2025학번은 2023 데이터를 사용 (2020, 2021, 2022는 그대로 사용)
-        final String actualYear = ("2023".equals(year) || "2024".equals(year) || "2025".equals(year)) ? "2023" : year;
-        if (!actualYear.equals(year)) {
-            Log.d(TAG, year + "학번은 2023 데이터를 사용합니다");
-        }
+        // 모든 학번은 해당 연도 그대로 사용
+        final String actualYear = year;
 
         // graduation_requirements 컬렉션에서 해당 학부_트랙_학번 문서 조회
         String documentId = department + "_" + track + "_" + actualYear;
-        Log.d(TAG, "학부공통 강의 문서 ID: " + documentId);
+        Log.d(TAG, categoryName + " 강의 문서 ID: " + documentId);
 
         db.collection("graduation_requirements").document(documentId)
                 .get()
@@ -1057,94 +1027,223 @@ public class FirebaseDataManager {
 
                     if (documentSnapshot.exists()) {
                         Map<String, Object> data = documentSnapshot.getData();
-                        // Log.d(TAG, "학부공통 문서 데이터 구조: " + data); // 성능 최적화를 위해 주석 처리
                         if (data != null) {
-                            // Log.d(TAG, "문서 전체 키 목록: " + data.keySet().toString()); // 성능 최적화
-
-                            // rules 객체에서 학기별 데이터 추출
                             Object rulesObj = data.get("rules");
                             if (rulesObj instanceof Map) {
                                 Map<String, Object> rules = (Map<String, Object>) rulesObj;
                                 Log.d(TAG, "rules 내부 키 목록: " + rules.keySet().toString());
 
-                                // 학기 키들을 정렬 (1학년 1학기, 1학년 2학기, 2학년 1학기, ...)
                                 List<String> sortedSemesters = new ArrayList<>(rules.keySet());
                                 sortedSemesters.sort((s1, s2) -> {
-                                    // 학년과 학기 추출
                                     int year1 = extractYear(s1);
                                     int semester1 = extractSemester(s1);
                                     int year2 = extractYear(s2);
                                     int semester2 = extractSemester(s2);
 
-                                    // 학년으로 먼저 정렬, 같으면 학기로 정렬
                                     if (year1 != year2) {
                                         return Integer.compare(year1, year2);
                                     }
                                     return Integer.compare(semester1, semester2);
                                 });
 
-                                // 정렬된 순서로 각 학기에서 학부공통필수 강의들을 수집
+                                // 정렬된 순서로 각 학기에서 학부공통/전공심화 강의들을 수집
                                 for (String semesterKey : sortedSemesters) {
                                     Object value = rules.get(semesterKey);
-                                    Log.d(TAG, "학기 키: " + semesterKey + ", 값 타입: " + (value != null ? value.getClass().getSimpleName() : "null"));
-
-                                    // 학기 데이터인지 확인
                                     if (semesterKey.contains("학년") && value instanceof Map) {
                                         Map<String, Object> semester = (Map<String, Object>) value;
-                                        Log.d(TAG, "학기 " + semesterKey + " 내부 키 목록: " + semester.keySet().toString());
 
-                                        // 학번에 따라 다른 카테고리 조회 (23-25학번: 전공심화, 20-22학번: 학부공통필수)
-                                        String categoryKey = Integer.parseInt(actualYear) >= 2023 ? "전공심화" : "학부공통필수";
-                                        Object departmentCommon = semester.get(categoryKey);
-                                        Log.d(TAG, categoryKey + " 데이터: " + departmentCommon);
+                                        // 설정 기반 카테고리 조회 로직
+                                        String categoryKey = DepartmentConfig.getDepartmentCommonCategoryName(department, actualYear);
+
+                                        // 학부공통의 경우 Firestore에서는 "학부공통필수"로 저장되어 있으므로 매핑
+                                        String firestoreCategoryKey = categoryKey;
+                                        if ("학부공통".equals(categoryKey)) {
+                                            firestoreCategoryKey = "학부공통필수";
+                                        }
+
+                                        Object departmentCommon = semester.get(firestoreCategoryKey);
                                         if (departmentCommon instanceof List) {
                                             List<?> commonList = (List<?>) departmentCommon;
-                                            Log.d(TAG, categoryKey + " 과목 수: " + commonList.size());
                                             for (Object courseObj : commonList) {
                                                 if (courseObj instanceof Map) {
                                                     Map<String, Object> course = (Map<String, Object>) courseObj;
                                                     Object courseName = course.get("과목명");
                                                     Object credits = course.get("학점");
-                                                    Log.d(TAG, "과목: " + courseName + ", 학점: " + credits);
                                                     if (courseName instanceof String && credits instanceof Number) {
                                                         String courseNameStr = (String) courseName;
                                                         if (!addedCourseNames.contains(courseNameStr)) {
                                                             addedCourseNames.add(courseNameStr);
                                                             commonCourses.add(new CourseInfo(courseNameStr, ((Number) credits).intValue()));
-                                                            Log.d(TAG, categoryKey + " 강의 발견: " + courseName + "(" + credits + "학점)");
-                                                        } else {
-                                                            Log.d(TAG, categoryKey + " 중복 강의 제외: " + courseName);
                                                         }
                                                     }
                                                 }
                                             }
-                                        } else {
-                                            Log.d(TAG, "학부공통필수 데이터가 List가 아님: " + (departmentCommon != null ? departmentCommon.getClass().getSimpleName() : "null"));
                                         }
-                                    } else {
-                                        Log.d(TAG, "학기 데이터가 아님 또는 Map이 아님: " + semesterKey);
                                     }
                                 }
-                            } else {
-                                Log.d(TAG, "rules 키가 없거나 Map이 아님");
                             }
                         }
 
-                        Log.d(TAG, "학부공통 강의 로드 성공: " + commonCourses.size() + "개 - " + commonCourses);
+                        Log.d(TAG, categoryName + " 강의 로드 성공: " + commonCourses.size() + "개 - " + commonCourses);
                         listener.onSuccess(commonCourses);
                     } else {
-                        Log.w(TAG, "학부공통 강의 문서 없음: " + documentId);
-                        // 빈 리스트 반환
-                        listener.onSuccess(commonCourses);
+                        String errorMsg = categoryName + " 강의 문서를 찾을 수 없습니다: " + documentId;
+                        Log.e(TAG, errorMsg);
+                        listener.onFailure(new Exception(errorMsg));
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "학부공통 강의 로드 실패: " + documentId, e);
+                    String errorMsg = categoryName + " 강의 문서 조회 실패: " + documentId;
+                    Log.e(TAG, errorMsg, e);
+                    listener.onFailure(new Exception(errorMsg, e));
+                });
+    }
+
+    // ---------- 교양 그룹(oneOf/required) ----------
+
+    public interface OnGeneralEducationGroupsLoadedListener {
+        void onSuccess(Map<String, List<String>> oneOfGroups, List<String> individualRequired);
+        void onFailure(Exception e);
+    }
+
+    public interface OnDepartmentConfigLoadedListener {
+        void onSuccess(boolean usesMajorAdvanced);
+        void onFailure(Exception e);
+    }
+
+    public void loadGeneralEducationGroups(String department, String year, OnGeneralEducationGroupsLoadedListener listener) {
+        Log.d(TAG, "교양교육 그룹 로드 시작: " + department + ", " + year);
+
+        resolveGeneralDocId(department, year, new OnGeneralDocResolvedListener() {
+            @Override
+            public void onResolved(String docId) {
+                db.collection("graduation_requirements").document(docId)
+                        .get()
+                        .addOnSuccessListener(snapshot -> {
+                            if (snapshot.exists()) {
+                                extractGeneralEducationGroupsData(snapshot, listener);
+                            } else {
+                                listener.onFailure(new Exception("교양교육 문서가 존재하지 않습니다: " + docId));
+                            }
+                        })
+                        .addOnFailureListener(listener::onFailure);
+            }
+
+            @Override
+            public void onNotFound() {
+                listener.onFailure(new Exception("교양교육 문서를 찾을 수 없습니다 (학부/공통 모두 없음)"));
+            }
+
+            @Override
+            public void onError(Exception e) {
+                listener.onFailure(e);
+            }
+        });
+    }
+
+    private void extractGeneralEducationGroupsData(DocumentSnapshot documentSnapshot, OnGeneralEducationGroupsLoadedListener listener) {
+        try {
+            Map<String, List<String>> oneOfGroups = new HashMap<>();
+            List<String> individualRequired = new ArrayList<>();
+
+            // rules.requirements에서 데이터 추출
+            Map<String, Object> data = documentSnapshot.getData();
+            if (data != null && data.containsKey("rules")) {
+                Map<String, Object> rules = (Map<String, Object>) data.get("rules");
+                if (rules != null && rules.containsKey("requirements")) {
+                    List<Map<String, Object>> requirements = (List<Map<String, Object>>) rules.get("requirements");
+
+                    int groupIndex = 0;
+                    for (Map<String, Object> requirement : requirements) {
+                        String type = (String) requirement.get("type");
+                        Log.d(TAG, "requirement type 확인: " + type + ", 전체 데이터: " + requirement);
+
+                        if ("oneOf".equals(type)) {
+                            // oneOf 그룹 처리
+                            List<Map<String, Object>> options = (List<Map<String, Object>>) requirement.get("options");
+                            if (options != null && !options.isEmpty()) {
+                                List<String> groupCourses = new ArrayList<>();
+                                for (Map<String, Object> option : options) {
+                                    String courseName = (String) option.get("name");
+                                    if (courseName != null) {
+                                        groupCourses.add(courseName);
+                                    }
+                                }
+                                if (!groupCourses.isEmpty()) {
+                                    oneOfGroups.put("oneOf_group_" + groupIndex, groupCourses);
+                                    groupIndex++;
+                                }
+                            }
+                        } else {
+                            // 개별 필수 과목 처리 (oneOf가 아니고 name 필드가 있는 경우)
+                            String courseName = (String) requirement.get("name");
+                            if (courseName != null) {
+                                individualRequired.add(courseName);
+                                Log.d(TAG, "개별 필수 과목 추가: " + courseName + " (type: " + type + ")");
+                            }
+                        }
+                    }
+
+                    Log.d(TAG, "교양교육 그룹 로드 성공: " + oneOfGroups.size() + "개 그룹, " + individualRequired.size() + "개 개별 필수");
+                    listener.onSuccess(oneOfGroups, individualRequired);
+                } else {
+                    Log.e(TAG, "교양교육 문서에서 requirements 필드를 찾을 수 없습니다.");
+                    listener.onFailure(new Exception("교양교육 문서에서 requirements 필드를 찾을 수 없습니다."));
+                }
+            } else {
+                Log.e(TAG, "교양교육 문서에서 rules 필드를 찾을 수 없습니다.");
+                listener.onFailure(new Exception("교양교육 문서에서 rules 필드를 찾을 수 없습니다."));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "교양교육 그룹 데이터 파싱 중 오류: " + e.getMessage(), e);
+            listener.onFailure(e);
+        }
+    }
+
+    // ---------- 학부 설정 / 총학점 / 기타 ----------
+
+    /**
+     * 학부 설정 정보를 Firebase에서 로드
+     * @param department 학부명
+     * @param listener 콜백
+     */
+    public void loadDepartmentConfig(String department, OnDepartmentConfigLoadedListener listener) {
+        Log.d(TAG, "학부 설정 로드 시작: " + department);
+
+        db.collection("학부").document(department)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        try {
+                            Map<String, Object> data = documentSnapshot.getData();
+                            if (data != null) {
+                                // uses_major_advanced 필드 확인 (기본값: false)
+                                Boolean usesMajorAdvanced = (Boolean) data.get("uses_major_advanced");
+                                if (usesMajorAdvanced == null) {
+                                    usesMajorAdvanced = false; // 기본값
+                                }
+
+                                Log.d(TAG, "학부 설정 로드 성공: " + department + " -> uses_major_advanced: " + usesMajorAdvanced);
+                                listener.onSuccess(usesMajorAdvanced);
+                            } else {
+                                Log.w(TAG, "학부 설정 데이터가 비어있습니다: " + department);
+                                listener.onSuccess(false); // 기본값 반환
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "학부 설정 데이터 파싱 중 오류: " + e.getMessage(), e);
+                            listener.onFailure(e);
+                        }
+                    } else {
+                        Log.w(TAG, "학부 설정 문서가 존재하지 않습니다: " + department + " (기본값 사용)");
+                        listener.onSuccess(false); // 기본값 반환
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "학부 설정 Firebase 조회 실패: " + e.getMessage(), e);
                     listener.onFailure(e);
                 });
     }
 
-    // 학부별 추가 졸업 요건 조회
     public interface OnExtraGradRequirementsLoadedListener {
         void onSuccess(String extraGradRequirement);
         void onFailure(Exception e);
@@ -1318,15 +1417,15 @@ public class FirebaseDataManager {
     public void addIT멀티미디어20CreditRequirements() {
         // 사용자가 준비한 데이터를 기반으로 설정
         CreditRequirements requirements = new CreditRequirements(
-            130, // 총졸업이수학점
-            27,  // 전공필수
-            18,  // 전공선택
-            16,  // 교양필수
-            8,   // 교양선택
-            6,   // 소양
-            20,  // 자율선택 (잔여학점)
-            36,  // 학부공통
-            12   // 전공심화
+                130, // 총졸업이수학점
+                27,  // 전공필수
+                18,  // 전공선택
+                16,  // 교양필수
+                8,   // 교양선택
+                6,   // 소양
+                20,  // 자율선택 (잔여학점)
+                36,  // 학부공통
+                12   // 전공심화
         );
 
         addCreditRequirements("IT학부_멀티미디어_2020", requirements, new OnCreditRequirementsAddedListener() {
@@ -1343,15 +1442,15 @@ public class FirebaseDataManager {
 
         // 2023학번용 데이터도 추가 (23-25학번은 2023 데이터 사용)
         CreditRequirements requirements2023 = new CreditRequirements(
-            130, // 총졸업이수학점
-            27,  // 전공필수
-            18,  // 전공선택
-            16,  // 교양필수
-            8,   // 교양선택
-            6,   // 소양
-            20,  // 자율선택
-            36,  // 학부공통
-            12   // 전공심화
+                130, // 총졸업이수학점
+                27,  // 전공필수
+                18,  // 전공선택
+                16,  // 교양필수
+                8,   // 교양선택
+                6,   // 소양
+                20,  // 자율선택
+                36,  // 학부공통
+                12   // 전공심화
         );
 
         addCreditRequirements("IT학부_멀티미디어_2023", requirements2023, new OnCreditRequirementsAddedListener() {
@@ -1363,6 +1462,195 @@ public class FirebaseDataManager {
             @Override
             public void onFailure(Exception e) {
                 Log.e(TAG, "IT학부_멀티미디어_2023 졸업이수학점 요건 추가 실패", e);
+            }
+        });
+    }
+
+    // ---------- 학생 진도 데이터 (저장/조회) ----------
+
+    public static class StudentProgress {
+        public String studentId;
+        public String department;
+        public String track;
+        public String year;
+        public List<String> completedCourses;
+        public Map<String, Integer> categoryCredits;
+        public Map<String, Object> additionalRequirements;
+        public long lastUpdated;
+
+        public StudentProgress() {}
+
+        public StudentProgress(String studentId, String department, String track, String year) {
+            this.studentId = studentId;
+            this.department = department;
+            this.track = track;
+            this.year = year;
+            this.completedCourses = new ArrayList<>();
+            this.categoryCredits = new HashMap<>();
+            this.additionalRequirements = new HashMap<>();
+            this.lastUpdated = System.currentTimeMillis();
+        }
+
+        public Map<String, Object> toMap() {
+            Map<String, Object> data = new HashMap<>();
+            data.put("studentId", studentId);
+            data.put("department", department);
+            data.put("track", track);
+            data.put("year", year);
+            data.put("completedCourses", completedCourses);
+            data.put("categoryCredits", categoryCredits);
+            data.put("additionalRequirements", additionalRequirements);
+            data.put("lastUpdated", lastUpdated);
+            return data;
+        }
+
+        public static StudentProgress fromMap(Map<String, Object> data) {
+            StudentProgress progress = new StudentProgress();
+            progress.studentId = (String) data.get("studentId");
+            progress.department = (String) data.get("department");
+            progress.track = (String) data.get("track");
+            progress.year = (String) data.get("year");
+            progress.completedCourses = (List<String>) data.get("completedCourses");
+            progress.categoryCredits = (Map<String, Integer>) data.get("categoryCredits");
+            progress.additionalRequirements = (Map<String, Object>) data.get("additionalRequirements");
+            Object lastUpdatedObj = data.get("lastUpdated");
+            if (lastUpdatedObj instanceof Long) {
+                progress.lastUpdated = (Long) lastUpdatedObj;
+            } else {
+                progress.lastUpdated = System.currentTimeMillis();
+            }
+            return progress;
+        }
+    }
+
+    public interface OnStudentProgressSavedListener {
+        void onSuccess();
+        void onFailure(Exception e);
+    }
+
+    public interface OnStudentProgressLoadedListener {
+        void onSuccess(StudentProgress progress);
+        void onFailure(Exception e);
+    }
+
+    public void saveStudentProgress(StudentProgress progress, OnStudentProgressSavedListener listener) {
+        Log.d(TAG, "학생 진도 데이터 저장 시작: " + progress.studentId);
+
+        progress.lastUpdated = System.currentTimeMillis();
+
+        db.collection("student_progress")
+                .document(progress.studentId)
+                .set(progress.toMap())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "학생 진도 데이터 저장 성공: " + progress.studentId);
+                    listener.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "학생 진도 데이터 저장 실패: " + progress.studentId, e);
+                    listener.onFailure(e);
+                });
+    }
+
+    public void loadStudentProgress(String studentId, OnStudentProgressLoadedListener listener) {
+        Log.d(TAG, "학생 진도 데이터 로드 시작: " + studentId);
+
+        db.collection("student_progress")
+                .document(studentId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        try {
+                            StudentProgress progress = StudentProgress.fromMap(documentSnapshot.getData());
+                            Log.d(TAG, "학생 진도 데이터 로드 성공: " + studentId);
+                            listener.onSuccess(progress);
+                        } catch (Exception e) {
+                            Log.e(TAG, "학생 진도 데이터 파싱 실패: " + studentId, e);
+                            listener.onFailure(e);
+                        }
+                    } else {
+                        Log.d(TAG, "학생 진도 데이터 없음: " + studentId);
+                        listener.onFailure(new Exception("학생 진도 데이터를 찾을 수 없습니다"));
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "학생 진도 데이터 로드 실패: " + studentId, e);
+                    listener.onFailure(e);
+                });
+    }
+
+    public void deleteStudentProgress(String studentId, OnStudentProgressSavedListener listener) {
+        Log.d(TAG, "학생 진도 데이터 삭제 시작: " + studentId);
+
+        db.collection("student_progress")
+                .document(studentId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "학생 진도 데이터 삭제 성공: " + studentId);
+                    listener.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "학생 진도 데이터 삭제 실패: " + studentId, e);
+                    listener.onFailure(e);
+                });
+    }
+
+    public String generateStudentId(String department, String track, String year) {
+        return department + "_" + track + "_" + year + "_" + System.currentTimeMillis();
+    }
+
+    public interface OnStudentProgressListLoadedListener {
+        void onSuccess(List<StudentProgress> progressList);
+        void onFailure(Exception e);
+    }
+
+    public void loadStudentProgressByDepartment(String department, String track, String year, OnStudentProgressListLoadedListener listener) {
+        Log.d(TAG, "학부별 학생 진도 데이터 목록 로드 시작: " + department + "_" + track + "_" + year);
+
+        db.collection("student_progress")
+                .whereEqualTo("department", department)
+                .whereEqualTo("track", track)
+                .whereEqualTo("year", year)
+                .orderBy("lastUpdated", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<StudentProgress> progressList = new ArrayList<>();
+                    for (com.google.firebase.firestore.DocumentSnapshot document : querySnapshot.getDocuments()) {
+                        try {
+                            StudentProgress progress = StudentProgress.fromMap(document.getData());
+                            progressList.add(progress);
+                        } catch (Exception e) {
+                            Log.w(TAG, "학생 진도 데이터 파싱 실패: " + document.getId(), e);
+                        }
+                    }
+                    Log.d(TAG, "학부별 학생 진도 데이터 로드 성공: " + progressList.size() + "개");
+                    listener.onSuccess(progressList);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "학부별 학생 진도 데이터 로드 실패: " + department + "_" + track + "_" + year, e);
+                    listener.onFailure(e);
+                });
+    }
+
+    public void loadLatestStudentProgress(String department, String track, String year, OnStudentProgressLoadedListener listener) {
+        Log.d(TAG, "최신 학생 진도 데이터 로드 시작: " + department + "_" + track + "_" + year);
+
+        loadStudentProgressByDepartment(department, track, year, new OnStudentProgressListLoadedListener() {
+            @Override
+            public void onSuccess(List<StudentProgress> progressList) {
+                if (!progressList.isEmpty()) {
+                    // 가장 최신 데이터 (첫 번째, 이미 lastUpdated DESC로 정렬됨)
+                    StudentProgress latestProgress = progressList.get(0);
+                    Log.d(TAG, "최신 학생 진도 데이터 로드 성공: " + latestProgress.studentId);
+                    listener.onSuccess(latestProgress);
+                } else {
+                    Log.d(TAG, "해당 조건의 학생 진도 데이터가 없습니다: " + department + "_" + track + "_" + year);
+                    listener.onFailure(new Exception("저장된 졸업 분석 데이터가 없습니다"));
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                listener.onFailure(e);
             }
         });
     }

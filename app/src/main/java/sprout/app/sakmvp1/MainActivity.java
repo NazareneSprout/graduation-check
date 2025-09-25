@@ -58,6 +58,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        HighContrastHelper.applyHighContrastTheme(this);
+
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
@@ -171,14 +174,19 @@ public class MainActivity extends AppCompatActivity {
 
         if (btnFunction3 != null) {
             btnFunction3.setOnClickListener(v ->
-                Toast.makeText(this, "기능3", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "기능3 - 준비중", Toast.LENGTH_SHORT).show()
             );
         }
 
         if (btnFunction4 != null) {
-            btnFunction4.setOnClickListener(v ->
-                Toast.makeText(this, "기능4", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction4.setOnClickListener(v -> {
+                HighContrastHelper.toggleHighContrast(this);
+                boolean isEnabled = HighContrastHelper.isHighContrastEnabled(this);
+                String message = isEnabled ? "고대비 모드 활성화됨" : "고대비 모드 비활성화됨";
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+
+                recreate();
+            });
         }
 
         // 하단 작은 버튼 클릭 리스너
