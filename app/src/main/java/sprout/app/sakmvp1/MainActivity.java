@@ -201,21 +201,23 @@ public class MainActivity extends AppCompatActivity {
         // 하단 네비게이션 클릭 리스너
         if (bottomNavigation != null) {
             bottomNavigation.setOnItemSelectedListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.nav_button_1) {
-                Toast.makeText(this, "버튼1", Toast.LENGTH_SHORT).show();
-                return true;
-            } else if (itemId == R.id.nav_button_2) {
-                Toast.makeText(this, "버튼2", Toast.LENGTH_SHORT).show();
-                return true;
-            } else if (itemId == R.id.nav_button_3) {
-                Toast.makeText(this, "버튼3", Toast.LENGTH_SHORT).show();
-                return true;
-            } else if (itemId == R.id.nav_button_4) {
-                Toast.makeText(this, "버튼4", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-            return false;
+                int itemId = item.getItemId();
+                if (itemId == R.id.nav_button_1) {
+                    Toast.makeText(this, "버튼1", Toast.LENGTH_SHORT).show();
+                    return true;
+                } else if (itemId == R.id.nav_button_2) {
+                    // '버튼2' 클릭 시 (시간표 화면) 시작
+                    Intent intent = new Intent(this, AddScheduleActivity.class);
+                    startActivity(intent);
+                    return true;
+                } else if (itemId == R.id.nav_button_3) {
+                    Toast.makeText(this, "버튼3", Toast.LENGTH_SHORT).show();
+                    return true;
+                } else if (itemId == R.id.nav_button_4) {
+                    Toast.makeText(this, "버튼4", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                return false;
             });
         }
 
