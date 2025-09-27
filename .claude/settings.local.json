@@ -91,7 +91,8 @@
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 540 1400)",
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -v time -s GraduationAnalysis:V FirebaseDataManager:V)",
       "Bash(find:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []

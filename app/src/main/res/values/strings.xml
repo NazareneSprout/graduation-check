@@ -27,8 +27,8 @@
     <string name="function_4">기능4</string>
 
     <!-- 하단 작은 버튼 -->
-    <string name="function_5">기능5</string>
-    <string name="function_6">기능6</string>
+    <string name="function_5">학사일정</string>
+    <string name="function_6">학사공지</string>
 
     <!-- 하단 네비게이션 -->
     <string name="nav_button_1">홈</string>
