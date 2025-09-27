@@ -92,7 +92,13 @@
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -v time -s GraduationAnalysis:V FirebaseDataManager:V)",
       "Bash(find:*)",
       "Bash(git fetch:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe devices)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 200 600)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 950 1550)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input text \"컴퓨터프로그래밍\")",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input text \"Programming\")",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 540 800)"
     ],
     "deny": [],
     "ask": []

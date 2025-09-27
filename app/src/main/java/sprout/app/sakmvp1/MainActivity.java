@@ -93,8 +93,10 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout btnFunction4;
 
     // 하단 작은 버튼들
-    private Button btnFunction5;
-    private Button btnFunction6;
+    private LinearLayout btnFunction5;
+    private LinearLayout btnFunction6;
+    private LinearLayout btnFunction7;
+    private LinearLayout btnFunction8;
 
 
     @Override
@@ -167,6 +169,8 @@ public class MainActivity extends AppCompatActivity {
         // 하단 작은 버튼들
         btnFunction5 = findViewById(R.id.btnFunction5);
         btnFunction6 = findViewById(R.id.btnFunction6);
+        btnFunction7 = findViewById(R.id.btnFunction7);
+        btnFunction8 = findViewById(R.id.btnFunction8);
 
 
     }
@@ -248,16 +252,28 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        if (btnFunction7 != null) {
+            btnFunction7.setOnClickListener(v ->
+                Toast.makeText(this, "기능5 - 준비중", Toast.LENGTH_SHORT).show()
+            );
+        }
+
+        if (btnFunction8 != null) {
+            btnFunction8.setOnClickListener(v ->
+                Toast.makeText(this, "기능6 - 준비중", Toast.LENGTH_SHORT).show()
+            );
+        }
+
         // 하단 네비게이션 클릭 리스너
         if (bottomNavigation != null) {
             bottomNavigation.setOnItemSelectedListener(item -> {
                 int itemId = item.getItemId();
                 if (itemId == R.id.nav_button_1) {
-                    Toast.makeText(this, "버튼1", Toast.LENGTH_SHORT).show();
+                    // 홈 버튼 - 이미 홈 화면이므로 아무 동작 안 함
                     return true;
                 } else if (itemId == R.id.nav_button_2) {
-                    // '버튼2' 클릭 시 (시간표 화면) 시작
-                    Intent intent = new Intent(this, AddScheduleActivity.class);
+                    // 시간표 화면으로 이동
+                    Intent intent = new Intent(this, TimeTableActivity.class);
                     startActivity(intent);
                     return true;
                 } else if (itemId == R.id.nav_button_3) {
@@ -314,6 +330,11 @@ public class MainActivity extends AppCompatActivity {
         if (autoSlideHandler != null && autoSlideRunnable != null && !isAutoSlideStarted) {
             autoSlideHandler.postDelayed(autoSlideRunnable, AUTO_SLIDE_DELAY);
             isAutoSlideStarted = true;
+        }
+
+        // 홈 화면으로 돌아올 때 네비게이션 상태 초기화
+        if (bottomNavigation != null) {
+            bottomNavigation.setSelectedItemId(R.id.nav_button_1);
         }
     }
 
