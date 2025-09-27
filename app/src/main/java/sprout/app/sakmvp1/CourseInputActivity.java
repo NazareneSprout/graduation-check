@@ -25,25 +25,52 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 수강 강의 입력 화면
+ * 수강 강의 입력 메인 화면
  *
- * 역할
- * - (이전 화면에서 전달된) 학번/학과/트랙 + 추가 졸업 요건 표시
- * - 전공/교양 그룹과 탭(전공필수/선택/학부공통|전공심화, 교양필수/선택) 전환
- * - 강의 추가(전공/교양, 자동/수동 입력), 삭제
- * - 졸업요건 분석 화면으로 입력 데이터 전달
+ * <p>이 화면은 사용자가 자신의 수강 강의를 카테고리별로 입력하고 관리할 수 있는
+ * 핵심 기능을 제공합니다. 전공과 교양으로 나누어 세분화된 카테고리별로
+ * 강의를 추가/삭제할 수 있으며, 실시간으로 진도율을 확인할 수 있습니다.</p>
  *
- * 안정성/UX
- * - WindowInsetsCompat 적용(안전영역)
- * - Intent 키 상수 사용(AdditionalRequirementsActivity의 상수 재사용)
- * - 상태 저장/복원(그룹/탭/강의목록/다이얼로그 선택값)
- * - 중복 로딩/중복 클릭 방지
- * - 로딩 메시지 표시 안정화
+ * <h3>주요 기능:</h3>
+ * <ul>
+ *   <li><strong>카테고리 관리:</strong> 전공(필수/선택/심화/공통) 및 교양(필수/선택) 분류</li>
+ *   <li><strong>강의 추가:</strong> 다이얼로그를 통한 직관적인 강의 선택 및 추가</li>
+ *   <li><strong>실시간 집계:</strong> 각 카테고리별 이수 학점 및 필수 학점 자동 계산</li>
+ *   <li><strong>진도율 시각화:</strong> 도넛 차트를 통한 직관적인 졸업 진행 상황 표시</li>
+ * </ul>
+ *
+ * <h3>성능 최적화:</h3>
+ * <ul>
+ *   <li><strong>In-Flight 요청 병합:</strong> 동일한 강의 데이터 요청 시 네트워크 호출 병합</li>
+ *   <li><strong>500ms 로드 간격:</strong> 버튼 연속 클릭 방지 및 성능 최적화</li>
+ *   <li><strong>2초 버튼 가드:</strong> 중복 제출 방지 시스템</li>
+ *   <li><strong>캐시 우선 전략:</strong> 이미 로드된 데이터는 캐시에서 즉시 표시</li>
+ * </ul>
+ *
+ * <h3>데이터 흐름:</h3>
+ * <ol>
+ *   <li><strong>이전 화면에서 전달:</strong> 학번/학과/트랙 + 추가 졸업 요건</li>
+ *   <li><strong>강의 데이터 로드:</strong> 선택된 조건에 맞는 강의 목록 Firestore에서 조회</li>
+ *   <li><strong>사용자 입력:</strong> 다이얼로그를 통한 수강 강의 선택 및 추가</li>
+ *   <li><strong>다음 단계:</strong> 분석 버튼 클릭 시 GraduationAnalysisResultActivity로 이동</li>
+ * </ol>
+ *
+ * <h3>상태 관리 및 안정성:</h3>
+ * <ul>
+ *   <li><strong>SavedInstanceState:</strong> 앱/백그라운드 전환 시 상태 보존</li>
+ *   <li><strong>WindowInsets 대응:</strong> 노치/네비게이션 바 영역 안전 처리</li>
+ *   <li><strong>중복 방지:</strong> 로딩 중 버튼 비활성화 및 중복 클릭 차단</li>
+ * </ul>
+ *
+ * @see GraduationAnalysisResultActivity 결과 화면
+ * @see FirebaseDataManager 강의 데이터 제공
+ * @see AdditionalRequirementsActivity 이전 단계 화면
  */
 public class CourseInputActivity extends AppCompatActivity {
 
@@ -97,11 +124,12 @@ public class CourseInputActivity extends AppCompatActivity {
     private int lastSelectedCategoryPosition = 0;
     private int lastSelectedCompetencyPosition = 0;
 
-    // 중복 로딩 방지
+    // 동일 요청 In-Flight 합치기
     private boolean isLoadingCourses = false;
     private String lastLoadedCategory = null;
     private long lastLoadTime = 0;
-    private static final long MIN_LOAD_INTERVAL = 2000; // ms
+    private static final long MIN_LOAD_INTERVAL = 500;
+    private final Map<String, List<CleanArrayAdapter<FirebaseDataManager.CourseInfo>>> pendingRequests = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -248,8 +276,11 @@ public class CourseInputActivity extends AppCompatActivity {
 
     // ─────────────────────────────────────────────────────────────────────────
     // 강의 추가 다이얼로그
-    // ─────────────────────────────────────────────────────────────────────────
+    // ────────────────────────ㄷ─────────────────────────────────────────────────
     private void showAddCourseDialog() {
+        // 다이어로그 시작 시 중복 로딩 방지 상태 초기화
+        resetLoadingState();
+
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LayoutInflater inflater = getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.dialog_add_course, null);
@@ -325,16 +356,14 @@ public class CourseInputActivity extends AppCompatActivity {
             editCourseName.setText("");
             editCourseCredits.setText("");
 
-            // 기본 카테고리 자동 로드(교양선택 제외)
-            spinnerCourseCategory.postDelayed(() -> {
-                if (categoryAdapter.getCount() > 0) {
-                    String selectedCategory = categoryAdapter.getItem(0);
-                    Log.d(TAG, "라디오 전환 후 자동 로드: " + selectedCategory + " (전공? " + isMajor + ")");
-                    if (!"교양선택".equals(selectedCategory)) {
-                        loadCoursesForCategory(selectedCategory, majorCoursesAdapter);
-                    }
+            // 기본 카테고리 자동 로드(교양선택 제외) - 지연 제거
+            if (categoryAdapter.getCount() > 0) {
+                String selectedCategory = categoryAdapter.getItem(0);
+                Log.d(TAG, "라디오 전환 후 자동 로드: " + selectedCategory + " (전공? " + isMajor + ")");
+                if (!"교양선택".equals(selectedCategory)) {
+                    loadCoursesForCategory(selectedCategory, majorCoursesAdapter);
                 }
-            }, 100);
+            }
         });
 
         // 카테고리 선택
@@ -369,7 +398,10 @@ public class CourseInputActivity extends AppCompatActivity {
         });
 
         // 취소
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnCancel.setOnClickListener(v -> {
+            resetLoadingState(); // 다이어로그 닫을 때 상태 초기화
+            dialog.dismiss();
+        });
 
         // 추가
         btnAdd.setOnClickListener(v -> {
@@ -379,10 +411,12 @@ public class CourseInputActivity extends AppCompatActivity {
                 // 전공: 스피너 선택 우선, 없으면 수동
                 if (spinnerMajorCourses.getSelectedItemPosition() >= 0 && majorCoursesAdapter.getCount() > 0) {
                     if (addCourseFromDialog(spinnerCourseCategory, spinnerMajorCourses, categoryAdapter, majorCoursesAdapter)) {
+                        resetLoadingState(); // 다이어로그 닫을 때 상태 초기화
                         dialog.dismiss();
                     }
                 } else {
                     if (addCourseFromManualInput(spinnerCourseCategory, editCourseName, editCourseCredits, categoryAdapter)) {
+                        resetLoadingState(); // 다이어로그 닫을 때 상태 초기화
                         dialog.dismiss();
                     }
                 }
@@ -394,15 +428,18 @@ public class CourseInputActivity extends AppCompatActivity {
                     if (addGeneralCourseFromManualInput(
                             spinnerCourseCategory, editGeneralCourseName, editGeneralCourseCredits,
                             spinnerGeneralCompetency, categoryAdapter, generalCompetencyAdapter)) {
+                        resetLoadingState(); // 다이어로그 닫을 때 상태 초기화
                         dialog.dismiss();
                     }
                 } else {
                     if (spinnerMajorCourses.getSelectedItemPosition() >= 0 && majorCoursesAdapter.getCount() > 0) {
                         if (addCourseFromDialog(spinnerCourseCategory, spinnerMajorCourses, categoryAdapter, majorCoursesAdapter)) {
+                            resetLoadingState(); // 다이어로그 닫을 때 상태 초기화
                             dialog.dismiss();
                         }
                     } else {
                         if (addCourseFromManualInput(spinnerCourseCategory, editCourseName, editCourseCredits, categoryAdapter)) {
+                            resetLoadingState(); // 다이어로그 닫을 때 상태 초기화
                             dialog.dismiss();
                         }
                     }
@@ -411,6 +448,32 @@ public class CourseInputActivity extends AppCompatActivity {
         });
 
         dialog.show();
+    }
+
+    /**
+     * 다이어로그용 로딩 상태 초기화 (중복 로딩 방지 해제)
+     */
+    private void resetLoadingState() {
+        isLoadingCourses = false;
+        lastLoadedCategory = null;
+        lastLoadTime = 0;
+        pendingRequests.clear(); // 대기열도 초기화
+        Log.d(TAG, "다이어로그 로딩 상태 초기화");
+    }
+
+    /**
+     * 대기 중인 모든 어댑터들에 데이터 업데이트
+     */
+    private void updatePendingAdapters(String category, List<FirebaseDataManager.CourseInfo> courses) {
+        List<CleanArrayAdapter<FirebaseDataManager.CourseInfo>> adapters = pendingRequests.remove(category);
+        if (adapters != null) {
+            for (CleanArrayAdapter<FirebaseDataManager.CourseInfo> adapter : adapters) {
+                adapter.clear();
+                adapter.addAll(courses);
+                adapter.notifyDataSetChanged();
+            }
+            Log.d(TAG, "In-Flight 합치기: " + adapters.size() + "개 어댑터 동시 업데이트");
+        }
     }
 
     /** 카테고리 스피너 데이터 구성(전공/교양) */
@@ -455,12 +518,20 @@ public class CourseInputActivity extends AppCompatActivity {
         Log.d(TAG, "loadCoursesForCategory: " + category);
         long now = System.currentTimeMillis();
 
+        // In-Flight 합치기: 동일 카테고리 로딩 중이면 어댓터 추가 후 대기
         if (isLoadingCourses && category.equals(lastLoadedCategory)) {
-            Log.d(TAG, "중복 로딩 방지: 이미 로딩 중 => " + category);
+            Log.d(TAG, "In-Flight 합치기: 대기열에 추가 => " + category);
+            List<CleanArrayAdapter<FirebaseDataManager.CourseInfo>> adapters = pendingRequests.get(category);
+            if (adapters == null) {
+                adapters = new ArrayList<>();
+                pendingRequests.put(category, adapters);
+            }
+            adapters.add(courseAdapter);
             return;
         }
+        // 최소 간격 체크 (어부징 방지)
         if (category.equals(lastLoadedCategory) && (now - lastLoadTime) < MIN_LOAD_INTERVAL) {
-            Log.d(TAG, "시간 기반 중복 방지: 요청 간격 짧음 => " + category);
+            Log.d(TAG, "너무 빠른 재요청 차단: " + (now - lastLoadTime) + "ms < " + MIN_LOAD_INTERVAL + "ms");
             return;
         }
 
@@ -468,7 +539,10 @@ public class CourseInputActivity extends AppCompatActivity {
         lastLoadedCategory = category;
         lastLoadTime = now;
 
+        // 지연 개선: clear 후 즉시 로딩 메시지 표시
         courseAdapter.clear();
+        FirebaseDataManager.CourseInfo loadingItem = new FirebaseDataManager.CourseInfo("로딩 중...", 0);
+        courseAdapter.add(loadingItem);
         courseAdapter.notifyDataSetChanged();
 
         // 로딩 메시지는 리스트 영역에 표시
@@ -481,10 +555,16 @@ public class CourseInputActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
                             List<FirebaseDataManager.CourseInfo> filtered = filterRegisteredCourses(courses);
+                            // 메인 어댑터 업데이트
+                            courseAdapter.clear();
                             courseAdapter.addAll(filtered);
                             courseAdapter.notifyDataSetChanged();
+
+                            // 대기 중인 모든 어댑터들도 동시 업데이트
+                            updatePendingAdapters(category, filtered);
+
                             hideLoadingMessage();
-                            Log.d(TAG, category + " 강의 로드 성공: " + filtered.size());
+                            Log.d(TAG, category + " 강의 로드 성공: " + filtered.size() + "개 (대기열 포함)");
                             isLoadingCourses = false;
                         }
                         @Override
@@ -502,6 +582,7 @@ public class CourseInputActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
                             List<FirebaseDataManager.CourseInfo> filtered = filterRegisteredCourses(courses);
+                            courseAdapter.clear(); // 로딩 아이템 제거
                             courseAdapter.addAll(filtered);
                             courseAdapter.notifyDataSetChanged();
                             hideLoadingMessage();
@@ -525,6 +606,7 @@ public class CourseInputActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
                             List<FirebaseDataManager.CourseInfo> filtered = filterRegisteredCourses(courses);
+                            courseAdapter.clear(); // 로딩 아이템 제거
                             courseAdapter.addAll(filtered);
                             courseAdapter.notifyDataSetChanged();
                             hideLoadingMessage();
@@ -888,7 +970,8 @@ public class CourseInputActivity extends AppCompatActivity {
 
         }
         // 다음 화면으로 넘어간 뒤 다시 활성화(뒤로올 가능성 고려)
-        btnAnalyzeGraduation.postDelayed(() -> btnAnalyzeGraduation.setEnabled(true), 500);
+        // 2초 가드: 반드시 재활성화 보장
+        btnAnalyzeGraduation.postDelayed(() -> btnAnalyzeGraduation.setEnabled(true), 2000);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -908,19 +991,17 @@ public class CourseInputActivity extends AppCompatActivity {
         clearCourseSpinner(majorCoursesAdapter);
         setupCompetencySpinner(generalCompetencyAdapter);
 
-        spinnerCourseCategory.postDelayed(() -> {
-            if (lastSelectedCategoryPosition >= 0 && lastSelectedCategoryPosition < categoryAdapter.getCount()) {
-                spinnerCourseCategory.setSelection(lastSelectedCategoryPosition, false);
-                updateUIForCategorySelection(lastSelectedCategoryPosition, categoryAdapter, majorCoursesAdapter,
-                        layoutMajorCourses, layoutGeneralManualInput, layoutManualInput);
-            }
-        }, 100);
+        // 지연 제거: 즉시 실행
+        if (lastSelectedCategoryPosition >= 0 && lastSelectedCategoryPosition < categoryAdapter.getCount()) {
+            spinnerCourseCategory.setSelection(lastSelectedCategoryPosition, false);
+            updateUIForCategorySelection(lastSelectedCategoryPosition, categoryAdapter, majorCoursesAdapter,
+                    layoutMajorCourses, layoutGeneralManualInput, layoutManualInput);
+        }
 
-        spinnerGeneralCompetency.postDelayed(() -> {
-            if (lastSelectedCompetencyPosition >= 0 && lastSelectedCompetencyPosition < generalCompetencyAdapter.getCount()) {
-                spinnerGeneralCompetency.setSelection(lastSelectedCompetencyPosition, false);
-            }
-        }, 100);
+        // 지연 제거: 즉시 실행
+        if (lastSelectedCompetencyPosition >= 0 && lastSelectedCompetencyPosition < generalCompetencyAdapter.getCount()) {
+            spinnerGeneralCompetency.setSelection(lastSelectedCompetencyPosition, false);
+        }
 
         if (lastSelectedIsMajor) {
             layoutMajorCourses.setVisibility(View.VISIBLE);
@@ -932,16 +1013,15 @@ public class CourseInputActivity extends AppCompatActivity {
             layoutManualInput.setVisibility(View.GONE);
         }
 
-        spinnerCourseCategory.postDelayed(() -> {
-            if (categoryAdapter.getCount() > 0) {
-                int pos = Math.max(0, Math.min(lastSelectedCategoryPosition, categoryAdapter.getCount() - 1));
-                String selectedCategory = categoryAdapter.getItem(pos);
-                Log.d(TAG, "초기 카테고리 로딩: " + selectedCategory + " (pos=" + pos + ")");
-                if (!"교양선택".equals(selectedCategory)) {
-                    loadCoursesForCategory(selectedCategory, majorCoursesAdapter);
-                }
+        // 초기 카테고리 로딩 - 지연 제거
+        if (categoryAdapter.getCount() > 0) {
+            int pos = Math.max(0, Math.min(lastSelectedCategoryPosition, categoryAdapter.getCount() - 1));
+            String selectedCategory = categoryAdapter.getItem(pos);
+            Log.d(TAG, "초기 카테고리 로딩: " + selectedCategory + " (pos=" + pos + ")");
+            if (!"교양선택".equals(selectedCategory)) {
+                loadCoursesForCategory(selectedCategory, majorCoursesAdapter);
             }
-        }, 150);
+        }
     }
 
     private void updateUIForCategorySelection(int position, CleanArrayAdapter<String> categoryAdapter,

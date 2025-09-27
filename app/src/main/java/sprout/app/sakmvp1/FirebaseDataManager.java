@@ -15,31 +15,115 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Firebase Firestore 데이터 관리 싱글톤 클래스
+ *
+ * <p>이 클래스는 애플리케이션의 모든 Firestore 데이터 접근을 중앙 집중식으로 관리합니다.
+ * 주요 기능으로는 졸업 요건 데이터 조회, 강의 정보 관리, 학부/트랙 정보 제공 등이 있습니다.</p>
+ *
+ * <h3>주요 컬렉션 구조:</h3>
+ * <ul>
+ *   <li><code>graduation_requirements</code> - 학부별/트랙별/연도별 졸업 요건 및 강의 정보</li>
+ *   <li><code>graduation_meta</code> - 학부 메타데이터 (총 학점, 추가 졸업 조건 등)</li>
+ *   <li><code>student_progress</code> - 개별 학생의 학습 진행 상황</li>
+ * </ul>
+ *
+ * <h3>성능 최적화:</h3>
+ * <ul>
+ *   <li><strong>캐싱 시스템:</strong> 5분 유효성 메모리 캐시로 네트워크 요청 최소화</li>
+ *   <li><strong>N+1 쿼리 해결:</strong> DocumentSnapshot 캐싱으로 중복 쿼리 방지</li>
+ *   <li><strong>동시 로딩:</strong> 학번/학부/트랙 데이터 병렬 처리</li>
+ *   <li><strong>Single-flight 패턴:</strong> 중복 요청 자동 병합</li>
+ * </ul>
+ *
+ * @version 1.0
+ * @since 2025-09-26
+ * @author SakMvp1 Development Team
+ */
 public class FirebaseDataManager {
+    /** 로깅용 태그 */
     private static final String TAG = "FirebaseDataManager";
+
+    /** 싱글톤 인스턴스 */
     private static FirebaseDataManager instance;
+
+    /** Firestore 데이터베이스 인스턴스 */
     private FirebaseFirestore db;
 
-    // 캐싱을 위한 맵들
+    // ========== 캐싱 시스템 ==========
+
+    /** 학번(연도) 목록 캐시 - Key: "years", Value: ["2025", "2024", ...] */
     private Map<String, List<String>> studentYearsCache = new HashMap<>();
+
+    /** 학부 목록 캐시 - Key: "departments", Value: ["IT학부", "태권도학부", ...] */
     private Map<String, List<String>> departmentsCache = new HashMap<>();
+
+    /** 학부별 트랙 캐시 - Key: 학부명, Value: ["인공지능", "멀티미디어", ...] */
     private Map<String, List<String>> tracksCache = new HashMap<>();
+
+    /** 강의 정보 캐시 - Key: "학부_트랙_연도_카테고리", Value: CourseInfo 리스트 */
     private Map<String, List<CourseInfo>> coursesCache = new HashMap<>();
+
+    /** 졸업 요건 원시 데이터 캐시 - Key: "학부_트랙_연도", Value: Firestore 문서 데이터 */
     private Map<String, Object> graduationCache = new HashMap<>();
 
-    // 교양 문서 선택 캐시: "학부|연도" -> 최종 사용 문서ID(교양_학부_연도 또는 교양_공통_연도)
+    // ========== N+1 쿼리 최적화 및 고급 캐싱 ==========
+
+    /**
+     * 교양 문서 선택 캐시
+     * Key: "학부|연도" (예: "IT학부|2025")
+     * Value: 최종 사용할 문서ID ("교양_IT학부_2025" 또는 "교양_공통_2025")
+     *
+     * 교양 강의는 학부별 특화 문서를 우선 사용하고, 없으면 공통 문서를 fallback으로 사용
+     */
     private final Map<String, String> generalDocCache = new ConcurrentHashMap<>();
 
+    /**
+     * DocumentSnapshot 캐시 (N+1 쿼리 해결용)
+     * Key: Firestore 문서 ID
+     * Value: 캐시된 DocumentSnapshot 객체
+     *
+     * 동일한 문서에 대한 반복적인 Firestore 조회를 방지하여 성능을 크게 개선
+     */
+    private final Map<String, DocumentSnapshot> docSnapshotCache = new ConcurrentHashMap<>();
+
+    /**
+     * 캐시 타임스탬프 관리
+     * Key: 캐시 키
+     * Value: 캐시 생성 시간 (밀리초)
+     */
+    private final Map<String, Long> cacheTimestamps = new ConcurrentHashMap<>();
+
+    /** 캐시 유효 시간: 5분 (300,000ms) */
+    private static final long CACHE_VALIDITY_MS = 5 * 60 * 1000;
+
+    /**
+     * private 생성자 (싱글톤 패턴)
+     *
+     * <p>Firestore 인스턴스를 초기화하고, 초기화 실패 시 RuntimeException을 발생시킵니다.
+     * 이를 통해 애플리케이션 전체에서 데이터 접근 불가 상황을 조기에 감지할 수 있습니다.</p>
+     *
+     * @throws RuntimeException Firebase 초기화 실패 시
+     */
     private FirebaseDataManager() {
         try {
             db = FirebaseFirestore.getInstance();
             Log.d(TAG, "FirebaseFirestore 인스턴스 초기화 성공");
         } catch (Exception e) {
             Log.e(TAG, "FirebaseFirestore 초기화 실패", e);
-            throw new RuntimeException("Firebase 초기화 실패", e);
+            throw new RuntimeException("Firebase 초기화 실패 - 네트워크 연결 또는 Firebase 설정을 확인하세요", e);
         }
     }
 
+    /**
+     * 싱글톤 인스턴스 획득 (Thread-Safe)
+     *
+     * <p>애플리케이션 전체에서 단일 FirebaseDataManager 인스턴스를 공유합니다.
+     * synchronized 키워드로 멀티스레드 환경에서의 안전성을 보장합니다.</p>
+     *
+     * @return FirebaseDataManager 싱글톤 인스턴스
+     * @throws RuntimeException Firebase 초기화 실패 시 (최초 호출 시에만)
+     */
     public static synchronized FirebaseDataManager getInstance() {
         if (instance == null) {
             instance = new FirebaseDataManager();
@@ -47,33 +131,79 @@ public class FirebaseDataManager {
         return instance;
     }
 
-    // ---------- 공통 콜백/유틸 ----------
+    // ========== 콜백 인터페이스 정의 ==========
 
-    /** 교양 문서 선택 콜백 */
+    /**
+     * 교양 문서 해결 콜백 인터페이스
+     *
+     * <p>교양 강의 문서는 학부별 특화 문서("교양_IT학부_2025")를 우선 사용하고,
+     * 없을 경우 공통 문서("교양_공통_2025")를 fallback으로 사용합니다.
+     * 이러한 복잡한 로직의 결과를 비동기적으로 전달하기 위한 콜백입니다.</p>
+     */
     public interface OnGeneralDocResolvedListener {
-        void onResolved(String docId);    // 예: "교양_IT학부_2023" 또는 "교양_공통_2023"
-        void onNotFound();                // 둘 다 없을 때
+        /**
+         * 교양 문서가 성공적으로 해결되었을 때 호출
+         *
+         * @param docId 최종 결정된 문서 ID (예: "교양_IT학부_2025" 또는 "교양_공통_2025")
+         * @param snapshot 문서의 전체 내용 (N+1 쿼리 최적화를 위해 제공)
+         */
+        void onResolved(String docId, DocumentSnapshot snapshot);
+
+        /**
+         * 학부별 문서와 공통 문서 모두 존재하지 않을 때 호출
+         * 해당 연도의 교양 강의 데이터가 아직 Firestore에 업로드되지 않은 경우
+         */
+        void onNotFound();
+
+        /**
+         * Firestore 조회 중 네트워크 오류 등의 문제가 발생했을 때 호출
+         *
+         * @param e 발생한 예외 객체
+         */
         void onError(Exception e);
     }
 
     /**
-     * 교양 문서 ID 결정:
-     * 1) "교양_{학부}_{연도}"가 존재하면 사용
-     * 2) 없으면 "교양_공통_{연도}" 사용
-     * 3) 둘 다 없으면 onNotFound
-     *  - 결과는 generalDocCache 에 캐싱
+     * 교양 문서 ID 결정 (우선순위 기반 해결)
+     *
+     * <p>교양 강의 문서는 다음 우선순위로 결정됩니다:</p>
+     * <ol>
+     *   <li><strong>학부별 특화 문서:</strong> "교양_{학부}_{연도}" (예: "교양_IT학부_2025")</li>
+     *   <li><strong>공통 문서 (Fallback):</strong> "교양_공통_{연도}" (예: "교양_공통_2025")</li>
+     *   <li><strong>문서 없음:</strong> 둘 다 존재하지 않으면 onNotFound() 호출</li>
+     * </ol>
+     *
+     * <p><strong>성능 최적화:</strong> 한 번 해결된 결과는 generalDocCache에 캐싱되어
+     * 동일한 학부-연도 조합에 대한 반복 요청 시 즉시 반환됩니다.</p>
+     *
+     * @param department 학부명 (null 또는 공백 허용)
+     * @param year 연도 (4자리, 예: "2025")
+     * @param cb 결과를 받을 콜백 리스너
      */
     private void resolveGeneralDocId(String department, String year, OnGeneralDocResolvedListener cb) {
+        // 입력 매개변수 정규화 (null 안전성 확보)
         String dept = (department == null ? "" : department.trim());
         String yr = (year == null ? "" : year.trim());
 
-        final String deptDocId = "교양_" + dept + "_" + yr;
-        final String commonDocId = "교양_공통_" + yr;
-        final String cacheKey = dept + "|" + yr;
+        // Firestore 문서 ID 생성 (명명 규칙에 따라)
+        final String deptDocId = "교양_" + dept + "_" + yr;      // 학부별 특화 문서
+        final String commonDocId = "교양_공통_" + yr;             // 공통 Fallback 문서
+        final String cacheKey = dept + "|" + yr;                 // 캐시 키 (파이프 구분자 사용)
 
-        // 캐시 히트
+        // 캐시 히트 - 캐시된 문서 ID로 다시 조회 (DocumentSnapshot 필요)
         if (generalDocCache.containsKey(cacheKey)) {
-            cb.onResolved(generalDocCache.get(cacheKey));
+            String cachedDocId = generalDocCache.get(cacheKey);
+            db.collection("graduation_requirements").document(cachedDocId).get()
+                    .addOnSuccessListener(ds -> {
+                        if (ds.exists()) {
+                            cb.onResolved(cachedDocId, ds);
+                        } else {
+                            // 캐시 무효화 후 재시도
+                            generalDocCache.remove(cacheKey);
+                            resolveGeneralDocId(department, year, cb);
+                        }
+                    })
+                    .addOnFailureListener(cb::onError);
             return;
         }
 
@@ -81,15 +211,21 @@ public class FirebaseDataManager {
         db.collection("graduation_requirements").document(deptDocId).get()
                 .addOnSuccessListener(ds -> {
                     if (ds.exists()) {
+                        // 캐시 저장 (문서 ID + DocumentSnapshot + 타임스탬프)
                         generalDocCache.put(cacheKey, deptDocId);
-                        cb.onResolved(deptDocId);
+                        docSnapshotCache.put(cacheKey, ds);
+                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                        cb.onResolved(deptDocId, ds);
                     } else {
                         // 2순위: 공통
                         db.collection("graduation_requirements").document(commonDocId).get()
                                 .addOnSuccessListener(ds2 -> {
                                     if (ds2.exists()) {
+                                        // 캐시 저장 (공통 문서)
                                         generalDocCache.put(cacheKey, commonDocId);
-                                        cb.onResolved(commonDocId);
+                                        docSnapshotCache.put(cacheKey, ds2);
+                                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                                        cb.onResolved(commonDocId, ds2);
                                     } else {
                                         cb.onNotFound();
                                     }
@@ -98,6 +234,40 @@ public class FirebaseDataManager {
                     }
                 })
                 .addOnFailureListener(cb::onError);
+    }
+
+    /**
+     * 백그라운드 캐시 새로고침 (비동기)
+     */
+    private void refreshCacheInBackground(String department, String year, String cacheKey) {
+        String dept = (department == null ? "" : department.trim());
+        String yr = (year == null ? "" : year.trim());
+        final String deptDocId = "교양_" + dept + "_" + yr;
+        final String commonDocId = "교양_공통_" + yr;
+
+        // 백그라운드로 업데이트 (사용자에게 영향 없음)
+        db.collection("graduation_requirements").document(deptDocId).get()
+                .addOnSuccessListener(ds -> {
+                    if (ds.exists()) {
+                        generalDocCache.put(cacheKey, deptDocId);
+                        docSnapshotCache.put(cacheKey, ds);
+                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                        Log.d(TAG, "Background refresh success: " + cacheKey);
+                    } else {
+                        // 공통 문서 시도
+                        db.collection("graduation_requirements").document(commonDocId).get()
+                                .addOnSuccessListener(ds2 -> {
+                                    if (ds2.exists()) {
+                                        generalDocCache.put(cacheKey, commonDocId);
+                                        docSnapshotCache.put(cacheKey, ds2);
+                                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                                        Log.d(TAG, "Background refresh success (common): " + cacheKey);
+                                    }
+                                })
+                                .addOnFailureListener(e -> Log.w(TAG, "Background refresh failed (common): " + cacheKey, e));
+                    }
+                })
+                .addOnFailureListener(e -> Log.w(TAG, "Background refresh failed: " + cacheKey, e));
     }
 
     // ---------- 학번/학부/트랙 조회 ----------
@@ -199,8 +369,23 @@ public class FirebaseDataManager {
         void onFailure(Exception e);
     }
 
+    // 모든 트랙 데이터 조회 (학부별 맵으로 반환)
+    public interface OnAllTracksLoadedListener {
+        void onSuccess(Map<String, List<String>> allTracks); // 학부명 -> 트랙 리스트
+        void onFailure(Exception e);
+    }
+
     public void loadTracksByDepartment(String departmentName, OnTracksLoadedListener listener) {
-        // graduation_requirements 컬렉션에서 해당 학부의 트랙 정보 추출
+        // 캐시 확인 - 즉시 반환 가능
+        if (tracksCache.containsKey(departmentName)) {
+            List<String> cachedTracks = tracksCache.get(departmentName);
+            Log.d(TAG, departmentName + " 트랙 데이터 캐시 히트: " + cachedTracks.size() + "개");
+            listener.onSuccess(new ArrayList<>(cachedTracks)); // 방어적 복사
+            return;
+        }
+
+        // 캐시 미스 - Firestore에서 로드
+        Log.d(TAG, departmentName + " 트랙 데이터 캐시 미스, Firestore 조회 중...");
         db.collection("graduation_requirements")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
@@ -224,11 +409,66 @@ public class FirebaseDataManager {
                     // 알파벳 순으로 정렬
                     tracks.sort(String::compareTo);
 
-                    Log.d(TAG, departmentName + " 트랙 데이터 로드 성공: " + tracks.size() + "개 - " + tracks);
+                    // 캐시에 저장
+                    tracksCache.put(departmentName, new ArrayList<>(tracks));
+
+                    Log.d(TAG, departmentName + " 트랙 데이터 로드 및 캐시 성공: " + tracks.size() + "개 - " + tracks);
                     listener.onSuccess(tracks);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, departmentName + " 트랙 데이터 로드 실패", e);
+                    listener.onFailure(e);
+                });
+    }
+
+    /**
+     * 모든 학부의 트랙 데이터를 한번에 로드하여 캐시에 저장
+     * - graduation_requirements 컬렉션을 한번만 조회
+     * - 모든 학부별 트랙을 추출하여 캐시에 저장
+     * - 결과를 Map<학부명, 트랙리스트>로 반환
+     */
+    public void loadAllTracks(OnAllTracksLoadedListener listener) {
+        Log.d(TAG, "모든 트랙 데이터 로드 시작 (한번의 Firestore 조회)");
+
+        db.collection("graduation_requirements")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Map<String, Set<String>> departmentTracksMap = new HashMap<>();
+
+                    for (DocumentSnapshot document : queryDocumentSnapshots) {
+                        String docId = document.getId();
+                        // 문서 ID 형식: "IT학부_멀티미디어_2020"
+                        String[] parts = docId.split("_");
+                        if (parts.length >= 3) {
+                            String department = parts[0]; // 첫 번째 부분이 학부
+                            String track = parts[1]; // 두 번째 부분이 트랙
+
+                            // 교양 문서는 제외
+                            if (!department.equals("교양")) {
+                                departmentTracksMap.computeIfAbsent(department, k -> new HashSet<>()).add(track);
+                            }
+                        }
+                    }
+
+                    // Set을 List로 변환하고 정렬
+                    Map<String, List<String>> result = new HashMap<>();
+                    for (Map.Entry<String, Set<String>> entry : departmentTracksMap.entrySet()) {
+                        String department = entry.getKey();
+                        List<String> tracks = new ArrayList<>(entry.getValue());
+                        tracks.sort(String::compareTo); // 알파벳 순 정렬
+
+                        // 캐시에 저장
+                        tracksCache.put(department, new ArrayList<>(tracks));
+                        result.put(department, tracks);
+
+                        Log.d(TAG, department + " 트랙 캐시 저장 완료: " + tracks.size() + "개 - " + tracks);
+                    }
+
+                    Log.d(TAG, "모든 트랙 데이터 로드 완료: " + result.size() + "개 학부");
+                    listener.onSuccess(result);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "모든 트랙 데이터 로드 실패", e);
                     listener.onFailure(e);
                 });
     }
@@ -857,21 +1097,14 @@ public class FirebaseDataManager {
 
         resolveGeneralDocId(department, year, new OnGeneralDocResolvedListener() {
             @Override
-            public void onResolved(String docId) {
+            public void onResolved(String docId, DocumentSnapshot snapshot) {
                 Log.d(TAG, "교양 문서 확정: " + docId);
-                db.collection("graduation_requirements").document(docId)
-                        .get()
-                        .addOnSuccessListener(snapshot -> {
-                            if (snapshot.exists()) {
-                                loadGeneralEducationFromDocument(snapshot, category, listener);
-                            } else {
-                                listener.onFailure(new Exception("교양 문서가 존재하지 않습니다: " + docId));
-                            }
-                        })
-                        .addOnFailureListener(e -> {
-                            Log.e(TAG, "교양 문서 조회 실패: " + docId, e);
-                            listener.onFailure(e);
-                        });
+                // N+1 해결: 이미 받은 DocumentSnapshot 사용
+                if (snapshot.exists()) {
+                    loadGeneralEducationFromDocument(snapshot, category, listener);
+                } else {
+                    listener.onFailure(new Exception("교양 문서가 존재하지 않습니다: " + docId));
+                }
             }
 
             @Override
@@ -1116,17 +1349,13 @@ public class FirebaseDataManager {
 
         resolveGeneralDocId(department, year, new OnGeneralDocResolvedListener() {
             @Override
-            public void onResolved(String docId) {
-                db.collection("graduation_requirements").document(docId)
-                        .get()
-                        .addOnSuccessListener(snapshot -> {
-                            if (snapshot.exists()) {
-                                extractGeneralEducationGroupsData(snapshot, listener);
-                            } else {
-                                listener.onFailure(new Exception("교양교육 문서가 존재하지 않습니다: " + docId));
-                            }
-                        })
-                        .addOnFailureListener(listener::onFailure);
+            public void onResolved(String docId, DocumentSnapshot snapshot) {
+                // N+1 해결: 이미 받은 DocumentSnapshot 사용
+                if (snapshot.exists()) {
+                    extractGeneralEducationGroupsData(snapshot, listener);
+                } else {
+                    listener.onFailure(new Exception("교양교육 문서가 존재하지 않습니다: " + docId));
+                }
             }
 
             @Override

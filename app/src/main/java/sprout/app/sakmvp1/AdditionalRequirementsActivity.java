@@ -27,14 +27,44 @@ import androidx.core.view.WindowInsetsCompat;
 /**
  * 추가 졸업 요건 입력 화면
  *
- * 역할
- * - 학번/학과/트랙(이전 화면에서 전달받음)을 표시
- * - TLC 이수 횟수, 채플 이수 학기, 마일리지 달성 여부, (학과별) 동적 추가요건을 입력 받음
- * - 입력값 검증 후 다음 화면(CourseInputActivity)으로 전달
+ * <p>이 Activity는 졸업 요건 분석 과정의 두 번째 단계로, 기본 졸업 요건 외에
+ * 필요한 추가 요건들을 입력받는 화면입니다. 사용자는 TLC, 채플, 마일리지 등의
+ * 기본 추가 요건과 학과별 특별 요구사항을 입력할 수 있습니다.</p>
  *
- * 참고
- * - 고대비 테마(HighContrastHelper) 적용
- * - 학과별 '추가 졸업 요건'은 FirebaseDataManager를 통해 동적으로 로드 후 체크박스로 표시
+ * <h3>주요 기능:</h3>
+ * <ul>
+ *   <li>📋 <strong>기본 추가 요건 입력</strong>: TLC 이수 횟수(0-6회), 채플 이수 학기(0-6학기)</li>
+ *   <li>🏆 <strong>마일리지 달성 여부</strong>: 체크박스로 달성 상태 입력</li>
+ *   <li>🎯 <strong>동적 추가 요건</strong>: 학과별 특별 요구사항 (졸업작품 등) 동적 로드</li>
+ *   <li>✅ <strong>실시간 입력 검증</strong>: 숫자 범위 체크 및 형식 검증</li>
+ *   <li>💾 <strong>상태 보존</strong>: 화면 회전 시 입력 데이터 복원</li>
+ * </ul>
+ *
+ * <h3>데이터 플로우:</h3>
+ * <ul>
+ *   <li>📥 <strong>입력</strong>: GraduationAnalysisActivity에서 학번/학과/트랙 정보 수신</li>
+ *   <li>📤 <strong>출력</strong>: CourseInputActivity로 추가 요건 데이터 전송</li>
+ * </ul>
+ *
+ * <h3>UI 특징:</h3>
+ * <ul>
+ *   <li>♿ <strong>접근성</strong>: HighContrastHelper를 통한 고대비 테마 지원</li>
+ *   <li>🛡️ <strong>중복 클릭 방지</strong>: 2초 가드를 통한 다중 제출 방지</li>
+ *   <li>📱 <strong>키패드 최적화</strong>: 숫자 입력 시 숫자 키패드 자동 표시</li>
+ *   <li>🔄 <strong>동적 UI</strong>: 학과별 추가 요건 존재 시에만 관련 영역 표시</li>
+ * </ul>
+ *
+ * <h3>성능 최적화:</h3>
+ * <ul>
+ *   <li>⚡ <strong>중복 요청 방지</strong>: 추가 요건 로드 시 기존 뷰 정리</li>
+ *   <li>💾 <strong>상태 관리</strong>: 회전 복원을 위한 pending 상태 관리</li>
+ *   <li>🚀 <strong>즉시 피드백</strong>: 실시간 입력 검증으로 사용자 경험 향상</li>
+ * </ul>
+ *
+ * @see GraduationAnalysisActivity 이전 단계 (학번/학과/트랙 선택)
+ * @see CourseInputActivity 다음 단계 (수강 강의 입력)
+ * @see AdditionalRequirements 추가 요건 데이터 모델
+ * @see FirebaseDataManager#loadExtraGradRequirements 동적 요건 로드
  */
 public class AdditionalRequirementsActivity extends AppCompatActivity {
 
@@ -410,7 +440,10 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
      * - 유효 시 다음 화면으로 전송
      */
     private void proceedToCourseInput() {
-        btnNextToCourseInput.setEnabled(false); // (5) 중복 클릭 방지
+        btnNextToCourseInput.setEnabled(false); // 중복 클릭 방지
+
+        // 2초 가드: 반드시 재활성화 보장
+        btnNextToCourseInput.postDelayed(() -> btnNextToCourseInput.setEnabled(true), 2000);
 
         AdditionalRequirements requirements = collectAdditionalRequirements();
         if (requirements != null) {
@@ -423,7 +456,8 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
             startActivity(intent);
             Toast.makeText(this, "추가 요건이 저장되었습니다.", Toast.LENGTH_SHORT).show();
         } else {
-            // 검증 실패 시 다시 활성화
+            // 검증 실패 시 가드 제거 후 즉시 재활성화
+            btnNextToCourseInput.removeCallbacks(null);
             btnNextToCourseInput.setEnabled(true);
         }
     }

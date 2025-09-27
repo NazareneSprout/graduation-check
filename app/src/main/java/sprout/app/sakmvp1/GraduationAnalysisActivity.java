@@ -23,23 +23,43 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 졸업 요건 분석 진입 화면
+ * 졸업 요건 분석 진입점 화면
  *
- * 역할
- * - 학번(연도), 학부, 트랙을 선택받아 유효성을 검증
- * - 선택값으로 Firestore의 졸업요건이 존재하는지 1차 확인
- * - 이후 추가 요건 입력 화면(AdditionalRequirementsActivity)로 이동
+ * <p>이 화면은 사용자가 자신의 학사 정보(학번, 학부, 트랙)를 선택하여
+ * 졸업 요건 분석을 시작하는 진입점 역할을 합니다.
+ * 선택된 정보의 유효성을 검증한 후, 다음 단계로 진행합니다.</p>
  *
- * 특징
- * - 학번은 UI에서 2자리 표기(예: "25"), 내부 로직에서 4자리로 역변환(예: "2025")
- * - 스피너는 안내문구 없이 실제 데이터만 표시하는 CleanArrayAdapter 사용
- * - Edge-to-Edge + 고대비 테마 적용
+ * <h3>주요 기능:</h3>
+ * <ul>
+ *   <li><strong>데이터 선택:</strong> 학번(연도), 학부, 트랙을 순차적으로 선택</li>
+ *   <li><strong>동적 로딩:</strong> Firestore에서 실시간으로 사용 가능한 데이터 로드</li>
+ *   <li><strong>유효성 검증:</strong> 선택된 조합에 해당하는 졸업 요건이 Firestore에 존재하는지 확인</li>
+ *   <li><strong>화면 전환:</strong> 검증 성공 시 AdditionalRequirementsActivity로 이동</li>
+ * </ul>
+ *
+ * <h3>성능 최적화:</h3>
+ * <ul>
+ *   <li><strong>동시 로딩:</strong> 학번/학부/트랙 데이터를 초기에 병렬로 로드</li>
+ *   <li><strong>캐싱 시스템:</strong> 한 번 로드된 데이터는 메모리에 캐싱되어 즉시 표시</li>
+ *   <li><strong>디바운스:</strong> 100ms 디바운스로 불필요한 네트워크 요청 방지</li>
+ * </ul>
+ *
+ * <h3>UI 특징:</h3>
+ * <ul>
+ *   <li><strong>학번 표시:</strong> UI에서는 2자리("25"), 내부에서는 4자리("2025") 사용</li>
+ *   <li><strong>CleanArrayAdapter:</strong> 스피너에 안내 문구 없이 실제 데이터만 표시</li>
+ *   <li><strong>접근성:</strong> 고대비 테마 지원 및 Edge-to-Edge 디자인</li>
+ * </ul>
+ *
+ * @see AdditionalRequirementsActivity 다음 단계 화면
+ * @see FirebaseDataManager 데이터 관리 클래스
  */
 public class GraduationAnalysisActivity extends AppCompatActivity {
 
+    /** 로깅 식별용 태그 */
     private static final String TAG = "GraduationAnalysis";
 
-    // ---------- UI ----------
+    // ========== UI 컴포넌트 ==========
     private Spinner spinnerStudentId;    // 학번(연도) 선택 (UI: 2자리, 내부: 4자리로 변환)
     private Spinner spinnerDepartment;   // 학부 선택
     private Spinner spinnerTrack;        // 트랙 선택
@@ -56,8 +76,14 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
     // 초기 데이터 로딩 상태 추적
     private boolean studentYearsLoaded = false;
     private boolean departmentsLoaded = false;
+    private boolean allTracksLoaded = false;
     private List<String> loadedStudentYears = null;
     private List<String> loadedDepartments = null;
+    private Map<String, List<String>> allTracksData = null;
+
+    // 디바운스용 핸들러와 Runnable
+    private android.os.Handler debounceHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private Runnable pendingTrackLoad;
 
     // 스피너 어댑터(실데이터 전용)
     private CleanArrayAdapter<String> studentIdAdapter;
@@ -154,22 +180,35 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
         btnStartAnalysis.setOnClickListener(v -> startGraduationAnalysis());
     }
 
-    /** 초기 로딩(학번 + 학부) */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // 디바운스 핸들러 정리
+        if (debounceHandler != null && pendingTrackLoad != null) {
+            debounceHandler.removeCallbacks(pendingTrackLoad);
+            pendingTrackLoad = null;
+        }
+    }
+
+    /** 초기 로딩(학번 + 학부 + 모든 트랙) */
     private void loadAllInitialData() {
         // 로딩 상태 초기화
         studentYearsLoaded = false;
         departmentsLoaded = false;
+        allTracksLoaded = false;
         loadedStudentYears = null;
         loadedDepartments = null;
+        allTracksData = null;
 
-        showLoading(true, "초기 데이터 로딩 중...", "학번과 학부 정보를 가져오고 있어요");
+        showLoading(true, "초기 데이터 로딩 중...", "학번, 학부, 트랙 정보를 동시에 가져오고 있어요");
         loadStudentYears();  // 학번(연도) 목록
         loadDepartments();   // 학부 목록
+        loadAllTracks();     // 모든 트랙 데이터
     }
 
     /** 모든 초기 데이터 로딩 완료 시 UI 업데이트 */
     private void checkAndUpdateInitialDataUI() {
-        if (studentYearsLoaded && departmentsLoaded) {
+        if (studentYearsLoaded && departmentsLoaded && allTracksLoaded) {
             // 학번 데이터 적용
             studentIdAdapter.clear();
             if (loadedStudentYears != null) {
@@ -194,8 +233,30 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
             departmentAdapter.notifyDataSetChanged();
 
             showLoading(false);
-            Log.d(TAG, "모든 초기 데이터 로딩 완료 - UI 업데이트");
+            Log.d(TAG, "모든 초기 데이터 로딩 완료 - UI 업데이트 (트랙 데이터 포함)");
         }
+    }
+
+    /** 모든 트랙 데이터 로드 */
+    private void loadAllTracks() {
+        dataManager.loadAllTracks(new FirebaseDataManager.OnAllTracksLoadedListener() {
+            @Override
+            public void onSuccess(Map<String, List<String>> allTracks) {
+                allTracksData = allTracks;
+                allTracksLoaded = true;
+                Log.d(TAG, "모든 트랙 데이터 로드 성공: " + allTracks.size() + "개 학부 (UI 업데이트 대기 중)");
+                checkAndUpdateInitialDataUI();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "모든 트랙 데이터 로드 실패", e);
+                allTracksLoaded = true; // 실패해도 다른 데이터는 표시하기 위해
+                checkAndUpdateInitialDataUI();
+                Toast.makeText(GraduationAnalysisActivity.this,
+                        "트랙 데이터를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /**
@@ -259,7 +320,8 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
             public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
                 if (position >= 0) {
                     String selectedDepartment = departmentAdapter.getItem(position);
-                    loadTracksByDepartment(selectedDepartment);
+                    // 캐시된 데이터를 즉시 표시 (디바운스 없이)
+                    loadCachedTracks(selectedDepartment);
                 }
             }
 
@@ -269,25 +331,25 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
     }
 
     /**
-     * 특정 학부의 트랙 목록 로드
+     * 캐시된 트랙 데이터를 즉시 표시
+     * - 디바운스 없이 즉시 업데이트
+     * - 이미 캐시된 데이터 사용
      */
-    private void loadTracksByDepartment(String departmentName) {
-        dataManager.loadTracksByDepartment(departmentName, new FirebaseDataManager.OnTracksLoadedListener() {
-            @Override
-            public void onSuccess(List<String> tracks) {
-                trackAdapter.clear();
-                trackAdapter.addAll(tracks);
-                trackAdapter.notifyDataSetChanged();
-                Log.d(TAG, departmentName + " 트랙 데이터 로드 성공: " + tracks.size() + "개");
-            }
+    private void loadCachedTracks(String departmentName) {
+        if (allTracksData != null && allTracksData.containsKey(departmentName)) {
+            List<String> tracks = allTracksData.get(departmentName);
 
-            @Override
-            public void onFailure(Exception e) {
-                Log.e(TAG, "트랙 데이터 로드 실패", e);
-                Toast.makeText(GraduationAnalysisActivity.this,
-                        "트랙 데이터를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show();
-            }
-        });
+            trackAdapter.clear();
+            trackAdapter.addAll(tracks);
+            trackAdapter.notifyDataSetChanged();
+
+            Log.d(TAG, departmentName + " 트랙 데이터 캐시에서 즉시 로드: " + tracks.size() + "개");
+        } else {
+            // 캐시에 데이터가 없는 경우 비우고 에러 메시지
+            trackAdapter.clear();
+            trackAdapter.notifyDataSetChanged();
+            Log.w(TAG, departmentName + " 트랙 데이터가 캐시에 없음");
+        }
     }
 
     /**

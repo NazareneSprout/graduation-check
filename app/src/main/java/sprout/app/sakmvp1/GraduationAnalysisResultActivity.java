@@ -32,6 +32,57 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 졸업 요건 분석 결과 화면
+ *
+ * <p>이 Activity는 졸업 요건 분석 과정의 마지막 단계로, 사용자가 입력한 모든 정보를
+ * 종합하여 졸업 진행 상황을 시각적으로 분석하고 표시하는 화면입니다.
+ * 도넛 차트를 통한 전체 진행률과 상세 분석 결과를 탭 형태로 제공합니다.</p>
+ *
+ * <h3>주요 기능:</h3>
+ * <ul>
+ *   <li>📊 <strong>도넛 차트 시각화</strong>: 전체 졸업 진행률을 시각적으로 표현</li>
+ *   <li>📈 <strong>상세 분석</strong>: 전공/교양 카테고리별 이수 현황 분석</li>
+ *   <li>📝 <strong>이수 과목 현황</strong>: 카테고리별 이수한 과목 목록 표시</li>
+ *   <li>🎯 <strong>추가 요건 분석</strong>: TLC, 채플, 마일리지 등 특별 요구사항 평가</li>
+ *   <li>💾 <strong>결과 저장</strong>: SharedPreferences를 통한 분석 결과 저장</li>
+ * </ul>
+ *
+ * <h3>분석 항목:</h3>
+ * <ul>
+ *   <li>🏫 <strong>전공 과목</strong>: 전공필수, 전공선택, 전공심화 분석</li>
+ *   <li>📚 <strong>교양 과목</strong>: 교양필수, 교양선택 분석</li>
+ *   <li>🎓 <strong>학부공통</strong>: 학부공통 과목 이수 현황</li>
+ *   <li>➕ <strong>추가 요건</strong>: TLC, 채플, 마일리지, 학과별 특별 요구사항</li>
+ * </ul>
+ *
+ * <h3>UI 구성:</h3>
+ * <ul>
+ *   <li>📊 <strong>상단 도넛 차트</strong>: 전체 졸업 진행률 시각화</li>
+ *   <li>📋 <strong>탭 기반 네비게이션</strong>: ViewPager2로 구현된 상세 분석 탭</li>
+ *   <li>🧭 <strong>하단 네비게이션</strong>: 다른 화면으로의 이동</li>
+ *   <li>📱 <strong>학생 정보</strong>: 상단에 학번/학과/트랙 정보 표시</li>
+ * </ul>
+ *
+ * <h3>데이터 관리:</h3>
+ * <ul>
+ *   <li>🔄 <strong>정적 데이터 공유</strong>: Fragment 간 데이터 공유를 위한 static 필드 활용</li>
+ *   <li>🗂️ <strong>코스 분류</strong>: 입력된 과목을 카테고리별로 자동 분류</li>
+ *   <li>💾 <strong>캐싱</strong>: 분석 결과를 메모리에 캐싱하여 탭 전환 시 빠른 접근</li>
+ * </ul>
+ *
+ * <h3>성능 최적화:</h3>
+ * <ul>
+ *   <li>⚡ <strong>배치 분석</strong>: 모든 분석을 한 번에 수행하여 중복 계산 방지</li>
+ *   <li>📊 <strong>Fragment 재사용</strong>: FragmentStateAdapter를 통한 효율적인 탭 관리</li>
+ *   <li>🔍 <strong>실시간 계산</strong>: 학점과 진행률을 동적으로 계산</li>
+ * </ul>
+ *
+ * @see CourseInputActivity 이전 단계 (수강 강의 입력)
+ * @see DonutChartView 도넛 차트 커스텀 뷰
+ * @see FirebaseDataManager 졸업 요건 데이터 관리
+ * @see GraduationProgress 졸업 진행 상황 데이터 모델
+ */
 public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
     private static final String TAG = "GraduationResult";

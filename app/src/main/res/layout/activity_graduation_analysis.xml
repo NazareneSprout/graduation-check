@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    졸업 분석 화면 레이아웃
+
+    이 파일은 졸업 요건 분석의 첫 번째 단계인 학번/학부/트랙 선택 화면을 구성합니다.
+    사용자가 정확한 졸업 요건 분석을 받기 위해 필요한 기본 정보를 입력하는 화면입니다.
+
+    주요 구성 요소:
+    - 상단 툴바 (뒤로가기 포함)
+    - 학번 선택 스피너 (2자리 형식으로 표시, 내부적으로 4자리 변환)
+    - 학부 선택 스피너 (동적 로드)
+    - 트랙 선택 스피너 (학부 선택에 따라 동적 업데이트)
+    - 분석 시작 버튼
+    - 전체 화면 로딩 오버레이
+
+    특징:
+    - FrameLayout 기반으로 로딩 오버레이 지원
+    - Material Design 3 컴포넌트 사용
+    - 동적 데이터 로딩 중 사용자 피드백 제공
+    - 스크롤 가능한 콘텐츠로 작은 화면 대응
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -8,13 +28,15 @@
     android:background="?attr/colorSurface"
     tools:context=".GraduationAnalysisActivity">
 
-    <!-- 메인 컨텐츠 레이어 -->
+    <!-- 메인 컨텐츠 레이어: 툴바와 콘텐츠를 포함하는 수직 레이아웃 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-    <!-- 툴바 -->
+    <!-- 상단 툴바 영역
+         - Material AppBarLayout으로 일관된 디자인 제공
+         - 뒤로가기 버튼과 화면 제목 포함 -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -31,7 +53,9 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- 메인 컨텐츠 -->
+    <!-- 스크롤 가능한 메인 콘텐츠 영역
+         - 작은 화면에서도 모든 콘텐츠 접근 가능
+         - fillViewport으로 빈 공간 활용 -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -43,7 +67,7 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- 제목 -->
+            <!-- 화면 제목: 졸업 요건 분석 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -53,7 +77,7 @@
                 android:gravity="center"
                 android:layout_marginBottom="32dp" />
 
-            <!-- 안내 문구 -->
+            <!-- 사용자 안내 문구: 정보 선택 요청 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
