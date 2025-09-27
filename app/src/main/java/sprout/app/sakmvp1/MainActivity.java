@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
             bottomNavigation.setOnItemSelectedListener(item -> {
                 int itemId = item.getItemId();
                 if (itemId == R.id.nav_button_1) {
-                    Toast.makeText(this, "버튼1", Toast.LENGTH_SHORT).show();
+                    // 홈 버튼 - 이미 홈 화면이므로 아무 동작 안 함
                     return true;
                 } else if (itemId == R.id.nav_button_2) {
                     // '버튼2' 클릭 시 (시간표 화면) 시작
