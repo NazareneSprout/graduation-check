@@ -72,11 +72,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="104dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="120dp"
         android:src="@android:drawable/ic_input_add"
         android:contentDescription="수업 추가"
-        app:tint="@android:color/white" />
+        app:tint="@android:color/white"
+        app:backgroundTint="#1976D2" />
 
     <!-- 하단 네비게이션 바 -->
     <com.google.android.material.bottomnavigation.BottomNavigationView

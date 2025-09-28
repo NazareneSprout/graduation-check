@@ -103,7 +103,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        HighContrastHelper.applyHighContrastTheme(this);
+        // 임시로 고대비 테마 비활성화 (ANR 문제 디버깅용)
+        // HighContrastHelper.applyHighContrastTheme(this);
 
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);

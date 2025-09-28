@@ -98,7 +98,8 @@
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 950 1550)",
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input text \"컴퓨터프로그래밍\")",
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input text \"Programming\")",
-      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 540 800)"
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe shell input tap 540 800)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat -d -v time -s sprout.app.sakmvp1:V)"
     ],
     "deny": [],
     "ask": []
