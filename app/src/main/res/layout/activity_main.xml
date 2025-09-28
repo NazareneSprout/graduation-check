@@ -1,4 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    메인 화면 레이아웃
+
+    이 파일은 애플리케이션의 메인 허브 화면을 구성하는 레이아웃입니다.
+    CoordinatorLayout을 기반으로 하여 Edge-to-Edge UI와 하단 네비게이션이
+    시스템 UI와 자연스럽게 통합되도록 구성되어 있습니다.
+
+    주요 구성 요소:
+    - 상단 배너 슬라이드 (ViewPager2)
+    - 2x2 그리드 형태의 메인 기능 버튼
+    - 하단 추가 기능 버튼 (2개)
+    - 하단 네비게이션 바 (BottomNavigationView)
+
+    레이아웃 특징:
+    - Edge-to-Edge UI 지원
+    - Material Design 3 컴포넌트 사용
+    - 접근성 고려 (contentDescription, 적절한 터치 영역)
+    - 다양한 화면 크기 대응 (weight 사용)
+-->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -9,6 +28,7 @@
     android:fitsSystemWindows="true"
     tools:context="sprout.app.sakmvp1.MainActivity">
 
+    <!-- 메인 콘텐츠 컨테이너 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -16,7 +36,10 @@
         android:layout_marginBottom="44dp"
         android:fitsSystemWindows="false">
 
-        <!-- 상단 광고 배너 공간 -->
+        <!-- 상단 배너 슬라이드 영역
+             - ViewPager2를 사용한 자동 슬라이드 배너
+             - 8초 간격으로 3개 이미지 자동 전환
+             - 120dp 고정 높이로 일관된 UI 제공 -->
         <androidx.viewpager2.widget.ViewPager2
             android:id="@+id/banner_viewpager"
             android:layout_width="match_parent"
@@ -24,7 +47,9 @@
             android:layout_margin="16dp"
             android:layout_marginTop="48dp" />
 
-        <!-- 메인 콘텐츠 영역 -->
+        <!-- 스크롤 가능한 메인 콘텐츠 영역
+             - 화면 크기에 관계없이 모든 콘텐츠 접근 가능
+             - 하단 네비게이션 공간 확보 위해 weight 사용 -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -39,20 +64,27 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- 2x2 메인 기능 버튼 그리드 -->
+                <!-- 2x2 메인 기능 버튼 그리드
+                     - Material Card를 사용한 현대적인 디자인
+                     - 각 버튼은 150dp 고정 높이로 일관성 유지
+                     - 테마 색상을 활용한 시각적 구분 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:layout_marginTop="16dp">
 
-                    <!-- 첫 번째 줄 -->
+                    <!-- 첫 번째 줄: 기능1(졸업분석), 기능2(데이터뷰어) -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:weightSum="2">
 
+                        <!-- 기능1: 졸업 분석 버튼
+                             - Primary 컨테이너 색상 사용
+                             - 졸업 모자 아이콘으로 기능 직관적 표현
+                             - GraduationAnalysisActivity로 이동 -->
                         <com.google.android.material.card.MaterialCardView
                             android:layout_width="0dp"
                             android:layout_height="150dp"
@@ -75,7 +107,7 @@
                                 <ImageView
                                     android:layout_width="48dp"
                                     android:layout_height="48dp"
-                                    android:src="@drawable/ic_arrow_back"
+                                    android:src="@drawable/ic_graduation"
                                     app:tint="?attr/colorOnPrimaryContainer"
                                     android:contentDescription="@string/function_1"
                                     android:layout_marginBottom="8dp" />
@@ -244,37 +276,179 @@
                             android:textColor="?android:attr/textColorPrimary"
                             android:layout_marginBottom="12dp" />
 
-                        <!-- 하단 작은 버튼들 -->
+                        <!-- 버튼들 -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:gravity="center">
 
-                            <Button
-                                android:id="@+id/btnFunction5"
-                                android:layout_width="0dp"
-                                android:layout_height="40dp"
-                                android:layout_weight="1"
-                                android:text="@string/function_5"
-                                android:textSize="12sp"
-                                android:layout_marginEnd="8dp"
-                                style="@style/Widget.Material3.Button.OutlinedButton" />
+                    <!-- 학사일정 버튼 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction5"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
 
-                            <Button
-                                android:id="@+id/btnFunction6"
-                                android:layout_width="0dp"
-                                android:layout_height="40dp"
-                                android:layout_weight="1"
-                                android:text="@string/function_6"
-                                android:textSize="12sp"
-                                android:layout_marginStart="8dp"
-                                style="@style/Widget.Material3.Button.TonalButton" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            app:cardCornerRadius="28dp"
+                            app:cardElevation="2dp"
+                            app:cardBackgroundColor="?attr/colorPrimaryContainer">
 
-                        </LinearLayout>
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_calendar"
+                                app:tint="?attr/colorOnPrimaryContainer"
+                                android:contentDescription="학사일정" />
+
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_5"
+                            android:textSize="10sp"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center" />
 
                     </LinearLayout>
 
+                    <!-- 학사공지 버튼 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction6"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            app:cardCornerRadius="28dp"
+                            app:cardElevation="2dp"
+                            app:cardBackgroundColor="?attr/colorSecondaryContainer">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_announcement"
+                                app:tint="?attr/colorOnSecondaryContainer"
+                                android:contentDescription="학사공지" />
+
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_6"
+                            android:textSize="10sp"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center" />
+
+                    </LinearLayout>
+
+                    <!-- 도서관 버튼 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction7"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            app:cardCornerRadius="28dp"
+                            app:cardElevation="2dp"
+                            app:cardBackgroundColor="?attr/colorTertiaryContainer">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_arrow_back"
+                                app:tint="?attr/colorOnTertiaryContainer"
+                                android:contentDescription="기능5" />
+
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="기능5"
+                            android:textSize="10sp"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center" />
+
+                    </LinearLayout>
+
+                    <!-- 시간표 버튼 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction8"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            app:cardCornerRadius="28dp"
+                            app:cardElevation="2dp"
+                            app:cardBackgroundColor="?attr/colorErrorContainer">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_arrow_back"
+                                app:tint="?attr/colorOnErrorContainer"
+                                android:contentDescription="기능6" />
+
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="기능6"
+                            android:textSize="10sp"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center" />
+
+                    </LinearLayout>
+
+                        </LinearLayout>
+                    </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
             </LinearLayout>

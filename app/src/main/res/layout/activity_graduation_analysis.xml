@@ -1,15 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+    졸업 분석 화면 레이아웃
+
+    이 파일은 졸업 요건 분석의 첫 번째 단계인 학번/학부/트랙 선택 화면을 구성합니다.
+    사용자가 정확한 졸업 요건 분석을 받기 위해 필요한 기본 정보를 입력하는 화면입니다.
+
+    주요 구성 요소:
+    - 상단 툴바 (뒤로가기 포함)
+    - 학번 선택 스피너 (2자리 형식으로 표시, 내부적으로 4자리 변환)
+    - 학부 선택 스피너 (동적 로드)
+    - 트랙 선택 스피너 (학부 선택에 따라 동적 업데이트)
+    - 분석 시작 버튼
+    - 전체 화면 로딩 오버레이
+
+    특징:
+    - FrameLayout 기반으로 로딩 오버레이 지원
+    - Material Design 3 컴포넌트 사용
+    - 동적 데이터 로딩 중 사용자 피드백 제공
+    - 스크롤 가능한 콘텐츠로 작은 화면 대응
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/white"
+    android:background="?attr/colorSurface"
     tools:context=".GraduationAnalysisActivity">
 
-    <!-- 툴바 -->
+    <!-- 메인 컨텐츠 레이어: 툴바와 콘텐츠를 포함하는 수직 레이아웃 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+    <!-- 상단 툴바 영역
+         - Material AppBarLayout으로 일관된 디자인 제공
+         - 뒤로가기 버튼과 화면 제목 포함 -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -26,7 +53,9 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- 메인 컨텐츠 -->
+    <!-- 스크롤 가능한 메인 콘텐츠 영역
+         - 작은 화면에서도 모든 콘텐츠 접근 가능
+         - fillViewport으로 빈 공간 활용 -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -38,24 +67,23 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- 제목 -->
+            <!-- 화면 제목: 졸업 요건 분석 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="졸업 요건 분석"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="@color/black"
+                android:textAppearance="?attr/textAppearanceHeadlineMedium"
+                android:textColor="?attr/colorOnSurface"
                 android:gravity="center"
                 android:layout_marginBottom="32dp" />
 
-            <!-- 안내 문구 -->
+            <!-- 사용자 안내 문구: 정보 선택 요청 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="정확한 졸업 요건 분석을 위해\n아래 정보를 선택해주세요."
                 android:textSize="16sp"
-                android:textColor="@color/black"
+                android:textColor="?attr/colorOnSurface"
                 android:gravity="center"
                 android:layout_marginBottom="40dp" />
 
@@ -72,7 +100,7 @@
                     android:text="학번"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="@color/black"
+                    android:textColor="?attr/colorOnSurface"
                     android:layout_marginBottom="8dp" />
 
                 <Spinner
@@ -97,7 +125,7 @@
                     android:text="학부"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="@color/black"
+                    android:textColor="?attr/colorOnSurface"
                     android:layout_marginBottom="8dp" />
 
                 <Spinner
@@ -122,7 +150,7 @@
                     android:text="트랙"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="@color/black"
+                    android:textColor="?attr/colorOnSurface"
                     android:layout_marginBottom="8dp" />
 
                 <Spinner
@@ -134,15 +162,6 @@
 
             </LinearLayout>
 
-            <!-- 로딩 프로그레스바 -->
-            <ProgressBar
-                android:id="@+id/progress_bar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp"
-                android:visibility="gone" />
 
             <!-- 분석 시작 버튼 -->
             <Button
@@ -160,4 +179,65 @@
 
     </ScrollView>
 
-</LinearLayout>
+    </LinearLayout>
+
+    <!-- 전체 화면 로딩 오버레이 (화면 절대 중앙에 배치) -->
+    <FrameLayout
+        android:id="@+id/loading_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- 반투명 검은색 로딩 카드 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_gravity="center"
+            android:padding="40dp"
+            android:background="@drawable/loading_card_background"
+            android:elevation="8dp"
+            android:minWidth="280dp">
+
+            <!-- 로딩 애니메이션 -->
+            <ProgressBar
+                android:id="@+id/progress_bar"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="center"
+                android:indeterminateTint="@color/white" />
+
+            <!-- 로딩 메시지 -->
+            <TextView
+                android:id="@+id/loading_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="데이터를 불러오는 중..."
+                android:textSize="18sp"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:layout_gravity="center"
+                android:gravity="center" />
+
+            <!-- 상세 로딩 설명 -->
+            <TextView
+                android:id="@+id/loading_description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="학번, 학부, 트랙 정보를 가져오고 있어요"
+                android:textSize="14sp"
+                android:textColor="#CCFFFFFF"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:maxWidth="240dp" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</FrameLayout>

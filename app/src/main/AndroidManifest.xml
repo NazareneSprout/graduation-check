@@ -28,12 +28,17 @@
 
         <activity android:name=".Login.SignUpActivity" />
         <activity android:name=".GraduationAnalysisActivity" />
+        <activity android:name=".AdditionalRequirementsActivity" />
+        <activity android:name=".CourseInputActivity" />
+        <activity android:name=".GraduationAnalysisResultActivity" />
         <activity android:name=".DataViewerActivity" />
         <activity android:name=".WebViewActivity" />
+        <activity android:name=".TimeTableActivity" />
         <activity
             android:name=".AddScheduleActivity"
             android:theme="@style/Theme.SakMvp1" />
         <activity android:name="MainActivity"
+            android:exported="true"
             android:windowSoftInputMode="adjustResize"/>
     </application>
 

@@ -31,6 +31,48 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
+/**
+ * 애플리케이션의 메인 허브 화면
+ *
+ * <p>이 Activity는 앱의 진입점이자 중앙 허브 역할을 담당하는 메인 화면입니다.
+ * 사용자가 앱을 실행했을 때 가장 먼저 보게 되는 화면으로, 다양한 기능들로의
+ * 접근점을 제공하고 시각적으로 매력적인 배너 슬라이드를 통해 사용자 경험을 향상시킵니다.</p>
+ *
+ * <h3>주요 기능:</h3>
+ * <ul>
+ *   <li>🎠 <strong>자동 배너 슬라이드</strong>: 8초 간격으로 3개 배너 이미지 자동 전환</li>
+ *   <li>🧭 <strong>기능 네비게이션</strong>: 졸업 분석, 데이터 뷰어 등 주요 기능 접근</li>
+ *   <li>♿ <strong>접근성 지원</strong>: 고대비 모드 토글 기능</li>
+ *   <li>📊 <strong>Analytics 연동</strong>: Firebase Analytics를 통한 사용자 행동 추적</li>
+ *   <li>🎨 <strong>Edge-to-Edge UI</strong>: 현대적인 전면 화면 레이아웃</li>
+ * </ul>
+ *
+ * <h3>UI 구성:</h3>
+ * <ul>
+ *   <li>📱 <strong>상단 배너</strong>: ViewPager2 기반 이미지 슬라이드</li>
+ *   <li>🔘 <strong>메인 기능 버튼</strong>: 4개의 주요 기능 접근 버튼</li>
+ *   <li>🔹 <strong>서브 기능 버튼</strong>: 2개의 추가 기능 버튼</li>
+ *   <li>🧭 <strong>하단 네비게이션</strong>: BottomNavigationView를 통한 섹션 이동</li>
+ * </ul>
+ *
+ * <h3>성능 최적화:</h3>
+ * <ul>
+ *   <li>⚡ <strong>백그라운드 초기화</strong>: Firebase 초기화를 별도 스레드에서 처리</li>
+ *   <li>💾 <strong>메모리 관리</strong>: WeakReference를 통한 메모리 누수 방지</li>
+ *   <li>🔄 <strong>라이프사이클 관리</strong>: onPause/onResume에서 자동 슬라이드 제어</li>
+ *   <li>🧹 <strong>리소스 정리</strong>: ExecutorService 및 Handler 적절한 해제</li>
+ * </ul>
+ *
+ * <h3>접근성 기능:</h3>
+ * <ul>
+ *   <li>🎨 <strong>고대비 테마</strong>: HighContrastHelper를 통한 접근성 향상</li>
+ *   <li>📱 <strong>시스템 UI 적응</strong>: WindowInsets를 통한 적절한 패딩 처리</li>
+ * </ul>
+ *
+ * @see GraduationAnalysisActivity 졸업 분석 기능
+ * @see DataViewerActivity 데이터 뷰어 기능
+ * @see HighContrastHelper 접근성 지원 도구
+ */
 public class MainActivity extends AppCompatActivity {
 
     private static final long AUTO_SLIDE_DELAY = 8000;
@@ -51,13 +93,19 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout btnFunction4;
 
     // 하단 작은 버튼들
-    private Button btnFunction5;
-    private Button btnFunction6;
+    private LinearLayout btnFunction5;
+    private LinearLayout btnFunction6;
+    private LinearLayout btnFunction7;
+    private LinearLayout btnFunction8;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 임시로 고대비 테마 비활성화 (ANR 문제 디버깅용)
+        // HighContrastHelper.applyHighContrastTheme(this);
+
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
@@ -122,6 +170,8 @@ public class MainActivity extends AppCompatActivity {
         // 하단 작은 버튼들
         btnFunction5 = findViewById(R.id.btnFunction5);
         btnFunction6 = findViewById(R.id.btnFunction6);
+        btnFunction7 = findViewById(R.id.btnFunction7);
+        btnFunction8 = findViewById(R.id.btnFunction8);
 
 
     }
@@ -171,14 +221,19 @@ public class MainActivity extends AppCompatActivity {
 
         if (btnFunction3 != null) {
             btnFunction3.setOnClickListener(v ->
-                Toast.makeText(this, "기능3", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "기능3 - 준비중", Toast.LENGTH_SHORT).show()
             );
         }
 
         if (btnFunction4 != null) {
-            btnFunction4.setOnClickListener(v ->
-                Toast.makeText(this, "기능4", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction4.setOnClickListener(v -> {
+                HighContrastHelper.toggleHighContrast(this);
+                boolean isEnabled = HighContrastHelper.isHighContrastEnabled(this);
+                String message = isEnabled ? "고대비 모드 활성화됨" : "고대비 모드 비활성화됨";
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+
+                recreate();
+            });
         }
 
         // 하단 작은 버튼 클릭 리스너 웹사이트로 넘어가도록 변경
@@ -198,6 +253,18 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        if (btnFunction7 != null) {
+            btnFunction7.setOnClickListener(v ->
+                Toast.makeText(this, "기능5 - 준비중", Toast.LENGTH_SHORT).show()
+            );
+        }
+
+        if (btnFunction8 != null) {
+            btnFunction8.setOnClickListener(v ->
+                Toast.makeText(this, "기능6 - 준비중", Toast.LENGTH_SHORT).show()
+            );
+        }
+
         // 하단 네비게이션 클릭 리스너
         if (bottomNavigation != null) {
             bottomNavigation.setOnItemSelectedListener(item -> {
@@ -206,8 +273,8 @@ public class MainActivity extends AppCompatActivity {
                     // 홈 버튼 - 이미 홈 화면이므로 아무 동작 안 함
                     return true;
                 } else if (itemId == R.id.nav_button_2) {
-                    // '버튼2' 클릭 시 (시간표 화면) 시작
-                    Intent intent = new Intent(this, AddScheduleActivity.class);
+                    // 시간표 화면으로 이동
+                    Intent intent = new Intent(this, TimeTableActivity.class);
                     startActivity(intent);
                     return true;
                 } else if (itemId == R.id.nav_button_3) {
@@ -264,6 +331,11 @@ public class MainActivity extends AppCompatActivity {
         if (autoSlideHandler != null && autoSlideRunnable != null && !isAutoSlideStarted) {
             autoSlideHandler.postDelayed(autoSlideRunnable, AUTO_SLIDE_DELAY);
             isAutoSlideStarted = true;
+        }
+
+        // 홈 화면으로 돌아올 때 네비게이션 상태 초기화
+        if (bottomNavigation != null) {
+            bottomNavigation.setSelectedItemId(R.id.nav_button_1);
         }
     }
 
