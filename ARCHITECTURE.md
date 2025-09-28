@@ -97,6 +97,8 @@ public class MainActivity extends AppCompatActivity {
 - 🧭 **내비게이션**: 하단 내비게이션으로 화면 이동
 - 📊 **Firebase Analytics**: 사용자 행동 트래킹
 - 🎨 **Edge-to-Edge UI**: 현대적인 전면 화면 레이아웃
+- ♿ **접근성 지원**: 고대비 테마 옵션 (현재 ANR 디버깅을 위해 임시 비활성화)
+- 📅 **시간표 연동**: 하단 네비게이션을 통한 시간표 화면 이동
 
 ---
 
@@ -172,6 +174,34 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 - 📈 **상세 분석**: 카테고리별 이수 현황
 - 💾 **결과 저장**: 분석 결과 Firestore 저장
 - 🧭 **내비게이션**: 하단 네비게이션 연동
+
+---
+
+#### `TimeTableActivity.java`
+**역할**: 주간 시간표 관리 및 수업 스케줄링
+```java
+public class TimeTableActivity extends AppCompatActivity {
+    private RelativeLayout timetableLayout;
+    private FloatingActionButton fabAddSchedule;
+}
+```
+
+**주요 기능**:
+- 📅 **주간 시간표 뷰**: 월~금요일 시간표 격자 레이아웃
+- ➕ **수업 추가**: Floating Action Button으로 새 수업 등록
+- 📝 **Bottom Sheet**: 수업 정보 입력을 위한 슬라이드업 다이얼로그
+- 🕒 **시간 선택**: 시작시간/종료시간 선택 위젯
+- 🎨 **Material Design**: CoordinatorLayout 기반 현대적 UI
+- 🧭 **네비게이션**: 하단 네비게이션 바 연동
+- 📱 **반응형 레이아웃**: 다양한 화면 크기 대응
+
+**UI 구성 요소**:
+- **AppBarLayout**: 상단 툴바 (제목: "시간표", 뒤로 가기 버튼)
+- **NestedScrollView**: 스크롤 가능한 시간표 컨테이너
+- **요일 헤더**: 월화수목금 표시 (Primary 색상 적용)
+- **시간표 그리드**: RelativeLayout 기반 동적 레이아웃
+- **FAB**: 우하단 고정 (+) 버튼 (improved positioning: 24dp margin, 120dp bottom)
+- **BottomNavigationView**: 하단 네비게이션 (compact design)
 
 ---
 

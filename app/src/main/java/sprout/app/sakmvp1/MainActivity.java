@@ -270,7 +270,7 @@ public class MainActivity extends AppCompatActivity {
             bottomNavigation.setOnItemSelectedListener(item -> {
                 int itemId = item.getItemId();
                 if (itemId == R.id.nav_button_1) {
-                    // 홈 버튼 - 이미 홈 화면이므로 아무 동작 안 함
+                    // 홈 버튼 - 이미 홈 화면이므로 아숭실대학교 무 동작 안 함
                     return true;
                 } else if (itemId == R.id.nav_button_2) {
                     // 시간표 화면으로 이동
