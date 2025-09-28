@@ -206,8 +206,8 @@ public class MainActivity extends AppCompatActivity {
                     // 홈 버튼 - 이미 홈 화면이므로 아무 동작 안 함
                     return true;
                 } else if (itemId == R.id.nav_button_2) {
-                    // '버튼2' 클릭 시 (시간표 화면) 시작
-                    Intent intent = new Intent(this, AddScheduleActivity.class);
+                    // '버튼2' 클릭 시 (고급 시간표 화면) 시작
+                    Intent intent = new Intent(this, TimeTableActivity.class);
                     startActivity(intent);
                     return true;
                 } else if (itemId == R.id.nav_button_3) {

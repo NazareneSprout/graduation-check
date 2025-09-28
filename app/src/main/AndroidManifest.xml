@@ -33,6 +33,10 @@
         <activity
             android:name=".AddScheduleActivity"
             android:theme="@style/Theme.SakMvp1" />
+        <activity
+            android:name=".TimeTableActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
         <activity android:name="MainActivity"
             android:windowSoftInputMode="adjustResize"/>
     </application>
