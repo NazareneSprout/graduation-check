@@ -126,7 +126,7 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayShowHomeEnabled(true);
             getSupportActionBar().setTitle("졸업 요건 분석");
         }
-        toolbar.setNavigationOnClickListener(v -> onBackPressed());
+        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
 
         // Firebase 데이터 매니저
         dataManager = FirebaseDataManager.getInstance();

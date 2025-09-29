@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @since 2025-09-26
  * @author SakMvp1 Development Team
  */
+@SuppressWarnings("unchecked")
 public class FirebaseDataManager {
     /** 로깅용 태그 */
     private static final String TAG = "FirebaseDataManager";
@@ -592,6 +593,7 @@ public class FirebaseDataManager {
                             for (Map.Entry<String, Object> entry : data.entrySet()) {
                                 Log.d(TAG, "최상위 키: " + entry.getKey() + " -> 타입: " + entry.getValue().getClass().getSimpleName());
                                 if (entry.getValue() instanceof Map) {
+                                    @SuppressWarnings("unchecked")
                                     Map<String, Object> nestedMap = (Map<String, Object>) entry.getValue();
                                     for (Map.Entry<String, Object> nestedEntry : nestedMap.entrySet()) {
                                         Log.d(TAG, "  하위키: " + nestedEntry.getKey() + " -> 값: " + nestedEntry.getValue());

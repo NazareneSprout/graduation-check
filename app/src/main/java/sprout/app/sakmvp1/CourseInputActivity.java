@@ -177,7 +177,11 @@ public class CourseInputActivity extends AppCompatActivity {
         selectedYear = intent.getStringExtra(AdditionalRequirementsActivity.EXTRA_YEAR);
         selectedDepartment = intent.getStringExtra(AdditionalRequirementsActivity.EXTRA_DEPARTMENT);
         selectedTrack = intent.getStringExtra(AdditionalRequirementsActivity.EXTRA_TRACK);
-        additionalRequirements = intent.getParcelableExtra(AdditionalRequirementsActivity.EXTRA_REQUIREMENTS);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            additionalRequirements = intent.getParcelableExtra(AdditionalRequirementsActivity.EXTRA_REQUIREMENTS, AdditionalRequirementsActivity.AdditionalRequirements.class);
+        } else {
+            additionalRequirements = intent.getParcelableExtra(AdditionalRequirementsActivity.EXTRA_REQUIREMENTS);
+        }
 
         if (selectedYear == null || selectedDepartment == null || selectedTrack == null) {
             Toast.makeText(this, "데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
@@ -229,7 +233,7 @@ public class CourseInputActivity extends AppCompatActivity {
     /** 뒤로가기 동작 */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) { onBackPressed(); return true; }
+        if (item.getItemId() == android.R.id.home) { getOnBackPressedDispatcher().onBackPressed(); return true; }
         return super.onOptionsItemSelected(item);
     }
 
@@ -1170,7 +1174,12 @@ public class CourseInputActivity extends AppCompatActivity {
     private void restoreActivityState(Bundle in) {
         isMajorGroupSelected = in.getBoolean(S_IS_MAJOR_GROUP, true);
         currentSelectedTab = in.getString(S_CURRENT_TAB, "전공필수");
-        ArrayList<Course> saved = in.getParcelableArrayList(S_COURSE_LIST);
+        ArrayList<Course> saved;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            saved = in.getParcelableArrayList(S_COURSE_LIST, CourseInputActivity.Course.class);
+        } else {
+            saved = in.getParcelableArrayList(S_COURSE_LIST);
+        }
         if (saved != null) courseList.addAll(saved);
 
         lastSelectedIsMajor = in.getBoolean(S_LAST_IS_MAJOR, true);

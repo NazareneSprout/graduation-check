@@ -137,8 +137,13 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         selectedYear = intent.getStringExtra("year");
         selectedDepartment = intent.getStringExtra("department");
         selectedTrack = intent.getStringExtra("track");
-        courseList = intent.getParcelableArrayListExtra("courses");
-        additionalRequirements = intent.getParcelableExtra("additionalRequirements");
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            courseList = intent.getParcelableArrayListExtra("courses", CourseInputActivity.Course.class);
+            additionalRequirements = intent.getParcelableExtra("additionalRequirements", AdditionalRequirementsActivity.AdditionalRequirements.class);
+        } else {
+            courseList = intent.getParcelableArrayListExtra("courses");
+            additionalRequirements = intent.getParcelableExtra("additionalRequirements");
+        }
 
         if (selectedYear == null || selectedDepartment == null || selectedTrack == null || courseList == null) {
             Toast.makeText(this, "데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
@@ -218,7 +223,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            onBackPressed();
+            getOnBackPressedDispatcher().onBackPressed();
             return true;
         }
         return super.onOptionsItemSelected(item);
