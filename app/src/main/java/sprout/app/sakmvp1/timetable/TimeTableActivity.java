@@ -1,8 +1,9 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1.timetable;
 
 import android.app.AlertDialog;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,9 +26,20 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentChange;
+import com.google.firebase.firestore.DocumentId;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+
+import sprout.app.sakmvp1.R;
 
 public class TimeTableActivity extends AppCompatActivity {
 
@@ -43,26 +55,50 @@ public class TimeTableActivity extends AppCompatActivity {
     private static final int START_TIME_HOUR = 9;
     private static final int END_TIME_HOUR = 24;
 
-    // 수업 정보를 저장할 데이터 리스트
-    private ArrayList<ScheduleData> scheduleList = new ArrayList<>();
+    // --- Firebase Firestore 관련 변수 ---
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
+    private FirebaseUser currentUser;
+    private ListenerRegistration scheduleListener; // 실시간 리스너를 제어하기 위한 변수
+    private CollectionReference userSchedulesCollection; // 사용자별 시간표 컬렉션을 가리키는 변수
 
-    // 수업 정보를 담을 간단한 내부 클래스
-    private static class ScheduleData {
-        int dayIndex; // 0=월, 1=화...
-        int startTotalMinutes;
-        int endTotalMinutes;
-        String subjectName;
-        String professorName;
-        String location;
+    // 수업 정보를 저장할 데이터 리스트 (로컬 캐시 및 UI 관리용)
+    private final ArrayList<ScheduleData> scheduleList = new ArrayList<>();
+    // Firestore 문서 ID와 화면의 View를 매핑하여 관리
+    private final Map<String, View> scheduleViewMap = new HashMap<>();
 
-        ScheduleData(int dayIndex, int startHour, int startMinute, int endHour, int endMinute, String subjectName, String professorName, String location) {
+    // 수업 정보를 담을 POJO 클래스 (Firestore 연동용)
+    public static class ScheduleData {
+        @DocumentId // Firestore 문서 ID를 이 필드에 자동으로 매핑
+        public String documentId;
+
+        public int dayIndex; // 0=월, 1=화...
+        public int startHour;
+        public int startMinute;
+        public int endHour;
+        public int endMinute;
+        public String subjectName;
+        public String professorName;
+        public String location;
+
+        // Firestore가 데이터를 객체로 변환할 때 필요한 기본 생성자
+        public ScheduleData() {}
+
+        // 데이터를 생성할 때 사용할 생성자
+        public ScheduleData(int dayIndex, int startHour, int startMinute, int endHour, int endMinute, String subjectName, String professorName, String location) {
             this.dayIndex = dayIndex;
-            this.startTotalMinutes = startHour * 60 + startMinute;
-            this.endTotalMinutes = endHour * 60 + endMinute;
+            this.startHour = startHour;
+            this.startMinute = startMinute;
+            this.endHour = endHour;
+            this.endMinute = endMinute;
             this.subjectName = subjectName;
             this.professorName = professorName;
             this.location = location;
         }
+
+        // 겹침 검사를 위한 유틸리티 메서드
+        public int getStartTotalMinutes() { return startHour * 60 + startMinute; }
+        public int getEndTotalMinutes() { return endHour * 60 + endMinute; }
     }
 
     @Override
@@ -89,6 +125,22 @@ public class TimeTableActivity extends AppCompatActivity {
         timetableLayout = findViewById(R.id.timetable_layout);
         fabAddSchedule = findViewById(R.id.fab_add_schedule);
 
+        // Firebase 초기화
+        mAuth = FirebaseAuth.getInstance();
+        currentUser = mAuth.getCurrentUser();
+        db = FirebaseFirestore.getInstance();
+
+        if (currentUser == null) {
+            Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        // Firestore 서브컬렉션 경로 설정
+        userSchedulesCollection = db.collection("schedules")
+                .document(currentUser.getUid())
+                .collection("user_schedules");
+
         // 시간표 기본 배경 그리기
         drawTimetableBase();
 
@@ -96,6 +148,27 @@ public class TimeTableActivity extends AppCompatActivity {
         fabAddSchedule.setOnClickListener(v -> showAddScheduleBottomSheet());
 
         // 하단 내비게이션 설정
+        setupBottomNavigation();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // 화면이 사용자에게 보일 때 데이터 로딩 및 실시간 감지를 시작
+        loadSchedulesFromFirestore();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // 화면이 가려질 때 실시간 리스너를 중지하여 불필요한 리소스 사용 방지
+        if (scheduleListener != null) {
+            scheduleListener.remove();
+        }
+        clearTimetableViews(); // 화면 전환 시 뷰가 중복되지 않도록 초기화
+    }
+
+    private void setupBottomNavigation() {
         bottomNavigation = findViewById(R.id.bottom_navigation);
         if (bottomNavigation != null) {
             bottomNavigation.setSelectedItemId(R.id.nav_button_2);
@@ -118,7 +191,6 @@ public class TimeTableActivity extends AppCompatActivity {
             });
         }
     }
-
 
     private void drawTimetableBase() {
         // 1시간의 높이를 dp 단위로 설정
@@ -187,9 +259,9 @@ public class TimeTableActivity extends AppCompatActivity {
 
         // 추가 버튼
         buttonAdd.setOnClickListener(v -> {
-            String subjectName = editSubjectName.getText() != null ? editSubjectName.getText().toString() : "";
-            String professorName = editProfessorName.getText() != null ? editProfessorName.getText().toString() : "";
-            String location = editLocation.getText() != null ? editLocation.getText().toString() : "";
+            String subjectName = editSubjectName.getText() != null ? editSubjectName.getText().toString().trim() : "";
+            String professorName = editProfessorName.getText() != null ? editProfessorName.getText().toString().trim() : "";
+            String location = editLocation.getText() != null ? editLocation.getText().toString().trim() : "";
             int dayIndex = spinnerDayOfWeek.getSelectedItemPosition();
 
             if (subjectName.isEmpty()) {
@@ -197,16 +269,17 @@ public class TimeTableActivity extends AppCompatActivity {
                 return;
             }
 
+            ScheduleData newSchedule = new ScheduleData(dayIndex, startHour, startMinute, endHour, endMinute, subjectName, professorName, location);
+
             // 겹침 검사
-            if (checkOverlap(dayIndex, startHour, startMinute, endHour, endMinute)) {
+            if (checkOverlap(newSchedule)) {
                 Toast.makeText(this, "⚠️ 기존 수업과 시간이 겹칩니다!", Toast.LENGTH_LONG).show();
                 return;
             }
 
-            // 수업 추가
-            addScheduleBlockToView(dayIndex, startHour, startMinute, endHour, endMinute, subjectName, professorName, location);
+            // 수업 추가 (Firestore에 저장)
+            saveScheduleToFirestore(newSchedule);
             bottomSheetDialog.dismiss();
-            Toast.makeText(this, "수업이 추가되었습니다.", Toast.LENGTH_SHORT).show();
         });
 
         bottomSheetDialog.show();
@@ -267,13 +340,13 @@ public class TimeTableActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    private boolean checkOverlap(int newDay, int newStartHour, int newStartMinute, int newEndHour, int newEndMinute) {
-        int newStartTotalMinutes = newStartHour * 60 + newStartMinute;
-        int newEndTotalMinutes = newEndHour * 60 + newEndMinute;
+    private boolean checkOverlap(ScheduleData newSchedule) {
+        int newStartTotalMinutes = newSchedule.getStartTotalMinutes();
+        int newEndTotalMinutes = newSchedule.getEndTotalMinutes();
 
         for (ScheduleData existingSchedule : scheduleList) {
-            if (existingSchedule.dayIndex == newDay) {
-                if (newStartTotalMinutes < existingSchedule.endTotalMinutes && newEndTotalMinutes > existingSchedule.startTotalMinutes) {
+            if (existingSchedule.dayIndex == newSchedule.dayIndex) {
+                if (newStartTotalMinutes < existingSchedule.getEndTotalMinutes() && newEndTotalMinutes > existingSchedule.getStartTotalMinutes()) {
                     return true;
                 }
             }
@@ -281,47 +354,114 @@ public class TimeTableActivity extends AppCompatActivity {
         return false;
     }
 
-    private void addScheduleBlockToView(int dayIndex, int startH, int startM, int endH, int endM, String subjectName, String professorName, String location) {
+    private void addScheduleBlockToView(ScheduleData scheduleData) {
+        if (scheduleData.documentId == null || scheduleViewMap.containsKey(scheduleData.documentId)) return;
+
         TextView scheduleBlock = new TextView(this);
-        scheduleBlock.setText(subjectName + "\n" + location);
+        String professorName = scheduleData.professorName;
+        scheduleBlock.setText(scheduleData.subjectName + "\n" + scheduleData.location + "\n" + professorName);
         scheduleBlock.setTextColor(Color.WHITE);
         scheduleBlock.setGravity(Gravity.CENTER);
-        scheduleBlock.setPadding(8, 8, 8, 8);
+        scheduleBlock.setTextSize(12);
+        scheduleBlock.setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4));
 
-        // 랜덤 색상 지정
-        Random rnd = new Random();
-        int color = Color.argb(200, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
+        // 과목명에 따라 일관된 색상을 지정하여 리로드 시에도 색이 유지되도록 함
+        Random rnd = new Random(scheduleData.subjectName.hashCode());
+        int color = Color.argb(200, rnd.nextInt(200), rnd.nextInt(200), rnd.nextInt(200));
         scheduleBlock.setBackgroundColor(color);
 
         // 블록의 위치와 크기 계산
-        RelativeLayout.LayoutParams params = calculateBlockParams(dayIndex, startH, startM, endH, endM);
+        RelativeLayout.LayoutParams params = calculateBlockParams(scheduleData);
         timetableLayout.addView(scheduleBlock, params);
 
-        // 데이터 리스트에 저장
-        ScheduleData newScheduleData = new ScheduleData(dayIndex, startH, startM, endH, endM, subjectName, professorName, location);
-        scheduleList.add(newScheduleData);
+        // 맵에 뷰 저장
+        scheduleViewMap.put(scheduleData.documentId, scheduleBlock);
+
+        // 뷰를 길게 눌렀을 때 삭제 다이얼로그 표시
+        scheduleBlock.setOnLongClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("'" + scheduleData.subjectName + "' 수업 삭제")
+                    .setMessage("이 수업을 시간표에서 삭제하시겠습니까?")
+                    .setPositiveButton("삭제", (dialog, which) -> {
+                        // Firestore 서브컬렉션 경로에서 문서 삭제
+                        userSchedulesCollection.document(scheduleData.documentId).delete();
+                    })
+                    .setNegativeButton("취소", null)
+                    .show();
+            return true;
+        });
     }
 
-    private RelativeLayout.LayoutParams calculateBlockParams(int dayIndex, int startH, int startM, int endH, int endM) {
+    private RelativeLayout.LayoutParams calculateBlockParams(ScheduleData schedule) {
         int left_margin_dp = 40; // 시간 표시 라벨 너비
         int dayWidth = (getResources().getDisplayMetrics().widthPixels - dpToPx(left_margin_dp)) / 5;
 
-        int left = dpToPx(left_margin_dp) + dayWidth * dayIndex;
+        int left = dpToPx(left_margin_dp) + dayWidth * schedule.dayIndex;
 
-        // 1시간의 높이 = 50dp
-        // 1분의 높이 = 50/60 dp
+        // 1시간의 높이 = 50dp, 1분의 높이 = 50/60 dp
         float minuteHeight_dp = 50.0f / 60.0f;
 
-        float top_dp = (startH - START_TIME_HOUR) * 60 * minuteHeight_dp + startM * minuteHeight_dp;
-        float height_dp = ((endH * 60 + endM) - (startH * 60 + startM)) * minuteHeight_dp;
+        float top_dp = (schedule.startHour - START_TIME_HOUR) * 60 * minuteHeight_dp + schedule.startMinute * minuteHeight_dp;
+        float height_dp = (schedule.getEndTotalMinutes() - schedule.getStartTotalMinutes()) * minuteHeight_dp;
 
         int top = dpToPx(top_dp);
         int height = dpToPx(height_dp);
+        if(height < 0) height = 0; // 높이가 음수가 되지 않도록 방지
 
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(dayWidth, height);
         params.leftMargin = left;
         params.topMargin = top;
 
         return params;
+    }
+
+    // --- Firestore 관련 메서드 ---
+
+    private void saveScheduleToFirestore(ScheduleData scheduleData) {
+        // 사용자별 서브컬렉션에 새로운 문서를 추가
+        userSchedulesCollection.add(scheduleData)
+                .addOnSuccessListener(documentReference -> Toast.makeText(TimeTableActivity.this, "수업이 추가되었습니다.", Toast.LENGTH_SHORT).show())
+                .addOnFailureListener(e -> Toast.makeText(TimeTableActivity.this, "저장에 실패했습니다: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+    }
+
+    private void loadSchedulesFromFirestore() {
+        // 사용자별 서브컬렉션의 변경을 실시간으로 감지
+        scheduleListener = userSchedulesCollection.addSnapshotListener((snapshots, e) -> {
+            if (e != null) {
+                Log.w("Firestore", "Listen failed.", e);
+                return;
+            }
+
+            for (DocumentChange dc : snapshots.getDocumentChanges()) {
+                ScheduleData data = dc.getDocument().toObject(ScheduleData.class);
+                switch (dc.getType()) {
+                    case ADDED: // 데이터가 새로 추가되었을 때
+                        if (!scheduleViewMap.containsKey(data.documentId)) {
+                            scheduleList.add(data);
+                            addScheduleBlockToView(data);
+                        }
+                        break;
+                    case MODIFIED: // 데이터가 수정되었을 때 (필요 시 구현)
+                        // 예: 기존 뷰를 제거하고 새로 그리기
+                        break;
+                    case REMOVED: // 데이터가 삭제되었을 때
+                        View viewToRemove = scheduleViewMap.remove(data.documentId);
+                        if (viewToRemove != null) {
+                            timetableLayout.removeView(viewToRemove);
+                        }
+                        scheduleList.removeIf(schedule -> schedule.documentId.equals(data.documentId));
+                        break;
+                }
+            }
+        });
+    }
+
+    // 화면 전환 또는 리스너 중지 시 뷰를 정리하는 메서드
+    private void clearTimetableViews() {
+        for (View view : scheduleViewMap.values()) {
+            timetableLayout.removeView(view);
+        }
+        scheduleViewMap.clear();
+        scheduleList.clear();
     }
 }

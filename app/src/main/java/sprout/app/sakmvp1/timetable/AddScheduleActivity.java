@@ -1,4 +1,4 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1.timetable;
 
 import android.app.AlertDialog;
 import android.graphics.Color;
@@ -20,6 +20,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
 import java.util.Random;
+
+import sprout.app.sakmvp1.R;
 
 public class AddScheduleActivity extends AppCompatActivity {
 

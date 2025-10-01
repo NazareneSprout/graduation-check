@@ -34,10 +34,10 @@
         <activity android:name=".DataViewerActivity" />
         <activity android:name=".WebViewActivity" />
         <activity
-            android:name=".AddScheduleActivity"
+            android:name=".timetable.AddScheduleActivity"
             android:theme="@style/Theme.SakMvp1" />
         <activity
-            android:name=".TimeTableActivity"
+            android:name=".timetable.TimeTableActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
         <activity android:name="MainActivity"
