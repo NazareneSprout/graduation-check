@@ -73,7 +73,6 @@ public class DataViewerActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        HighContrastHelper.applyHighContrastTheme(this);
         setContentView(R.layout.activity_data_viewer);
 
         // 시스템 인셋(상태바/내비게이션) 패딩 적용 ─ 루트 뷰가 없을 수도 있으니 가드

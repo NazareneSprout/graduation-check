@@ -81,26 +81,4 @@
     <!-- Legacy Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-
-    <!-- High Contrast Colors -->
-    <color name="high_contrast_background">#000000</color>
-    <color name="high_contrast_onBackground">#FFFFFF</color>
-    <color name="high_contrast_surface">#000000</color>
-    <color name="high_contrast_onSurface">#FFFFFF</color>
-    <color name="high_contrast_primary">#FFFF00</color>
-    <color name="high_contrast_onPrimary">#000000</color>
-    <color name="high_contrast_primaryContainer">#333333</color>
-    <color name="high_contrast_onPrimaryContainer">#FFFFFF</color>
-    <color name="high_contrast_secondary">#00FFFF</color>
-    <color name="high_contrast_onSecondary">#000000</color>
-    <color name="high_contrast_secondaryContainer">#333333</color>
-    <color name="high_contrast_onSecondaryContainer">#FFFFFF</color>
-    <color name="high_contrast_error">#FF0000</color>
-    <color name="high_contrast_onError">#FFFFFF</color>
-    <color name="high_contrast_errorContainer">#800000</color>
-    <color name="high_contrast_onErrorContainer">#FFFFFF</color>
-    <color name="high_contrast_outline">#FFFFFF</color>
-    <color name="high_contrast_outlineVariant">#CCCCCC</color>
-    <color name="high_contrast_surfaceVariant">#333333</color>
-    <color name="high_contrast_onSurfaceVariant">#FFFFFF</color>
 </resources>

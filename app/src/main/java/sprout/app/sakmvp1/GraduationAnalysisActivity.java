@@ -1,5 +1,6 @@
 package sprout.app.sakmvp1;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -12,11 +13,15 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +77,8 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
 
     // ---------- Data ----------
     private FirebaseDataManager dataManager;
+    private FirebaseFirestore db;
+    private FirebaseAuth auth;
 
     // 초기 데이터 로딩 상태 추적
     private boolean studentYearsLoaded = false;
@@ -80,6 +87,7 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
     private List<String> loadedStudentYears = null;
     private List<String> loadedDepartments = null;
     private Map<String, List<String>> allTracksData = null;
+
 
     // 디바운스용 핸들러와 Runnable
     private android.os.Handler debounceHandler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -103,9 +111,6 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // 접근성: 고대비 테마 적용
-        HighContrastHelper.applyHighContrastTheme(this);
 
         // 시스템 창 컨텐츠가 status/navigation bar 아래로 확장되도록
         EdgeToEdge.enable(this);
@@ -133,7 +138,18 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
 
         // 뷰 바인딩 & 스피너 어댑터 초기화
         initSpinners();
-        setupSpinnerData();
+
+        // skipAutoLoad 플래그 확인 (LoadingUserInfoActivity에서 온 경우)
+        boolean skipAutoLoad = getIntent().getBooleanExtra("skipAutoLoad", false);
+
+        if (skipAutoLoad) {
+            // 수동 입력 모드 - 바로 스피너 데이터 로드
+            Log.d(TAG, "수동 입력 모드 - 자동 로딩 건너뛰기");
+            setupSpinnerData();
+        } else {
+            // 자동 모드 - 저장된 사용자 정보 확인
+            checkUserInfo();
+        }
     }
 
     /** View 참조 및 기본 UI 상태 설정 */
@@ -151,6 +167,122 @@ public class GraduationAnalysisActivity extends AppCompatActivity {
 
         // 최초엔 로딩 컨테이너 숨김
         loadingContainer.setVisibility(View.GONE);
+    }
+
+    /**
+     * 저장된 사용자 정보 확인
+     * 정보가 없으면 안내 다이얼로그 표시
+     */
+    private void checkUserInfo() {
+        db = FirebaseFirestore.getInstance();
+        auth = FirebaseAuth.getInstance();
+
+        String userId = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
+        if (userId == null) {
+            Log.w(TAG, "사용자가 로그인하지 않음");
+            setupSpinnerData();
+            return;
+        }
+
+        showLoading(true, "사용자 정보 확인 중...", "저장된 학적 정보를 불러오고 있어요");
+
+        db.collection("users").document(userId).get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists() &&
+                        documentSnapshot.contains("studentYear") &&
+                        documentSnapshot.contains("department") &&
+                        documentSnapshot.contains("track")) {
+
+                        // 저장된 정보가 있음 - 자동으로 사용
+                        String savedYear = documentSnapshot.getString("studentYear");
+                        String savedDepartment = documentSnapshot.getString("department");
+                        String savedTrack = documentSnapshot.getString("track");
+
+                        Log.d(TAG, "저장된 정보 발견: " + savedYear + "/" + savedDepartment + "/" + savedTrack);
+
+                        // 저장된 정보가 있으면 선택 화면을 건너뛰고 바로 추가 요건 화면으로 이동
+                        showLoading(false);
+                        navigateToAdditionalRequirements(savedYear, savedDepartment, savedTrack);
+                    } else {
+                        // 저장된 정보가 없음 - 안내 다이얼로그
+                        showLoading(false);
+                        showUserInfoRequiredDialog();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "사용자 정보 확인 실패", e);
+                    showLoading(false);
+                    // 실패해도 계속 진행
+                    setupSpinnerData();
+                });
+    }
+
+    /**
+     * 사용자 정보 입력 필요 안내 다이얼로그
+     */
+    private void showUserInfoRequiredDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("학적 정보 입력 필요")
+                .setMessage("졸업 요건 분석을 위해서는 학적 정보(학번, 학부, 트랙)가 필요합니다.\n\n" +
+                        "'내 학적정보' 메뉴에서 정보를 입력해주세요.")
+                .setPositiveButton("정보 입력하기", (dialog, which) -> {
+                    // 기능2(UserInfoActivity)로 이동
+                    Intent intent = new Intent(GraduationAnalysisActivity.this, UserInfoActivity.class);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("직접 입력", (dialog, which) -> {
+                    // 현재 화면에서 직접 입력
+                    setupSpinnerData();
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    /**
+     * 저장된 정보로 바로 추가 요건 화면으로 이동
+     */
+    private void navigateToAdditionalRequirements(String year, String department, String track) {
+        showLoading(true, "졸업 요건 확인 중...", "저장된 학적 정보로 졸업 요건을 확인하고 있어요");
+
+        // 졸업 요건 문서가 존재하는지 먼저 확인
+        dataManager.loadGraduationRequirements(department, track, year,
+            new FirebaseDataManager.OnGraduationRequirementsLoadedListener() {
+                @Override
+                public void onSuccess(Map<String, Object> requirements) {
+                    showLoading(false);
+
+                    // 졸업 요건이 존재하면 추가 요건 화면으로 이동
+                    Log.d(TAG, "졸업 요건 문서 존재 확인 - 추가 요건 화면으로 이동");
+
+                    Intent intent = new Intent(
+                        GraduationAnalysisActivity.this,
+                        AdditionalRequirementsActivity.class
+                    );
+                    intent.putExtra("year", year);
+                    intent.putExtra("department", department);
+                    intent.putExtra("track", track);
+                    startActivity(intent);
+                    finish(); // 현재 화면 종료
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    showLoading(false);
+
+                    // 졸업 요건이 없으면 수동 입력 모드로 전환
+                    Log.w(TAG, "졸업 요건 문서가 존재하지 않음 - 수동 입력 모드", e);
+                    Toast.makeText(
+                        GraduationAnalysisActivity.this,
+                        "저장된 학적 정보의 졸업 요건을 찾을 수 없습니다.\n직접 선택해주세요.",
+                        Toast.LENGTH_LONG
+                    ).show();
+
+                    // 수동 입력 모드로 전환
+                    setupSpinnerData();
+                }
+            }
+        );
     }
 
     /** 스피너 어댑터 구성, 데이터 로드, 리스너 연결 */

@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 문서 외곽선 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M14,2H6C5.46957,2 4.96086,2.21071 4.58579,2.58579C4.21071,2.96086 4,3.46957 4,4V20C4,20.5304 4.21071,21.0391 4.58579,21.4142C4.96086,21.7893 5.46957,22 6,22H18C18.5304,22 19.0391,21.7893 19.4142,21.4142C19.7893,21.0391 20,20.5304 20,20V8L14,2Z"/>
+    <!-- 문서 모서리 접힌 부분 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M14,2V8H20"/>
+    <!-- 문서 내용 라인 1 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8,13H16"/>
+    <!-- 문서 내용 라인 2 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8,17H16"/>
+    <!-- 문서 내용 라인 3 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8,9H10"/>
+</vector>

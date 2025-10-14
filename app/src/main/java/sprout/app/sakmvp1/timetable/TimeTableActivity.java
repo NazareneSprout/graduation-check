@@ -1,6 +1,7 @@
 package sprout.app.sakmvp1.timetable;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
@@ -16,7 +17,7 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
+import com.google.android.material.appbar.MaterialToolbar;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -40,12 +41,13 @@ import java.util.Map;
 import java.util.Random;
 
 import sprout.app.sakmvp1.R;
+import sprout.app.sakmvp1.UserProfileActivity;
 
 public class TimeTableActivity extends AppCompatActivity {
 
     private RelativeLayout timetableLayout;
     private BottomNavigationView bottomNavigation;
-    private Toolbar toolbar;
+    private MaterialToolbar toolbar;
     private FloatingActionButton fabAddSchedule;
 
     // 시간 선택을 위한 변수
@@ -104,22 +106,11 @@ public class TimeTableActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_time_table);
-
-        // 시스템 바 인셋 처리
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.time_table_main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0);
-            return insets;
-        });
 
         // 툴바 설정
         toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setDisplayShowTitleEnabled(false);
-        }
 
         // 뷰 초기화
         timetableLayout = findViewById(R.id.timetable_layout);
@@ -159,6 +150,15 @@ public class TimeTableActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // 시간표 화면으로 돌아올 때 네비게이션 상태 초기화
+        if (bottomNavigation != null) {
+            bottomNavigation.setSelectedItemId(R.id.nav_button_2);
+        }
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
         // 화면이 가려질 때 실시간 리스너를 중지하여 불필요한 리소스 사용 방지
@@ -176,15 +176,22 @@ public class TimeTableActivity extends AppCompatActivity {
             bottomNavigation.setOnItemSelectedListener(item -> {
                 int itemId = item.getItemId();
                 if (itemId == R.id.nav_button_1) {
-                    finish();
+                    // 홈 화면으로 이동
+                    Intent intent = new Intent(this, sprout.app.sakmvp1.MainActivityNew.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                    startActivity(intent);
                     return true;
                 } else if (itemId == R.id.nav_button_2) {
+                    // 이미 시간표 화면이므로 아무 동작 안 함
                     return true;
                 } else if (itemId == R.id.nav_button_3) {
                     Toast.makeText(this, "기능3 - 준비중", Toast.LENGTH_SHORT).show();
                     return true;
                 } else if (itemId == R.id.nav_button_4) {
-                    Toast.makeText(this, "기능4 - 준비중", Toast.LENGTH_SHORT).show();
+                    // 내 정보 화면으로 이동
+                    Intent intent = new Intent(this, sprout.app.sakmvp1.UserProfileActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                    startActivity(intent);
                     return true;
                 }
                 return false;

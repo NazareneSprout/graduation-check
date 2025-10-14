@@ -48,7 +48,6 @@ import androidx.core.view.WindowInsetsCompat;
  *
  * <h3>UI 특징:</h3>
  * <ul>
- *   <li>♿ <strong>접근성</strong>: HighContrastHelper를 통한 고대비 테마 지원</li>
  *   <li>🛡️ <strong>중복 클릭 방지</strong>: 2초 가드를 통한 다중 제출 방지</li>
  *   <li>📱 <strong>키패드 최적화</strong>: 숫자 입력 시 숫자 키패드 자동 표시</li>
  *   <li>🔄 <strong>동적 UI</strong>: 학과별 추가 요건 존재 시에만 관련 영역 표시</li>
@@ -106,10 +105,7 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // (1) 접근성: 고대비 테마 적용
-        HighContrastHelper.applyHighContrastTheme(this);
-
-        // (2) 레이아웃 세팅
+        // (1) 레이아웃 세팅
         setContentView(R.layout.activity_additional_requirements);
 
         // (3) 기본 액션바 숨김 - 커스텀 Toolbar만 사용

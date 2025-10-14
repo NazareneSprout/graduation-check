@@ -170,6 +170,10 @@
                         android:orientation="horizontal"
                         android:weightSum="2">
 
+                        <!-- 기능3: 수강과목 추천 버튼
+                             - Tertiary 컨테이너 색상 사용
+                             - 책+별 아이콘으로 추천 기능 직관적 표현
+                             - CourseRecommendationActivity로 이동 -->
                         <com.google.android.material.card.MaterialCardView
                             android:layout_width="0dp"
                             android:layout_height="150dp"
@@ -192,9 +196,9 @@
                                 <ImageView
                                     android:layout_width="48dp"
                                     android:layout_height="48dp"
-                                    android:src="@drawable/ic_arrow_back"
+                                    android:src="@drawable/ic_recommend"
                                     app:tint="?attr/colorOnTertiaryContainer"
-                                    android:contentDescription="기능3"
+                                    android:contentDescription="@string/function_3"
                                     android:layout_marginBottom="8dp" />
 
                                 <TextView

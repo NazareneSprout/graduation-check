@@ -16,7 +16,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import sprout.app.sakmvp1.R; // <- applicationId 기준으로 생성된 R 클래스(리소스 접근용)
-import sprout.app.sakmvp1.MainActivity;
+import sprout.app.sakmvp1.MainActivityNew;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
 import com.google.firebase.auth.FirebaseAuthInvalidUserException;
@@ -92,7 +92,7 @@ public class LoginActivity extends AppCompatActivity {
         // 로그인 화면을 건너뛰고 바로 메인으로 진입
         // - getCurrentUser()!=null 은 토큰이 유효하고 세션이 남아있음을 의미
         if (autoLogin && mAuth.getCurrentUser() != null) {
-            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
             finish(); // 로그인 화면을 백스택에서 제거
         }
 
@@ -104,21 +104,64 @@ public class LoginActivity extends AppCompatActivity {
             startActivity(new Intent(LoginActivity.this, SignUpActivity.class));
         });
 
-        // [테스트 접속] 버튼 클릭 → 실제 인증 절차 없이 메인 화면으로 이동
+        // [테스트 접속] 버튼 클릭 → 일반/관리자 선택 다이얼로그 표시
         // - 시연/디자인 점검 용도
         // - finish()를 호출하지 않아 뒤로가기 시 로그인 화면으로 복귀 가능
-        btnTestAccess.setOnClickListener(v -> {
-            Toast.makeText(LoginActivity.this, "테스트 모드로 접속합니다", Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+        btnTestAccess.setOnClickListener(v -> showTestAccessDialog());
+    }
+
+    /**
+     * 테스트 접속 다이얼로그 표시
+     * 일반 접속 또는 관리자 접속을 선택할 수 있음
+     */
+    private void showTestAccessDialog() {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        android.view.View dialogView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_test_access, null);
+        builder.setView(dialogView);
+
+        com.google.android.material.button.MaterialButton btnNormalAccess = dialogView.findViewById(R.id.btn_normal_access);
+        com.google.android.material.button.MaterialButton btnAdminAccess = dialogView.findViewById(R.id.btn_admin_access);
+        com.google.android.material.button.MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
+
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
+
+        // 일반 접속
+        btnNormalAccess.setOnClickListener(v -> {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit()
+                    .putBoolean("is_admin", false)
+                    .apply();
+
+            Toast.makeText(LoginActivity.this, "일반 사용자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+            dialog.dismiss();
         });
+
+        // 관리자 접속
+        btnAdminAccess.setOnClickListener(v -> {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit()
+                    .putBoolean("is_admin", true)
+                    .apply();
+
+            Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+            dialog.dismiss();
+        });
+
+        // 취소
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
     }
 
     /**
      * 이메일/비밀번호로 Firebase 인증 시도
      * 1) 공란 검증
-     * 2) FirebaseAuth.signInWithEmailAndPassword 호출
-     * 3) 성공 시 자동 로그인 설정 저장 + 메인으로 이동
-     * 4) 실패 시 예외 타입에 따라 사용자 친화적 메세지 노출
+     * 2) 이메일로 관리자 여부 자동 판단
+     * 3) FirebaseAuth.signInWithEmailAndPassword 호출
+     * 4) 성공 시 자동 로그인 설정 저장 + 메인으로 이동
+     * 5) 실패 시 예외 타입에 따라 사용자 친화적 메세지 노출
      */
     private void loginUser() {
         // 양끝 공백 제거(사용자 입력 실수 방지)
@@ -126,45 +169,41 @@ public class LoginActivity extends AppCompatActivity {
         String password = etPassword.getText().toString().trim();
 
         // 최소한의 유효성 검사(공란 체크)
-        // - 추가적으로 이메일 형식 검증(android.util.Patterns.EMAIL_ADDRESS) 등을 확장 가능
         if (email.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "이메일과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // 이메일로 관리자 여부 자동 판단
+        boolean isAdmin = isAdminEmail(email);
+
         // Firebase 이메일/비밀번호 로그인
-        // - 네트워크 비동기 작업: addOnCompleteListener 콜백에서 결과 처리
         mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         // 인증 성공
-                        Toast.makeText(LoginActivity.this, "로그인 성공", Toast.LENGTH_SHORT).show();
+                        String loginType = isAdmin ? "관리자 로그인 성공" : "로그인 성공";
+                        Toast.makeText(LoginActivity.this, loginType, Toast.LENGTH_SHORT).show();
 
                         // 자동 로그인 설정을 사용자 선택(체크박스)대로 저장
-                        // - true: 다음 앱 실행 시 자동 진입 시도
-                        // - false: 다음 실행 시 로그인 화면 유지
                         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                         prefs.edit()
                                 .putBoolean(KEY_AUTO_LOGIN, cbAutoLogin.isChecked())
+                                .putBoolean("is_admin", isAdmin)
                                 .apply();
 
                         // 메인 화면으로 이동 후 로그인 화면 종료
-                        startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                        startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
                         finish();
                     } else {
                         // 인증 실패: 예외 유형에 따라 구체 메시지 제공
                         Exception exception = task.getException();
 
                         if (exception instanceof FirebaseAuthInvalidCredentialsException) {
-                            // 비밀번호 오류(혹은 형식 불일치)
                             Toast.makeText(LoginActivity.this, "잘못된 비밀번호입니다.", Toast.LENGTH_SHORT).show();
                         } else if (exception instanceof FirebaseAuthInvalidUserException) {
-                            // 가입된 이메일이 아님 / 비활성 사용자 등
                             Toast.makeText(LoginActivity.this, "존재하지 않는 이메일입니다.", Toast.LENGTH_SHORT).show();
                         } else {
-                            // 그 외: 네트워크 오류, 과도한 시도, 서버 에러 등
-                            // - 사용자에게는 일반화된 메시지 + 디버깅을 위해 상세 메시지도 덧붙임
-                            // - 실제 배포환경에선 상세 메시지 노출을 최소화하는 것이 보안/UX 측면에서 바람직
                             Toast.makeText(
                                     LoginActivity.this,
                                     "로그인 실패: " + (exception != null ? exception.getMessage() : "알 수 없는 오류"),
@@ -173,5 +212,30 @@ public class LoginActivity extends AppCompatActivity {
                         }
                     }
                 });
+    }
+
+    /**
+     * 이메일로 관리자 여부 판단
+     * 특정 도메인(@admin.nu.ac.kr) 또는 화이트리스트에 등록된 이메일인지 확인
+     * 실제 배포 시에는 Firebase Firestore나 Realtime Database에서 관리자 목록을 관리하는 것을 권장
+     */
+    private boolean isAdminEmail(String email) {
+        // 관리자 도메인 체크
+        if (email.endsWith("@admin.nu.ac.kr")) {
+            return true;
+        }
+
+        // 관리자 이메일 화이트리스트
+        String[] adminEmails = {
+            "admin@nu.ac.kr",
+            "manager@nu.ac.kr"
+        };
+
+        for (String adminEmail : adminEmails) {
+            if (email.equals(adminEmail)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

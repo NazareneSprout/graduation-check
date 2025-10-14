@@ -169,27 +169,31 @@ public class FirebaseDataManager {
      *
      * <p>교양 강의 문서는 다음 우선순위로 결정됩니다:</p>
      * <ol>
+     *   <li><strong>관리자 설정 문서:</strong> 졸업요건 문서의 generalEducationDocId 필드 (최우선)</li>
      *   <li><strong>학부별 특화 문서:</strong> "교양_{학부}_{연도}" (예: "교양_IT학부_2025")</li>
      *   <li><strong>공통 문서 (Fallback):</strong> "교양_공통_{연도}" (예: "교양_공통_2025")</li>
-     *   <li><strong>문서 없음:</strong> 둘 다 존재하지 않으면 onNotFound() 호출</li>
+     *   <li><strong>문서 없음:</strong> 모두 존재하지 않으면 onNotFound() 호출</li>
      * </ol>
      *
      * <p><strong>성능 최적화:</strong> 한 번 해결된 결과는 generalDocCache에 캐싱되어
      * 동일한 학부-연도 조합에 대한 반복 요청 시 즉시 반환됩니다.</p>
      *
      * @param department 학부명 (null 또는 공백 허용)
+     * @param track 트랙명 (null 허용, generalEducationDocId 조회에 필요)
      * @param year 연도 (4자리, 예: "2025")
      * @param cb 결과를 받을 콜백 리스너
      */
-    private void resolveGeneralDocId(String department, String year, OnGeneralDocResolvedListener cb) {
+    private void resolveGeneralDocId(String department, String track, String year, OnGeneralDocResolvedListener cb) {
         // 입력 매개변수 정규화 (null 안전성 확보)
         String dept = (department == null ? "" : department.trim());
+        String tr = (track == null ? "" : track.trim());
         String yr = (year == null ? "" : year.trim());
 
         // Firestore 문서 ID 생성 (명명 규칙에 따라)
-        final String deptDocId = "교양_" + dept + "_" + yr;      // 학부별 특화 문서
-        final String commonDocId = "교양_공통_" + yr;             // 공통 Fallback 문서
-        final String cacheKey = dept + "|" + yr;                 // 캐시 키 (파이프 구분자 사용)
+        final String graduationReqDocId = dept + "_" + tr + "_" + yr;  // 졸업요건 문서
+        final String deptDocId = "교양_" + dept + "_" + yr;              // 학부별 특화 문서
+        final String commonDocId = "교양_공통_" + yr;                     // 공통 Fallback 문서
+        final String cacheKey = dept + "|" + tr + "|" + yr;             // 캐시 키 (track 포함)
 
         // 캐시 히트 - 캐시된 문서 ID로 다시 조회 (DocumentSnapshot 필요)
         if (generalDocCache.containsKey(cacheKey)) {
@@ -201,13 +205,53 @@ public class FirebaseDataManager {
                         } else {
                             // 캐시 무효화 후 재시도
                             generalDocCache.remove(cacheKey);
-                            resolveGeneralDocId(department, year, cb);
+                            resolveGeneralDocId(department, track, year, cb);
                         }
                     })
                     .addOnFailureListener(cb::onError);
             return;
         }
 
+        // 0순위: 졸업요건 문서에서 관리자가 설정한 generalEducationDocId 확인
+        db.collection("graduation_requirements").document(graduationReqDocId).get()
+                .addOnSuccessListener(gradDoc -> {
+                    String customDocId = gradDoc.getString("generalEducationDocId");
+
+                    if (customDocId != null && !customDocId.trim().isEmpty()) {
+                        // 관리자가 설정한 교양 문서 ID가 있으면 최우선 사용
+                        Log.d(TAG, "관리자 설정 교양 문서 사용: " + customDocId);
+                        db.collection("graduation_requirements").document(customDocId).get()
+                                .addOnSuccessListener(customDs -> {
+                                    if (customDs.exists()) {
+                                        generalDocCache.put(cacheKey, customDocId);
+                                        docSnapshotCache.put(cacheKey, customDs);
+                                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                                        cb.onResolved(customDocId, customDs);
+                                    } else {
+                                        // 설정된 문서가 없으면 기본 로직으로 fallback
+                                        Log.w(TAG, "설정된 교양 문서 없음, 기본 로직 사용: " + customDocId);
+                                        resolveWithDefaultLogic(dept, yr, deptDocId, commonDocId, cacheKey, cb);
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "설정된 교양 문서 조회 실패, 기본 로직 사용", e);
+                                    resolveWithDefaultLogic(dept, yr, deptDocId, commonDocId, cacheKey, cb);
+                                });
+                    } else {
+                        // generalEducationDocId 필드가 없으면 기본 로직 사용
+                        resolveWithDefaultLogic(dept, yr, deptDocId, commonDocId, cacheKey, cb);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "졸업요건 문서 조회 실패, 기본 로직 사용", e);
+                    resolveWithDefaultLogic(dept, yr, deptDocId, commonDocId, cacheKey, cb);
+                });
+    }
+
+    /**
+     * 기본 교양 문서 해결 로직 (학부별 → 공통 순서)
+     */
+    private void resolveWithDefaultLogic(String dept, String yr, String deptDocId, String commonDocId, String cacheKey, OnGeneralDocResolvedListener cb) {
         // 1순위: 학부 전용
         db.collection("graduation_requirements").document(deptDocId).get()
                 .addOnSuccessListener(ds -> {
@@ -958,6 +1002,29 @@ public class FirebaseDataManager {
         // graduation_requirements 컬렉션에서 해당 학과/트랙의 전공 강의 조회
         String documentId = department + "_" + track + "_" + actualYear;
 
+        // 먼저 현재 졸업요건 문서에서 majorDocId가 설정되어 있는지 확인
+        db.collection("graduation_requirements").document(documentId)
+                .get()
+                .addOnSuccessListener(mainDoc -> {
+                    String customMajorDocId = mainDoc.getString("majorDocId");
+
+                    if (customMajorDocId != null && !customMajorDocId.trim().isEmpty()) {
+                        // 관리자가 설정한 전공 문서 사용
+                        Log.d(TAG, "관리자 설정 전공 문서 사용: " + customMajorDocId);
+                        loadMajorCoursesFromDocument(customMajorDocId, category, listener);
+                    } else {
+                        // 기본 문서 사용
+                        Log.d(TAG, "기본 전공 문서 사용: " + documentId);
+                        loadMajorCoursesFromDocument(documentId, category, listener);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "전공 문서 조회 실패", e);
+                    listener.onFailure(e);
+                });
+    }
+
+    private void loadMajorCoursesFromDocument(String documentId, String category, OnMajorCoursesLoadedListener listener) {
         db.collection("graduation_requirements").document(documentId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
@@ -967,11 +1034,27 @@ public class FirebaseDataManager {
 
                     if (documentSnapshot.exists()) {
                         Map<String, Object> data = documentSnapshot.getData();
+                        Log.d(TAG, "[" + documentId + "] 문서 존재, 전체 데이터 키: " + (data != null ? data.keySet() : "null"));
                         if (data != null) {
                             // rules 객체에서 학기별 데이터 추출
                             Object rulesObj = data.get("rules");
+                            Log.d(TAG, "[" + documentId + "] rules 타입: " + (rulesObj != null ? rulesObj.getClass().getSimpleName() : "null"));
                             if (rulesObj instanceof Map) {
                                 Map<String, Object> rules = (Map<String, Object>) rulesObj;
+                                Log.d(TAG, "[" + documentId + "] rules 키 개수: " + rules.size() + ", 키 목록: " + rules.keySet());
+
+                                // rules의 첫 번째 키가 무엇인지 확인
+                                if (!rules.isEmpty()) {
+                                    String firstKey = rules.keySet().iterator().next();
+                                    Object firstValue = rules.get(firstKey);
+                                    Log.d(TAG, "[" + documentId + "] 첫 번째 키: '" + firstKey + "', 값 타입: " + (firstValue != null ? firstValue.getClass().getSimpleName() : "null"));
+                                    if (firstValue instanceof Map) {
+                                        Map<String, Object> firstValueMap = (Map<String, Object>) firstValue;
+                                        Log.d(TAG, "[" + documentId + "] 첫 번째 값의 키들: " + firstValueMap.keySet());
+                                    } else if (firstValue instanceof List) {
+                                        Log.d(TAG, "[" + documentId + "] 첫 번째 값은 List, 크기: " + ((List<?>) firstValue).size());
+                                    }
+                                }
 
                                 // 학기 키들을 정렬 (1학년 1학기, 1학년 2학기, 2학년 1학기, ...)
                                 List<String> sortedSemesters = new ArrayList<>(rules.keySet());
@@ -1092,12 +1175,12 @@ public class FirebaseDataManager {
         return 0;
     }
 
-    // 교양 강의 목록 조회 (폴백: 교양_학부_연도 → 없으면 교양_공통_연도)
+    // 교양 강의 목록 조회 (폴백: 관리자 설정 → 교양_학부_연도 → 교양_공통_연도)
     public void loadGeneralEducationCourses(String department, String track, String year, String category, OnMajorCoursesLoadedListener listener) {
         Log.d(TAG, "=== 교양 강의 조회 시작 ===");
         Log.d(TAG, "입력값 - 학부: " + department + ", 트랙: " + track + ", 년도: " + year + ", 카테고리: " + category);
 
-        resolveGeneralDocId(department, year, new OnGeneralDocResolvedListener() {
+        resolveGeneralDocId(department, track, year, new OnGeneralDocResolvedListener() {
             @Override
             public void onResolved(String docId, DocumentSnapshot snapshot) {
                 Log.d(TAG, "교양 문서 확정: " + docId);
@@ -1349,7 +1432,7 @@ public class FirebaseDataManager {
     public void loadGeneralEducationGroups(String department, String year, OnGeneralEducationGroupsLoadedListener listener) {
         Log.d(TAG, "교양교육 그룹 로드 시작: " + department + ", " + year);
 
-        resolveGeneralDocId(department, year, new OnGeneralDocResolvedListener() {
+        resolveGeneralDocId(department, null, year, new OnGeneralDocResolvedListener() {
             @Override
             public void onResolved(String docId, DocumentSnapshot snapshot) {
                 // N+1 해결: 이미 받은 DocumentSnapshot 사용

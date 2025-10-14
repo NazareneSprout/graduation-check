@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:fitsSystemWindows="true">
+
+    <!-- AppBar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:title="졸업요건 상세"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"/>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Content -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/content_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- 전공 문서 정보 카드 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_major_doc_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#E1F5FE"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎓 적용 중인 전공 문서"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#0277BD"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:id="@+id/tv_major_doc_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="컴퓨터정보통신_일반_2025"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#424242"
+                        android:layout_marginBottom="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tv_major_doc_updated"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="최종 수정: 2025년 1월 15일"
+                        android:textSize="12sp"
+                        android:textColor="#757575"/>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 교양 문서 정보 카드 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_general_doc_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#FFF3E0"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📋 적용 중인 교양 문서"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#E65100"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:id="@+id/tv_general_doc_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="교양_공통_2025"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#424242"
+                        android:layout_marginBottom="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tv_general_doc_updated"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="최종 수정: 2025년 1월 15일"
+                        android:textSize="12sp"
+                        android:textColor="#757575"/>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 전공 학점 카드 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💼 전공 학점"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#1976D2"
+                        android:layout_marginBottom="16dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="전공 필수"
+                            android:textSize="15sp"
+                            android:textColor="#424242"/>
+
+                        <TextView
+                            android:id="@+id/tv_major_required"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="30학점"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#1976D2"/>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="전공 선택"
+                            android:textSize="15sp"
+                            android:textColor="#424242"/>
+
+                        <TextView
+                            android:id="@+id/tv_major_elective"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="30학점"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#1976D2"/>
+
+                    </LinearLayout>
+
+                    <!-- 학부공통 또는 전공심화 (조건부 표시) -->
+                    <LinearLayout
+                        android:id="@+id/layout_major_dept_or_advanced"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tv_major_dept_or_advanced_label"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="전공심화"
+                            android:textSize="15sp"
+                            android:textColor="#424242"/>
+
+                        <TextView
+                            android:id="@+id/tv_major_dept_or_advanced"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0학점"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#1976D2"/>
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E0E0E0"
+                        android:layout_marginVertical="12dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="전공 합계"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#0D47A1"/>
+
+                        <TextView
+                            android:id="@+id/tv_major_total"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="60학점"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#0D47A1"/>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 교양 학점 카드 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📖 교양 학점"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#F57C00"
+                        android:layout_marginBottom="16dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="교양 필수"
+                            android:textSize="15sp"
+                            android:textColor="#424242"/>
+
+                        <TextView
+                            android:id="@+id/tv_general_required"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="20학점"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#F57C00"/>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="교양 선택"
+                            android:textSize="15sp"
+                            android:textColor="#424242"/>
+
+                        <TextView
+                            android:id="@+id/tv_general_elective"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="10학점"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#F57C00"/>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="소양"
+                            android:textSize="15sp"
+                            android:textColor="#424242"/>
+
+                        <TextView
+                            android:id="@+id/tv_liberal_arts"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0학점"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#F57C00"/>
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E0E0E0"
+                        android:layout_marginVertical="12dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="교양 합계"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#E65100"/>
+
+                        <TextView
+                            android:id="@+id/tv_general_total"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="30학점"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#E65100"/>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 기타 학점 카드 (자율선택/잔여학점만) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_other_credits"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📋 기타 학점"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#7B1FA2"
+                        android:layout_marginBottom="16dp"/>
+
+                    <!-- 자율선택/잔여학점 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tv_free_elective_label"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="자율선택"
+                            android:textSize="15sp"
+                            android:textColor="#424242"/>
+
+                        <TextView
+                            android:id="@+id/tv_free_elective"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0학점"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#7B1FA2"/>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- 로딩 표시 -->
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone"/>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -135,8 +135,6 @@ public class CourseInputActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        HighContrastHelper.applyHighContrastTheme(this); // 고대비 테마
-
         setContentView(R.layout.activity_course_input);
 
         // 기본 액션바 숨김(커스텀 Toolbar 사용)

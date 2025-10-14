@@ -111,6 +111,10 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     private static GeneralEducationAnalysis generalEducationAnalysis;
     private static Map<String, Integer> courseCreditsMap = new HashMap<>(); // 모든 강의의 학점 정보 저장
 
+    // 대체과목 관련 필드
+    private static List<ReplacementCourse> replacementCourses = new ArrayList<>(); // Firestore에서 로드한 대체과목 목록
+    private static Map<String, List<String>> replacementCoursesMap = new HashMap<>(); // 폐지된 과목 -> 대체 과목 목록 매핑
+
     // Fragment에서 접근할 수 있도록 정적 필드 추가
     private static String staticSelectedYear;
     private static String staticSelectedDepartment;
@@ -119,8 +123,6 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        HighContrastHelper.applyHighContrastTheme(this);
 
         setContentView(R.layout.activity_graduation_analysis_result);
 
@@ -233,7 +235,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         Toast.makeText(this, "분석이 완료되었습니다.", Toast.LENGTH_SHORT).show();
 
         // 메인화면으로 이동
-        Intent intent = new Intent(this, MainActivity.class);
+        Intent intent = new Intent(this, MainActivityNew.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
         finish();
@@ -254,24 +256,27 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         // 졸업 요건 설정
         graduationRequirements = new GraduationRequirements(selectedYear);
 
-        // 강의 분류별 학점 계산
-        Map<String, Integer> creditsByCategory = calculateCreditsByCategory();
+        // 1단계: 대체과목 데이터 로드
+        loadReplacementCourses(() -> {
+            // 2단계: 전공필수, 전공선택, 학부공통 과목 목록 로드
+            analyzeMajorRequiredCoursesForReplacementCalculation(() -> {
+                // 3단계: 대체과목 로직을 적용하여 학점 계산
+                Map<String, Integer> creditsByCategory = calculateCreditsByCategoryWithReplacements();
 
-        // Firebase에서 졸업이수학점 요건을 먼저 로드한 후 진행도 계산
-        loadCreditRequirements(creditsByCategory);
+                // 4단계: Firebase에서 졸업이수학점 요건을 로드하고 진행도 계산
+                loadCreditRequirements(creditsByCategory);
 
-        // 전공필수 과목 상세 분석
-        analyzeMajorRequiredCourses();
+                // 5단계: 교양 과목 상세 분석
+                analyzeGeneralEducationCourses();
 
-        // 교양 과목 상세 분석
-        analyzeGeneralEducationCourses();
+                int totalCredits = 0;
+                for (int credits : creditsByCategory.values()) {
+                    totalCredits += credits;
+                }
 
-        int totalCredits = 0;
-        for (int credits : creditsByCategory.values()) {
-            totalCredits += credits;
-        }
-
-        Log.d(TAG, "졸업 요건 분석 완료 - 총 " + courseList.size() + "개 강의, " + totalCredits + "학점");
+                Log.d(TAG, "졸업 요건 분석 완료 - 총 " + courseList.size() + "개 강의, " + totalCredits + "학점");
+            });
+        });
     }
 
     private Map<String, Integer> calculateCreditsByCategory() {
@@ -285,6 +290,102 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         }
 
         return creditsByCategory;
+    }
+
+    /**
+     * 대체과목 로직을 적용하여 카테고리별 학점을 계산하는 함수
+     * 이 함수는 대체과목 데이터가 로드된 후에만 호출되어야 합니다.
+     */
+    private Map<String, Integer> calculateCreditsByCategoryWithReplacements() {
+        Map<String, Integer> creditsByCategory = new HashMap<>();
+
+        // 먼저 기본 학점 계산 (사용자가 직접 수강한 과목들)
+        for (CourseInputActivity.Course course : courseList) {
+            String category = course.getCategory();
+            int credits = course.getCredits();
+            creditsByCategory.put(category, creditsByCategory.getOrDefault(category, 0) + credits);
+        }
+
+        Log.d(TAG, "calculateCreditsByCategoryWithReplacements: 기본 학점 계산 완료");
+        Log.d(TAG, "  - 학부공통: " + creditsByCategory.getOrDefault("학부공통", 0) + "학점");
+        Log.d(TAG, "  - 전공선택: " + creditsByCategory.getOrDefault("전공선택", 0) + "학점");
+
+        // 수강한 과목 이름 리스트 생성
+        List<String> takenCourseNames = new ArrayList<>();
+        for (CourseInputActivity.Course course : courseList) {
+            takenCourseNames.add(course.getName());
+        }
+
+        Log.d(TAG, "  - 수강 과목: " + takenCourseNames.toString());
+
+        // 대체과목 맵을 순회하며 추가 학점 인정
+        // replacementCoursesMap: Map<폐강된과목, List<대체가능과목>>
+        for (Map.Entry<String, List<String>> entry : replacementCoursesMap.entrySet()) {
+            String discontinuedCourse = entry.getKey();
+            List<String> replacementCourses = entry.getValue();
+
+            // 폐강된 과목을 직접 수강했는지 확인
+            boolean directlyTaken = takenCourseNames.contains(discontinuedCourse);
+
+            if (!directlyTaken) {
+                // 직접 수강하지 않았다면, 대체 과목을 수강했는지 확인
+                for (String replacementCourse : replacementCourses) {
+                    if (takenCourseNames.contains(replacementCourse)) {
+                        // 대체 과목을 수강했으면, 폐강된 과목의 학점을 추가
+                        // 폐강된 과목의 카테고리와 학점을 Firebase에서 가져와야 함
+                        // 현재는 courseCreditsMap에 저장되어 있음
+                        Integer discontinuedCourseCredit = courseCreditsMap.get(discontinuedCourse);
+                        if (discontinuedCourseCredit != null && discontinuedCourseCredit > 0) {
+                            // 폐강된 과목의 카테고리 결정 (학부공통으로 가정)
+                            // TODO: 실제로는 Firebase에서 해당 과목의 카테고리를 확인해야 함
+                            String discontinuedCourseCategory = determineDiscontinuedCourseCategory(discontinuedCourse);
+
+                            creditsByCategory.put(
+                                    discontinuedCourseCategory,
+                                    creditsByCategory.getOrDefault(discontinuedCourseCategory, 0) + discontinuedCourseCredit
+                            );
+
+                            Log.d(TAG, "✓ 대체과목 학점 추가: '" + discontinuedCourse + "' (" + discontinuedCourseCredit + "학점) ← '" +
+                                    replacementCourse + "' 수강으로 인정 (카테고리: " + discontinuedCourseCategory + ")");
+                        }
+                        break; // 하나의 대체 과목만 인정
+                    }
+                }
+            }
+        }
+
+        Log.d(TAG, "calculateCreditsByCategoryWithReplacements: 대체과목 적용 후 최종 학점");
+        Log.d(TAG, "  - 학부공통: " + creditsByCategory.getOrDefault("학부공통", 0) + "학점");
+        Log.d(TAG, "  - 전공선택: " + creditsByCategory.getOrDefault("전공선택", 0) + "학점");
+
+        return creditsByCategory;
+    }
+
+    /**
+     * 폐강된 과목의 카테고리를 결정하는 헬퍼 함수
+     * allDepartmentCommonCourses, allMajorRequiredCourses 등의 리스트를 참조
+     */
+    private String determineDiscontinuedCourseCategory(String courseName) {
+        // 학부공통 과목인지 확인
+        if (allDepartmentCommonCourses != null && allDepartmentCommonCourses.contains(courseName)) {
+            return "학부공통";
+        }
+        // 전공필수 과목인지 확인
+        if (allMajorRequiredCourses != null && allMajorRequiredCourses.contains(courseName)) {
+            return "전공필수";
+        }
+        // 전공선택 과목인지 확인
+        if (allMajorElectiveCourses != null && allMajorElectiveCourses.contains(courseName)) {
+            return "전공선택";
+        }
+        // 전공심화 과목인지 확인
+        if (allMajorAdvancedCourses != null && allMajorAdvancedCourses.contains(courseName)) {
+            return "전공심화";
+        }
+
+        // 기본값: 학부공통 (IT개론 등 초기 과목은 대부분 학부공통)
+        Log.w(TAG, "determineDiscontinuedCourseCategory: '" + courseName + "' 카테고리를 찾을 수 없음, 학부공통으로 가정");
+        return "학부공통";
     }
 
 
@@ -487,6 +588,106 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         Log.d(TAG, "넘침 학점 재분배 완료 - 총 " + overflowCredits + "학점이 " + overflowDestination + "으로 이동");
 
         return progress;
+    }
+
+    /**
+     * 대체과목 학점 계산을 위해 과목 목록만 로드하는 버전
+     * 콜백을 받아서 모든 과목 로드 완료 후 실행
+     */
+    private void analyzeMajorRequiredCoursesForReplacementCalculation(Runnable onComplete) {
+        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
+
+        // 초기화
+        allMajorRequiredCourses = new ArrayList<>();
+        allMajorElectiveCourses = new ArrayList<>();
+        allMajorAdvancedCourses = new ArrayList<>();
+        allDepartmentCommonCourses = new ArrayList<>();
+
+        // 전공필수 과목 로드
+        dataManager.loadMajorCourses(selectedDepartment, selectedTrack, selectedYear, "전공필수", new FirebaseDataManager.OnMajorCoursesLoadedListener() {
+            @Override
+            public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
+                Log.d(TAG, "[대체과목계산용] 전공필수 과목 로드 성공: " + courses.size() + "개");
+                allMajorRequiredCourses.clear();
+                for (FirebaseDataManager.CourseInfo course : courses) {
+                    allMajorRequiredCourses.add(course.getName());
+                    courseCreditsMap.put(course.getName(), course.getCredits());
+                }
+                loadMajorElectiveCoursesForReplacement(onComplete);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "전공필수 과목 로드 실패: " + e.getMessage());
+                Toast.makeText(GraduationAnalysisResultActivity.this,
+                        "전공필수 과목 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
+    }
+
+    private void loadMajorElectiveCoursesForReplacement(Runnable onComplete) {
+        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
+
+        dataManager.loadMajorCourses(selectedDepartment, selectedTrack, selectedYear, "전공선택", new FirebaseDataManager.OnMajorCoursesLoadedListener() {
+            @Override
+            public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
+                Log.d(TAG, "[대체과목계산용] 전공선택 과목 로드 성공: " + courses.size() + "개");
+                allMajorElectiveCourses.clear();
+                for (FirebaseDataManager.CourseInfo course : courses) {
+                    allMajorElectiveCourses.add(course.getName());
+                    courseCreditsMap.put(course.getName(), course.getCredits());
+                }
+                loadDepartmentCommonCoursesForReplacement(onComplete);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "전공선택 과목 로드 실패: " + e.getMessage());
+                Toast.makeText(GraduationAnalysisResultActivity.this,
+                        "전공선택 과목 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
+    }
+
+    private void loadDepartmentCommonCoursesForReplacement(Runnable onComplete) {
+        FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
+
+        String categoryName = DepartmentConfig.getDepartmentCommonCategoryName(selectedDepartment, selectedYear);
+        Log.d(TAG, "[대체과목계산용] 카테고리: " + categoryName);
+
+        dataManager.loadDepartmentCommonCourses(selectedDepartment, selectedTrack, selectedYear, new FirebaseDataManager.OnMajorCoursesLoadedListener() {
+            @Override
+            public void onSuccess(List<FirebaseDataManager.CourseInfo> courses) {
+                Log.d(TAG, "[대체과목계산용] " + categoryName + " 과목 로드 성공: " + courses.size() + "개");
+                if ("전공심화".equals(categoryName)) {
+                    allMajorAdvancedCourses.clear();
+                    for (FirebaseDataManager.CourseInfo course : courses) {
+                        allMajorAdvancedCourses.add(course.getName());
+                        courseCreditsMap.put(course.getName(), course.getCredits());
+                    }
+                } else {
+                    allDepartmentCommonCourses.clear();
+                    for (FirebaseDataManager.CourseInfo course : courses) {
+                        allDepartmentCommonCourses.add(course.getName());
+                        courseCreditsMap.put(course.getName(), course.getCredits());
+                    }
+                }
+                // 모든 과목 로드 완료, 콜백 실행
+                if (onComplete != null) {
+                    onComplete.run();
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, categoryName + " 과목 로드 실패: " + e.getMessage());
+                Toast.makeText(GraduationAnalysisResultActivity.this,
+                        categoryName + " 과목 데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
     }
 
     private void analyzeMajorRequiredCourses() {
@@ -865,8 +1066,10 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
             String takenCourse = null;
             for (String course : groupCourses) {
-                if (takenCourses.contains(course)) {
-                    takenCourse = course;
+                if (isCourseCompleted(course, takenCourses)) {
+                    // 대체과목으로 이수한 경우 실제 수강한 과목명 가져오기
+                    String replacementTaken = getReplacementCourseTaken(course, takenCourses);
+                    takenCourse = replacementTaken != null ? replacementTaken : course;
                     break;
                 }
             }
@@ -883,7 +1086,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         // 개별 필수 과목 상태 분석
         generalEducationAnalysis.individualRequiredStatus = new HashMap<>();
         for (String course : individualRequired) {
-            boolean isTaken = takenCourses.contains(course);
+            boolean isTaken = isCourseCompleted(course, takenCourses);
             generalEducationAnalysis.individualRequiredStatus.put(course, isTaken);
         }
     }
@@ -1399,7 +1602,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
                 // 미이수 과목들 추가
                 for (String course : allCourses) {
-                    if (!takenCourses.contains(course)) {
+                    if (!isCourseCompleted(course, takenCourses)) {
                         addMissingCourseItem(contentLayout, course, 3); // 대부분 3학점
                     }
                 }
@@ -1512,7 +1715,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
                 // 미이수 과목들 모두 추가
                 for (String course : allCourses) {
-                    if (!takenCourses.contains(course)) {
+                    if (!isCourseCompleted(course, takenCourses)) {
                         int credits = getCourseCreditsFromFirebase(course);
                         addMissingCourseItem(contentLayout, course, credits);
                     }
@@ -1590,7 +1793,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                         // 미이수 과목들 추가
                         boolean hasUncompletedCourses = false;
                         for (String course : allCourses) {
-                            if (!takenCourses.contains(course)) {
+                            if (!isCourseCompleted(course, takenCourses)) {
                                 addMissingCourseItem(contentLayout, course, 3);
                                 hasUncompletedCourses = true;
                             }
@@ -1698,7 +1901,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
                 // 미이수 과목들 추가
                 for (String course : allCourses) {
-                    if (!takenCourses.contains(course)) {
+                    if (!isCourseCompleted(course, takenCourses)) {
                         int credits = getCourseCreditsFromFirebase(course);
                         addMissingCourseItem(contentLayout, course, credits);
                     }
@@ -2708,5 +2911,96 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             float density = getResources().getDisplayMetrics().density;
             return Math.round(dp * density);
         }
+    }
+
+    /**
+     * Firestore에서 대체과목 데이터 로드
+     * @param onComplete 로드 완료 후 실행할 콜백
+     */
+    private void loadReplacementCourses(Runnable onComplete) {
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        db.collection("replacement_courses")
+                .whereEqualTo("department", selectedDepartment)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    replacementCourses.clear();
+                    replacementCoursesMap.clear();
+
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        ReplacementCourse course = document.toObject(ReplacementCourse.class);
+                        course.setId(document.getId());
+                        replacementCourses.add(course);
+
+                        // 맵에 추가: 폐지된 과목명 -> 대체 가능한 과목 목록
+                        replacementCoursesMap.put(
+                            course.getDiscontinuedCourseName(),
+                            course.getReplacementCourseNames()
+                        );
+                    }
+
+                    Log.d(TAG, "대체과목 로드 완료: " + replacementCourses.size() + "개 (학부: " + selectedDepartment + ")");
+                    for (ReplacementCourse rc : replacementCourses) {
+                        Log.d(TAG, "  - " + rc.getDiscontinuedCourseName() + " → " + rc.getReplacementCoursesAsString());
+                    }
+
+                    // 로드 완료 후 콜백 실행
+                    if (onComplete != null) {
+                        onComplete.run();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "대체과목 로드 실패", e);
+                    // 실패해도 분석은 진행 (대체과목 없이)
+                    if (onComplete != null) {
+                        onComplete.run();
+                    }
+                });
+    }
+
+    /**
+     * 과목 이수 여부 확인 (대체과목 포함)
+     * @param requiredCourse 필수 과목명
+     * @param takenCourseNames 수강한 과목명 목록
+     * @return 이수 여부
+     */
+    private static boolean isCourseCompleted(String requiredCourse, List<String> takenCourseNames) {
+        // 1. 직접 이수한 경우
+        if (takenCourseNames.contains(requiredCourse)) {
+            return true;
+        }
+
+        // 2. 대체과목으로 이수한 경우 확인
+        List<String> replacements = replacementCoursesMap.get(requiredCourse);
+        if (replacements != null && !replacements.isEmpty()) {
+            Log.d(TAG, "대체과목 체크: '" + requiredCourse + "' → 대체 가능: " + replacements);
+            for (String replacementCourse : replacements) {
+                if (takenCourseNames.contains(replacementCourse)) {
+                    Log.d(TAG, "✓ 대체과목 인정: '" + requiredCourse + "' ← '" + replacementCourse + "' 수강으로 인정");
+                    return true;
+                }
+            }
+            Log.d(TAG, "✗ 대체과목 미이수: '" + requiredCourse + "' 및 대체과목 모두 미이수");
+        }
+
+        return false;
+    }
+
+    /**
+     * 대체과목으로 인정된 과목명 찾기
+     * @param discontinuedCourse 폐지된 과목명
+     * @param takenCourseNames 수강한 과목명 목록
+     * @return 대체 인정된 과목명, 없으면 null
+     */
+    private static String getReplacementCourseTaken(String discontinuedCourse, List<String> takenCourseNames) {
+        List<String> replacements = replacementCoursesMap.get(discontinuedCourse);
+        if (replacements != null) {
+            for (String replacementCourse : replacements) {
+                if (takenCourseNames.contains(replacementCourse)) {
+                    return replacementCourse;
+                }
+            }
+        }
+        return null;
     }
 }

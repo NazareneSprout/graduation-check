@@ -33,6 +33,11 @@
         <activity android:name=".GraduationAnalysisResultActivity" />
         <activity android:name=".DataViewerActivity" />
         <activity android:name=".WebViewActivity" />
+        <activity android:name=".CourseRecommendationActivity" />
+        <activity android:name=".RecommendationResultActivity" />
+        <activity android:name=".UserInfoActivity" />
+        <activity android:name=".UserProfileActivity" />
+        <activity android:name=".LoadingUserInfoActivity" />
         <activity
             android:name=".timetable.AddScheduleActivity"
             android:theme="@style/Theme.SakMvp1" />
@@ -40,8 +45,45 @@
             android:name=".timetable.TimeTableActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
-        <activity android:name="MainActivity"
+        <activity android:name=".SavedTimetablesActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".AdminActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".GraduationRequirementsActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".GraduationRequirementDetailActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".GraduationRequirementEditActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".GraduationRequirementAddActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".MajorDocumentManagementActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".EducationDocumentManagementActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".MajorDocumentEditActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".EducationDocumentEditActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".ReplacementCourseManagementActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity android:name=".MainActivityNew"
             android:exported="true"
+            android:windowSoftInputMode="adjustResize"/>
+        <!-- 기존 MainActivity는 임시로 유지 -->
+        <activity android:name=".MainActivity"
+            android:exported="false"
             android:windowSoftInputMode="adjustResize"/>
     </application>
 
