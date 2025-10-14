@@ -1968,4 +1968,77 @@ public class FirebaseDataManager {
             }
         });
     }
+
+    // ========== 통합 졸업요건 시스템 (v2) ==========
+
+    /**
+     * 통합 졸업요건 규칙 로드 (graduation_requirements_v2 컬렉션)
+     *
+     * @param cohort 학번 (예: "2020")
+     * @param department 학부 (예: "IT학부")
+     * @param track 트랙 (예: "인공지능")
+     * @param listener 로드 완료 리스너
+     */
+    public void loadGraduationRules(String cohort, String department, String track,
+                                     OnGraduationRulesLoadedListener listener) {
+        String docId = cohort + "_" + department + "_" + track;
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "Loading unified graduation rules: " + docId);
+        Log.d(TAG, "========================================");
+
+        // 캐시 확인
+        String cacheKey = "graduation_rules_v2_" + docId;
+        Long cacheTime = cacheTimestamps.get(cacheKey);
+        if (cacheTime != null && (System.currentTimeMillis() - cacheTime) < CACHE_VALIDITY_MS) {
+            sprout.app.sakmvp1.models.GraduationRules cached =
+                (sprout.app.sakmvp1.models.GraduationRules) graduationCache.get(cacheKey);
+            if (cached != null) {
+                Log.d(TAG, "✓ Cache hit for graduation rules: " + docId);
+                listener.onSuccess(cached);
+                return;
+            }
+        }
+
+        // Firestore에서 로드
+        db.collection("graduation_requirements_v2")
+            .document(docId)
+            .get()
+            .addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    sprout.app.sakmvp1.models.GraduationRules rules =
+                        documentSnapshot.toObject(sprout.app.sakmvp1.models.GraduationRules.class);
+
+                    if (rules != null) {
+                        // 캐시 저장
+                        graduationCache.put(cacheKey, rules);
+                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+
+                        Log.d(TAG, "✓ Loaded graduation rules: " + docId);
+                        Log.d(TAG, "  - Version: " + rules.getVersion());
+                        Log.d(TAG, "  - Categories: " + (rules.getCategories() != null ? rules.getCategories().size() : 0));
+                        Log.d(TAG, "  - Replacement rules: " + (rules.getReplacementRules() != null ? rules.getReplacementRules().size() : 0));
+
+                        listener.onSuccess(rules);
+                    } else {
+                        Log.e(TAG, "Failed to deserialize graduation rules: " + docId);
+                        listener.onFailure(new Exception("졸업요건 데이터 역직렬화 실패"));
+                    }
+                } else {
+                    Log.e(TAG, "Graduation rules document not found: " + docId);
+                    listener.onFailure(new Exception("졸업요건 문서를 찾을 수 없습니다: " + docId));
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Failed to load graduation rules: " + docId, e);
+                listener.onFailure(e);
+            });
+    }
+
+    /**
+     * 통합 졸업요건 규칙 로드 완료 리스너
+     */
+    public interface OnGraduationRulesLoadedListener {
+        void onSuccess(sprout.app.sakmvp1.models.GraduationRules rules);
+        void onFailure(Exception e);
+    }
 }
