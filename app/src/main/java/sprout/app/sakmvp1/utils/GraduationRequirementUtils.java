@@ -55,6 +55,33 @@ public class GraduationRequirementUtils {
     }
 
     /**
+     * Map에서 정수값 안전하게 추출
+     * v2 creditRequirements 객체에서 값 추출 시 사용
+     *
+     * @param map Map 객체
+     * @param key 필드 이름
+     * @param defaultValue 기본값 (필드가 없거나 변환 실패 시)
+     * @return 변환된 정수값
+     */
+    public static int getIntValue(Map<String, Object> map, String key, int defaultValue) {
+        if (map == null || !map.containsKey(key)) {
+            return defaultValue;
+        }
+
+        Object value = map.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        } else if (value instanceof String) {
+            try {
+                return Integer.parseInt((String) value);
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "숫자 변환 실패: " + key + " = " + value);
+            }
+        }
+        return defaultValue;
+    }
+
+    /**
      * Long 값을 안전하게 int로 변환
      * @param value Long 값 (null 가능)
      * @param defaultValue 기본값
@@ -145,5 +172,37 @@ public class GraduationRequirementUtils {
             return "교양_공통_" + year;
         }
         return "교양_" + department + "_" + year;
+    }
+
+    /**
+     * Firestore 문서에서 creditRequirements 객체를 통해 특정 카테고리의 학점 가져오기
+     * 통합 구조(v2)를 지원하며, 이전 구조(v1)로 fallback
+     *
+     * @param document Firestore DocumentSnapshot
+     * @param categoryName 카테고리 이름 (예: "전공심화", "전공필수" 등)
+     * @param defaultValue 기본값
+     * @return 해당 카테고리의 학점
+     */
+    @SuppressWarnings("unchecked")
+    public static int getCreditFromRequirements(DocumentSnapshot document, String categoryName, int defaultValue) {
+        // 1. 먼저 통합 구조(v2)에서 시도: creditRequirements 객체 확인
+        Object creditReqObj = document.get("creditRequirements");
+        if (creditReqObj instanceof Map) {
+            Map<String, Object> creditRequirements = (Map<String, Object>) creditReqObj;
+
+            // creditRequirements에 직접 카테고리 이름이 있는지 확인
+            if (creditRequirements.containsKey(categoryName)) {
+                int value = getIntValue(creditRequirements, categoryName, defaultValue);
+                Log.d(TAG, "Found " + categoryName + " in creditRequirements (v2): " + value);
+                return value;
+            }
+        }
+
+        // 2. 이전 구조(v1)로 fallback: 문서 루트에서 직접 읽기
+        int value = getIntValue(document, categoryName, defaultValue);
+        if (value != defaultValue) {
+            Log.d(TAG, "Found " + categoryName + " in document root (v1): " + value);
+        }
+        return value;
     }
 }

@@ -1,0 +1,23 @@
+{
+  "name": "graduation-requirements-migration",
+  "version": "2.0.0",
+  "description": "졸업요건 데이터 마이그레이션 스크립트",
+  "main": "migrate_to_v2.js",
+  "scripts": {
+    "migrate:dry": "node migrate_to_v2.js",
+    "migrate:prod": "DRY_RUN=false node migrate_to_v2.js",
+    "validate": "node -e \"require('./migrate_to_v2').validate()\""
+  },
+  "keywords": [
+    "firebase",
+    "firestore",
+    "migration",
+    "graduation-requirements"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  },
+  "devDependencies": {}
+}

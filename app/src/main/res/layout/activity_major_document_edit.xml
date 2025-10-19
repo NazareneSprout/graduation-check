@@ -35,40 +35,52 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- 안내 카드 -->
+            <!-- 문서 선택 카드 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:cardBackgroundColor="#E3F2FD">
+                app:cardElevation="2dp">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="12dp"
-                    android:text="전공 문서 ID 형식: 학부_트랙_학번\n예: IT학부_멀티미디어_2020\n\n과목 요구사항:\n- 단일 과목: 필수로 이수해야 하는 과목\n- 선택 과목: 여러 과목 중 일정 개수 이상 이수"
-                    android:textSize="13sp"
-                    android:textColor="#1565C0"/>
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="현재 전공 문서"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:id="@+id/tv_current_document"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="문서를 선택해주세요"
+                        android:textSize="16sp"
+                        android:textColor="?attr/colorPrimary"
+                        android:layout_marginBottom="12dp"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_select_document"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="문서 선택"
+                        android:textSize="14sp"
+                        app:cornerRadius="8dp"
+                        app:icon="@android:drawable/ic_menu_edit"
+                        app:iconGravity="start"
+                        style="@style/Widget.Material3.Button.TonalButton"/>
+
+                </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- 문서 ID -->
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:hint="문서 ID (예: IT학부_멀티미디어_2020)"
-                app:boxBackgroundMode="outline">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/et_doc_id"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="text"/>
-
-            </com.google.android.material.textfield.TextInputLayout>
 
             <!-- 학점 정보 섹션 -->
             <TextView
@@ -114,25 +126,9 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- 전공심화 -->
+            <!-- 학부공통/전공심화 (Dynamic) -->
             <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:hint="전공심화"
-                app:boxBackgroundMode="outline">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/et_major_advanced"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="number"
-                    android:text="0"/>
-
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <!-- 학부공통 -->
-            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_dept_common"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
@@ -140,7 +136,7 @@
                 app:boxBackgroundMode="outline">
 
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/et_department_common"
+                    android:id="@+id/et_dept_common"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="number"
@@ -148,52 +144,200 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- 과목 요구사항 섹션 -->
+            <!-- 과목 목록 섹션 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="과목 목록"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorPrimary"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- 전공필수 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="전공필수"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurface"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_add_major_required"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="+ 추가"
+                            android:textSize="12sp"
+                            app:cornerRadius="6dp"
+                            style="@style/Widget.Material3.Button.TextButton"/>
+
+                    </LinearLayout>
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_major_required"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false"/>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 전공선택 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="전공선택"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurface"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_add_major_elective"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="+ 추가"
+                            android:textSize="12sp"
+                            app:cornerRadius="6dp"
+                            style="@style/Widget.Material3.Button.TextButton"/>
+
+                    </LinearLayout>
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_major_elective"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false"/>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 학부공통/전공심화 (Dynamic) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:id="@+id/tv_dept_common_label"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="학부공통"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurface"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_add_dept_common"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="+ 추가"
+                            android:textSize="12sp"
+                            app:cornerRadius="6dp"
+                            style="@style/Widget.Material3.Button.TextButton"/>
+
+                    </LinearLayout>
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_dept_common"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false"/>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 저장 및 초기화 버튼 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="과목 요구사항"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorPrimary"/>
+                android:gravity="center"
+                android:layout_marginBottom="16dp">
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_add_requirement"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="+ 과목 추가"
-                    android:textSize="14sp"
-                    app:cornerRadius="8dp"
-                    app:icon="@android:drawable/ic_menu_add"
-                    app:iconGravity="start"
-                    style="@style/Widget.Material3.Button.TonalButton"/>
+                    android:id="@+id/btn_reset"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="초기화"
+                    android:textSize="16sp"
+                    app:cornerRadius="12dp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_save"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="저장"
+                    android:textSize="16sp"
+                    app:cornerRadius="12dp"/>
 
             </LinearLayout>
-
-            <!-- 과목 요구사항 컨테이너 -->
-            <LinearLayout
-                android:id="@+id/requirements_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="24dp"/>
-
-            <!-- 저장 버튼 -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_save"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="저장"
-                android:textSize="16sp"
-                app:cornerRadius="12dp"/>
 
             <!-- 로딩 표시 -->
             <ProgressBar
@@ -201,8 +345,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:visibility="gone"
-                android:layout_marginTop="16dp"/>
+                android:visibility="gone"/>
 
         </LinearLayout>
 

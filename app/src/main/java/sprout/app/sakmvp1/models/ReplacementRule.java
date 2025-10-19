@@ -13,10 +13,12 @@ public class ReplacementRule {
     private List<CourseInfo> replacementCourses;
     private String note;
     private Timestamp createdAt;
+    private String scope;  // "document" 또는 "department"
 
     // Firestore 역직렬화를 위한 빈 생성자
     public ReplacementRule() {
         this.replacementCourses = new ArrayList<>();
+        this.scope = "document";  // 기본값: 해당 문서에만 적용
     }
 
     public ReplacementRule(CourseInfo discontinuedCourse, List<CourseInfo> replacementCourses) {
@@ -51,6 +53,8 @@ public class ReplacementRule {
 
     /**
      * 실제로 수강한 대체 과목 이름 반환
+     * 여러 개의 대체과목을 수강한 경우, 첫 번째로 발견된 것만 반환 (중복 인정 방지)
+     *
      * @param takenCourseNames 수강 과목 목록
      * @return 수강한 대체 과목 이름, 없으면 null
      */
@@ -59,6 +63,7 @@ public class ReplacementRule {
             return null;
         }
 
+        // 첫 번째로 매칭되는 대체과목만 반환 (중복 인정 방지)
         for (CourseInfo replacement : replacementCourses) {
             if (takenCourseNames.contains(replacement.getName())) {
                 return replacement.getName();
@@ -66,6 +71,26 @@ public class ReplacementRule {
         }
 
         return null;
+    }
+
+    /**
+     * 실제로 수강한 모든 대체 과목 목록 반환 (디버깅/로깅용)
+     * @param takenCourseNames 수강 과목 목록
+     * @return 수강한 모든 대체 과목 이름 목록
+     */
+    public List<String> getAllTakenReplacementCourses(List<String> takenCourseNames) {
+        List<String> taken = new ArrayList<>();
+        if (takenCourseNames == null) {
+            return taken;
+        }
+
+        for (CourseInfo replacement : replacementCourses) {
+            if (takenCourseNames.contains(replacement.getName())) {
+                taken.add(replacement.getName());
+            }
+        }
+
+        return taken;
     }
 
     // Getters and Setters
@@ -99,6 +124,14 @@ public class ReplacementRule {
 
     public void setCreatedAt(Timestamp createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getScope() {
+        return scope;
+    }
+
+    public void setScope(String scope) {
+        this.scope = scope;
     }
 
     @Override

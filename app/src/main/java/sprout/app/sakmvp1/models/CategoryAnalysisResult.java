@@ -1,7 +1,9 @@
 package sprout.app.sakmvp1.models;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 카테고리별 졸업요건 분석 결과
@@ -18,11 +20,13 @@ public class CategoryAnalysisResult {
     private List<String> completedCourses;
     private List<String> missingCourses;
     private List<SubgroupResult> subgroupResults;
+    private Map<String, Integer> courseCreditsMap;  // 과목 이름 -> 학점 매핑
 
     public CategoryAnalysisResult() {
         this.completedCourses = new ArrayList<>();
         this.missingCourses = new ArrayList<>();
         this.subgroupResults = new ArrayList<>();
+        this.courseCreditsMap = new HashMap<>();
     }
 
     public CategoryAnalysisResult(String categoryId, String categoryName) {
@@ -31,6 +35,7 @@ public class CategoryAnalysisResult {
         this.completedCourses = new ArrayList<>();
         this.missingCourses = new ArrayList<>();
         this.subgroupResults = new ArrayList<>();
+        this.courseCreditsMap = new HashMap<>();
     }
 
     // 완료 여부 계산
@@ -141,6 +146,18 @@ public class CategoryAnalysisResult {
         this.subgroupResults.add(result);
     }
 
+    public Map<String, Integer> getCourseCreditsMap() {
+        return courseCreditsMap;
+    }
+
+    public void setCourseCreditsMap(Map<String, Integer> courseCreditsMap) {
+        this.courseCreditsMap = courseCreditsMap;
+    }
+
+    public void addCourseCredit(String courseName, int credits) {
+        this.courseCreditsMap.put(courseName, credits);
+    }
+
     @Override
     public String toString() {
         return categoryName + ": " + earnedCredits + "/" + requiredCredits + "학점 " +
@@ -158,15 +175,18 @@ public class CategoryAnalysisResult {
         private boolean isCompleted;
         private List<String> completedCourses;
         private String selectedCourse;  // oneOf 타입의 경우 선택된 과목
+        private List<String> availableCourses;  // oneOf 타입의 경우 선택 가능한 모든 과목
 
         public SubgroupResult() {
             this.completedCourses = new ArrayList<>();
+            this.availableCourses = new ArrayList<>();
         }
 
         public SubgroupResult(String groupId, String groupName) {
             this.groupId = groupId;
             this.groupName = groupName;
             this.completedCourses = new ArrayList<>();
+            this.availableCourses = new ArrayList<>();
         }
 
         // Getters and Setters
@@ -224,6 +244,14 @@ public class CategoryAnalysisResult {
 
         public void setSelectedCourse(String selectedCourse) {
             this.selectedCourse = selectedCourse;
+        }
+
+        public List<String> getAvailableCourses() {
+            return availableCourses;
+        }
+
+        public void setAvailableCourses(List<String> availableCourses) {
+            this.availableCourses = availableCourses;
         }
 
         @Override

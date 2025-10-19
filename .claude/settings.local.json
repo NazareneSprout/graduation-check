@@ -148,7 +148,12 @@
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 install -r -t /c/Users/jsk00/AndroidStudioProjects/SakMvp1/app/build/outputs/apk/debug/app-debug.apk)",
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell am start -n sprout.app.sakmvp1/.Login.LoginActivity)",
       "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/platform-tools/adb.exe:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(/c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe:*)",
+      "Bash(tasklist:*)",
+      "Bash(timeout:*)",
+      "Bash(start /B /c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Pixel_8)",
+      "Bash(cmd /c \"start /c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Pixel_8\")"
     ],
     "deny": [],
     "ask": []

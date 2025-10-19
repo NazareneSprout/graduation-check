@@ -77,10 +77,23 @@ public class RequirementCategory {
         CategoryAnalysisResult result = new CategoryAnalysisResult(id, name);
         result.setRequiredCredits(required);
 
+        Log.d(TAG, "  Analyzing list-type category: " + name);
+        Log.d(TAG, "  Requirements in this category: " + courses.size() + " courses");
+        for (CourseRequirement req : courses) {
+            Log.d(TAG, "    - Required: " + req.getName() + " (" + req.getCredits() + "학점)" +
+                  (req.isMandatory() ? " [MANDATORY]" : ""));
+        }
+
         // 수강한 과목 이름 맵 생성 (빠른 조회)
         Map<String, CourseInputActivity.Course> takenCoursesMap = new HashMap<>();
         for (CourseInputActivity.Course course : takenCourses) {
             takenCoursesMap.put(course.getName(), course);
+        }
+
+        Log.d(TAG, "  Taken courses available for matching: " + takenCoursesMap.size());
+        for (String courseName : takenCoursesMap.keySet()) {
+            CourseInputActivity.Course course = takenCoursesMap.get(courseName);
+            Log.d(TAG, "    - Taken: [" + course.getCategory() + "] " + courseName);
         }
 
         int earnedCredits = 0;
@@ -88,6 +101,9 @@ public class RequirementCategory {
 
         // 각 과목 체크
         for (CourseRequirement req : courses) {
+            // 과목의 학점 정보를 courseCreditsMap에 추가
+            result.addCourseCredit(req.getName(), req.getCredits());
+
             if (takenCoursesMap.containsKey(req.getName())) {
                 // 수강함
                 earnedCredits += req.getCredits();
@@ -165,7 +181,7 @@ public class RequirementCategory {
             Log.d(TAG, "  ✗ None selected from oneOf group");
         }
 
-        // oneOf는 서브그룹 결과에 선택된 과목 저장
+        // oneOf는 서브그룹 결과에 선택된 과목과 선택 가능한 모든 과목 저장
         CategoryAnalysisResult.SubgroupResult subResult = new CategoryAnalysisResult.SubgroupResult(id, name);
         subResult.setEarnedCredits(earnedCredits);
         subResult.setRequiredCredits(required);
@@ -173,6 +189,16 @@ public class RequirementCategory {
         if (selectedCourse != null) {
             subResult.setSelectedCourse(selectedCourse);
         }
+
+        // oneOf 그룹의 선택 가능한 모든 과목 이름을 저장하고 학점 정보도 추가
+        List<String> availableCourseNames = new ArrayList<>();
+        for (CourseRequirement req : courses) {
+            availableCourseNames.add(req.getName());
+            // 과목의 학점 정보를 courseCreditsMap에 추가
+            result.addCourseCredit(req.getName(), req.getCredits());
+        }
+        subResult.setAvailableCourses(availableCourseNames);
+
         result.addSubgroupResult(subResult);
 
         return result;
@@ -206,6 +232,13 @@ public class RequirementCategory {
             // 완료/미완료 과목 병합
             result.getCompletedCourses().addAll(subResult.getCompletedCourses());
             result.getMissingCourses().addAll(subResult.getMissingCourses());
+
+            // 서브그룹의 학점 정보를 병합
+            if (subResult.getCourseCreditsMap() != null) {
+                for (Map.Entry<String, Integer> entry : subResult.getCourseCreditsMap().entrySet()) {
+                    result.addCourseCredit(entry.getKey(), entry.getValue());
+                }
+            }
         }
 
         result.setEarnedCredits(totalEarnedCredits);
@@ -260,6 +293,21 @@ public class RequirementCategory {
         subResult.setRequiredCredits(categoryResult.getRequiredCredits());
         subResult.setCompleted(categoryResult.isCompleted());
         subResult.setCompletedCourses(categoryResult.getCompletedCourses());
+
+        // oneOf 타입의 경우 availableCourses와 selectedCourse 정보 복사
+        if (categoryResult.getSubgroupResults() != null && !categoryResult.getSubgroupResults().isEmpty()) {
+            // oneOf 타입은 첫 번째 서브그룹에 availableCourses와 selectedCourse가 저장되어 있음
+            CategoryAnalysisResult.SubgroupResult firstSubgroup = categoryResult.getSubgroupResults().get(0);
+            if (firstSubgroup.getAvailableCourses() != null) {
+                subResult.setAvailableCourses(firstSubgroup.getAvailableCourses());
+                Log.d(TAG, "  Converting subgroup: copying availableCourses (" +
+                      firstSubgroup.getAvailableCourses().size() + " courses) for " + categoryResult.getCategoryName());
+            }
+            if (firstSubgroup.getSelectedCourse() != null) {
+                subResult.setSelectedCourse(firstSubgroup.getSelectedCourse());
+                Log.d(TAG, "  Converting subgroup: copying selectedCourse = " + firstSubgroup.getSelectedCourse());
+            }
+        }
 
         return subResult;
     }

@@ -215,6 +215,23 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
         android:src="@android:drawable/ic_menu_add"
+        app:backgroundTint="@color/md_theme_light_tertiary"
         app:tint="@android:color/white"/>
+
+    <!-- 삭제 모드 하단 버튼 (기본적으로 숨김) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_delete_selected"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom"
+        android:layout_margin="16dp"
+        android:text="선택 항목 삭제"
+        android:textSize="16sp"
+        android:enabled="false"
+        android:visibility="gone"
+        app:cornerRadius="12dp"
+        app:icon="@android:drawable/ic_menu_delete"
+        app:iconGravity="start"
+        app:backgroundTint="?attr/colorError"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

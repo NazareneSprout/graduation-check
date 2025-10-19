@@ -173,8 +173,7 @@ public class UserProfileFragment extends Fragment {
 
         // 졸업분석 결과 바로가기
         btnShortcutGraduationResult.setOnClickListener(v -> {
-            Intent intent = new Intent(requireContext(), LoadingUserInfoActivity.class);
-            startActivity(intent);
+            loadAndShowGraduationResult();
         });
 
         // 역대 시간표 확인하기
@@ -215,6 +214,48 @@ public class UserProfileFragment extends Fragment {
             layoutLinksContent.setVisibility(View.GONE);
             ivExpandIcon.setRotation(-90f);
         }
+    }
+
+    /**
+     * 저장된 졸업분석 결과 불러와서 표시
+     */
+    private void loadAndShowGraduationResult() {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            Toast.makeText(requireContext(), "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String userId = user.getUid();
+
+        // Firestore에서 최근 졸업요건 검사 결과 조회
+        db.collection("users").document(userId)
+                .collection("graduation_check_history")
+                .orderBy("checkedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) {
+                        // 저장된 결과가 없으면 과목 입력 화면으로 이동
+                        Toast.makeText(requireContext(), "저장된 졸업분석 결과가 없습니다.\n새로 분석을 시작합니다.", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(requireContext(), LoadingUserInfoActivity.class);
+                        startActivity(intent);
+                        return;
+                    }
+
+                    // 가장 최근 검사 결과 가져오기
+                    com.google.firebase.firestore.DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+
+                    // 결과 화면으로 이동
+                    Intent intent = new Intent(requireContext(), GraduationAnalysisResultActivity.class);
+                    intent.putExtra("fromSaved", true);
+                    intent.putExtra("savedDocId", doc.getId());
+                    startActivity(intent);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "졸업분석 결과 조회 실패", e);
+                    Toast.makeText(requireContext(), "졸업분석 결과 조회에 실패했습니다", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void showLogoutDialog() {

@@ -70,6 +70,9 @@ dependencies {
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // Glide for image loading
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
     // Desugar library for Java 8+ API support on older Android versions
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
