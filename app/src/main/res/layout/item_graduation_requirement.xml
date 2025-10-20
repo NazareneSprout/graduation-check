@@ -25,6 +25,14 @@
             android:gravity="center_vertical"
             android:layout_marginBottom="12dp">
 
+            <!-- 삭제 모드용 체크박스 (기본적으로 숨김) -->
+            <CheckBox
+                android:id="@+id/cb_select"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:layout_marginEnd="8dp"/>
+
             <ImageView
                 android:layout_width="40dp"
                 android:layout_height="40dp"
@@ -58,12 +66,6 @@
                     android:layout_marginTop="2dp"/>
 
             </LinearLayout>
-
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_more"
-                app:tint="?attr/colorOnSurfaceVariant"/>
 
         </LinearLayout>
 

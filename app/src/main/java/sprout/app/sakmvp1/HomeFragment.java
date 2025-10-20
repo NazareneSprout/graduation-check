@@ -18,30 +18,28 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
-// 추가된 import 문
-import com.bumptech.glide.Glide;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.analytics.FirebaseAnalytics;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-
+/**
+ * 홈 화면 Fragment
+ */
 public class HomeFragment extends Fragment {
 
     private static final long AUTO_SLIDE_DELAY = 8000;
+    private static final int BANNER_COUNT = 3;
 
+    private FirebaseAnalytics mFirebaseAnalytics;
     private ViewPager2 bannerViewPager;
-    private BannerAdapter bannerAdapter;
     private Handler autoSlideHandler;
     private Runnable autoSlideRunnable;
     private boolean isAutoSlideStarted = false;
     private ExecutorService executorService;
-    private FirebaseFirestore db;
 
     private LinearLayout btnFunction1;
     private LinearLayout btnFunction2;
@@ -62,11 +60,29 @@ public class HomeFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        db = FirebaseFirestore.getInstance();
+        executorService = Executors.newFixedThreadPool(2);
+
+        // Firebase 초기화 (Context와 Activity를 미리 저장)
+        android.content.Context context = requireContext();
+        androidx.fragment.app.FragmentActivity activity = requireActivity();
+        executorService.execute(() -> {
+            try {
+                FirebaseApp.initializeApp(context);
+                if (isAdded() && activity != null) {
+                    activity.runOnUiThread(() -> {
+                        if (isAdded()) {
+                            mFirebaseAnalytics = FirebaseAnalytics.getInstance(context);
+                            Log.d("Firebase", "Firebase 초기화 완료");
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                Log.e("Firebase", "Firebase 초기화 실패: " + e.getMessage());
+            }
+        });
 
         initViews(view);
         setupListeners();
-        loadBannersFromFirestore();
     }
 
     private void initViews(View view) {
@@ -92,32 +108,20 @@ public class HomeFragment extends Fragment {
         try {
             bannerViewPager.setOffscreenPageLimit(1);
             if (bannerViewPager.getAdapter() == null) {
-                bannerAdapter = new BannerAdapter();
-                bannerViewPager.setAdapter(bannerAdapter);
+                BannerAdapter adapter = new BannerAdapter();
+                bannerViewPager.setAdapter(adapter);
             }
         } catch (Exception e) {
             Log.e("HomeFragment", "ViewPager 설정 실패: " + e.getMessage());
+            return;
         }
-    }
 
-    private void loadBannersFromFirestore() {
-        db.collection("banners")
-                .get()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null) {
-                        List<Banner> bannerList = new ArrayList<>();
-                        for (QueryDocumentSnapshot document : task.getResult()) {
-                            Banner banner = document.toObject(Banner.class);
-                            bannerList.add(banner);
-                        }
-                        if (isAdded()) {
-                            bannerAdapter.setData(bannerList);
-                            startAutoSlide();
-                        }
-                    } else {
-                        Log.w("Firestore", "Error getting documents.", task.getException());
-                    }
-                });
+        if (autoSlideHandler == null && !isAutoSlideStarted) {
+            autoSlideHandler = new Handler(Looper.getMainLooper());
+            autoSlideRunnable = new AutoSlideRunnable(this);
+            autoSlideHandler.postDelayed(autoSlideRunnable, AUTO_SLIDE_DELAY);
+            isAutoSlideStarted = true;
+        }
     }
 
     private void setupListeners() {
@@ -144,7 +148,7 @@ public class HomeFragment extends Fragment {
 
         if (btnFunction4 != null) {
             btnFunction4.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "기능4 - 준비중", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "기능4 - 준비중", Toast.LENGTH_SHORT).show()
             );
         }
 
@@ -166,32 +170,22 @@ public class HomeFragment extends Fragment {
 
         if (btnFunction7 != null) {
             btnFunction7.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "기능5 - 준비중", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "기능5 - 준비중", Toast.LENGTH_SHORT).show()
             );
         }
 
         if (btnFunction8 != null) {
             btnFunction8.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "기능6 - 준비중", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "기능6 - 준비중", Toast.LENGTH_SHORT).show()
             );
-        }
-    }
-
-    private void startAutoSlide() {
-        stopAutoSlide();
-        if (bannerAdapter.getItemCount() > 1) {
-            autoSlideHandler = new Handler(Looper.getMainLooper());
-            autoSlideRunnable = new AutoSlideRunnable(this);
-            autoSlideHandler.postDelayed(autoSlideRunnable, AUTO_SLIDE_DELAY);
-            isAutoSlideStarted = true;
         }
     }
 
     private void stopAutoSlide() {
         if (autoSlideHandler != null && autoSlideRunnable != null) {
             autoSlideHandler.removeCallbacks(autoSlideRunnable);
+            isAutoSlideStarted = false;
         }
-        isAutoSlideStarted = false;
     }
 
     @Override
@@ -203,9 +197,16 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (bannerAdapter != null && bannerAdapter.getItemCount() > 0) {
-            startAutoSlide();
+        if (autoSlideHandler != null && autoSlideRunnable != null && !isAutoSlideStarted) {
+            autoSlideHandler.postDelayed(autoSlideRunnable, AUTO_SLIDE_DELAY);
+            isAutoSlideStarted = true;
         }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        stopAutoSlide();
     }
 
     @Override
@@ -215,6 +216,18 @@ public class HomeFragment extends Fragment {
         autoSlideHandler = null;
         autoSlideRunnable = null;
         bannerViewPager = null;
+
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+            try {
+                if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     private static class AutoSlideRunnable implements Runnable {
@@ -229,15 +242,11 @@ public class HomeFragment extends Fragment {
             HomeFragment fragment = fragmentRef.get();
             if (fragment != null && fragment.isAdded() && fragment.isAutoSlideStarted) {
                 try {
-                    if (fragment.bannerViewPager != null && fragment.bannerAdapter != null) {
-                        int bannerCount = fragment.bannerAdapter.getItemCount();
-                        if (bannerCount == 0) return;
-
+                    if (fragment.bannerViewPager != null) {
                         int currentItem = fragment.bannerViewPager.getCurrentItem();
-                        int nextItem = (currentItem + 1) % bannerCount;
+                        int nextItem = (currentItem + 1) % BANNER_COUNT;
                         fragment.bannerViewPager.setCurrentItem(nextItem, true);
-
-                        if (fragment.autoSlideHandler != null) {
+                        if (fragment.autoSlideHandler != null && fragment.isAutoSlideStarted) {
                             fragment.autoSlideHandler.postDelayed(this, AUTO_SLIDE_DELAY);
                         }
                     }
@@ -249,13 +258,11 @@ public class HomeFragment extends Fragment {
     }
 
     private static class BannerAdapter extends RecyclerView.Adapter<BannerAdapter.BannerViewHolder> {
-        private final List<Banner> bannerList = new ArrayList<>();
-
-        void setData(List<Banner> banners) {
-            this.bannerList.clear();
-            this.bannerList.addAll(banners);
-            notifyDataSetChanged();
-        }
+        private final int[] bannerImages = {
+                R.drawable.banner_image_1,
+                R.drawable.banner_image_2,
+                R.drawable.banner_image_3
+        };
 
         @NonNull
         @Override
@@ -267,30 +274,12 @@ public class HomeFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(@NonNull BannerViewHolder holder, int position) {
-            Banner currentBanner = bannerList.get(position);
-            // 1. 이미지 로드
-            if (holder.itemView.getContext() != null) {
-                Glide.with(holder.itemView.getContext())
-                        .load(currentBanner.getImageUrl())
-                        .into(holder.bannerImage);
-            }
-
-            // 2. << 추가: 클릭 리스너 설정 >>
-            holder.itemView.setOnClickListener(v -> {
-                String url = currentBanner.getTargetUrl();
-                // targetUrl이 비어있지 않은 경우에만 동작
-                if (url != null && !url.isEmpty()) {
-                    // 기존에 사용하시던 WebViewActivity를 재사용
-                    Intent intent = new Intent(v.getContext(), WebViewActivity.class);
-                    intent.putExtra("url", url);
-                    v.getContext().startActivity(intent);
-                }
-            });
+            holder.bannerImage.setImageResource(bannerImages[position]);
         }
 
         @Override
         public int getItemCount() {
-            return bannerList.size();
+            return bannerImages.length;
         }
 
         static class BannerViewHolder extends RecyclerView.ViewHolder {

@@ -3,6 +3,8 @@ package sprout.app.sakmvp1;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -16,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -40,6 +43,7 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private Spinner spinnerStudentId, spinnerDepartment, spinnerTrack;
     private MaterialButton btnSearch;
+    private MaterialButton btnDeleteSelected;
     private ProgressBar progressBar;
     private RecyclerView rvRequirements;
     private FloatingActionButton fabAdd;
@@ -58,6 +62,11 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
     // 학과별 트랙 매핑
     private Map<String, Set<String>> departmentTrackMap = new HashMap<>();
 
+    // 마지막 필터 조건 저장 (편집 후 복원용)
+    private String lastSelectedYear = "전체";
+    private String lastSelectedDepartment = "전체";
+    private String lastSelectedTrack = "전체";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,12 +84,125 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
         loadAllRequirements();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 편집 후 돌아왔을 때 데이터 새로고침하고 마지막 필터 재적용
+        loadAllRequirements();
+    }
+
+    /**
+     * 데이터 로드 후 마지막 필터 조건 재적용
+     */
+    private void reapplyLastFilter() {
+        // 저장된 마지막 조건이 "전체"가 아니면 스피너 위치 복원 후 필터 재적용
+        if (!"전체".equals(lastSelectedYear) || !"전체".equals(lastSelectedDepartment) || !"전체".equals(lastSelectedTrack)) {
+            // 스피너 위치 복원 후 필터링 (UI 스레드에서 실행)
+            spinnerStudentId.post(() -> {
+                restoreSpinnerSelections();
+                // 필터링은 저장된 값으로 직접 수행
+                applyFilterWithSavedConditions();
+            });
+        }
+    }
+
+    /**
+     * 저장된 조건으로 직접 필터링 (스피너 getSelectedItem 사용 안 함)
+     */
+    private void applyFilterWithSavedConditions() {
+        String selectedYear = lastSelectedYear;
+        String selectedDepartment = lastSelectedDepartment;
+        String selectedTrack = lastSelectedTrack;
+
+        // 2자리 학번을 4자리로 변환 ("20" -> "2020")
+        if (!"전체".equals(selectedYear) && selectedYear.length() == 2) {
+            selectedYear = "20" + selectedYear;
+        }
+
+        Log.d(TAG, "필터링 (저장된 조건): " + selectedYear + "/" + selectedDepartment + "/" + selectedTrack);
+
+        List<GraduationRequirement> filtered = new ArrayList<>();
+
+        for (GraduationRequirement req : allRequirements) {
+            boolean matches = true;
+
+            if (!"전체".equals(selectedYear) && !selectedYear.equals(req.getYear())) {
+                matches = false;
+            }
+            if (!"전체".equals(selectedDepartment) && !selectedDepartment.equals(req.getDepartment())) {
+                matches = false;
+            }
+            if (!"전체".equals(selectedTrack) && !selectedTrack.equals(req.getTrack())) {
+                matches = false;
+            }
+
+            if (matches) {
+                filtered.add(req);
+            }
+        }
+
+        Log.d(TAG, "필터링 결과: " + filtered.size() + "개");
+        displayResults(filtered);
+    }
+
+    /**
+     * 저장된 조건으로 스피너 위치 복원
+     */
+    private void restoreSpinnerSelections() {
+        // 학번 스피너 복원
+        if (!"전체".equals(lastSelectedYear)) {
+            int yearPosition = findSpinnerPosition(studentIdAdapter, lastSelectedYear);
+            if (yearPosition >= 0) {
+                spinnerStudentId.setSelection(yearPosition);
+            }
+        }
+
+        // 학과 스피너 복원
+        if (!"전체".equals(lastSelectedDepartment)) {
+            int deptPosition = findSpinnerPosition(departmentAdapter, lastSelectedDepartment);
+            if (deptPosition >= 0) {
+                spinnerDepartment.setSelection(deptPosition);
+                // 학과 선택 시 트랙 업데이트가 자동으로 되므로 잠시 대기
+                spinnerDepartment.post(() -> {
+                    // 트랙 스피너 복원
+                    if (!"전체".equals(lastSelectedTrack)) {
+                        int trackPosition = findSpinnerPosition(trackAdapter, lastSelectedTrack);
+                        if (trackPosition >= 0) {
+                            spinnerTrack.setSelection(trackPosition);
+                        }
+                    }
+                });
+            }
+        } else {
+            // 학과가 "전체"인 경우 트랙만 복원
+            if (!"전체".equals(lastSelectedTrack)) {
+                int trackPosition = findSpinnerPosition(trackAdapter, lastSelectedTrack);
+                if (trackPosition >= 0) {
+                    spinnerTrack.setSelection(trackPosition);
+                }
+            }
+        }
+    }
+
+    /**
+     * ArrayAdapter에서 특정 아이템의 위치 찾기
+     */
+    private int findSpinnerPosition(ArrayAdapter<String> adapter, String value) {
+        for (int i = 0; i < adapter.getCount(); i++) {
+            if (value.equals(adapter.getItem(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private void initViews() {
         toolbar = findViewById(R.id.toolbar);
         spinnerStudentId = findViewById(R.id.spinner_student_id);
         spinnerDepartment = findViewById(R.id.spinner_department);
         spinnerTrack = findViewById(R.id.spinner_track);
         btnSearch = findViewById(R.id.btn_search);
+        btnDeleteSelected = findViewById(R.id.btn_delete_selected);
         progressBar = findViewById(R.id.progress_bar);
         rvRequirements = findViewById(R.id.rv_requirements);
         fabAdd = findViewById(R.id.fab_add);
@@ -100,13 +222,21 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
         rvRequirements.setAdapter(adapter);
 
         adapter.setOnItemClickListener(requirement -> {
-            // 상세보기 Activity로 이동
-            Intent intent = new Intent(this, GraduationRequirementDetailActivity.class);
-            intent.putExtra(GraduationRequirementDetailActivity.EXTRA_DOCUMENT_ID, requirement.getId());
-            intent.putExtra(GraduationRequirementDetailActivity.EXTRA_YEAR, requirement.getYear());
-            intent.putExtra(GraduationRequirementDetailActivity.EXTRA_DEPARTMENT, requirement.getDepartment());
-            intent.putExtra(GraduationRequirementDetailActivity.EXTRA_TRACK, requirement.getTrack());
+            // 편집 Activity로 이동
+            Intent intent = new Intent(this, GraduationRequirementEditActivity.class);
+            intent.putExtra(GraduationRequirementEditActivity.EXTRA_DOCUMENT_ID, requirement.getId());
             startActivity(intent);
+        });
+
+        // 선택 변경 리스너
+        adapter.setOnSelectionChangedListener(selectedCount -> {
+            // 선택된 항목이 있으면 삭제 버튼 활성화
+            btnDeleteSelected.setEnabled(selectedCount > 0);
+            if (selectedCount > 0) {
+                btnDeleteSelected.setText("선택 항목 삭제 (" + selectedCount + ")");
+            } else {
+                btnDeleteSelected.setText("선택 항목 삭제");
+            }
         });
     }
 
@@ -143,11 +273,66 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
         // 검색 버튼
         btnSearch.setOnClickListener(v -> filterRequirements());
 
-        // 추가 버튼
-        fabAdd.setOnClickListener(v -> {
-            Intent intent = new Intent(this, GraduationRequirementAddActivity.class);
-            startActivity(intent);
-        });
+        // 추가 버튼 - 다이얼로그로 옵션 선택
+        fabAdd.setOnClickListener(v -> showDocumentTypeDialog());
+
+        // 삭제 버튼
+        btnDeleteSelected.setOnClickListener(v -> showDeleteConfirmDialog());
+    }
+
+    /**
+     * 문서 타입 선택 다이얼로그 표시
+     */
+    private void showDocumentTypeDialog() {
+        String[] options = {
+            "졸업요건 문서 생성",
+            "전공 문서 생성",
+            "교양 문서 생성"
+        };
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("생성할 문서 선택")
+                .setItems(options, (dialog, which) -> {
+                    switch (which) {
+                        case 0:
+                            // 졸업요건 문서 생성
+                            openGraduationRequirementAdd();
+                            break;
+                        case 1:
+                            // 전공 문서 생성
+                            openMajorDocumentAdd();
+                            break;
+                        case 2:
+                            // 교양 문서 생성
+                            openGeneralDocumentAdd();
+                            break;
+                    }
+                })
+                .show();
+    }
+
+    /**
+     * 졸업요건 문서 추가 Activity 열기
+     */
+    private void openGraduationRequirementAdd() {
+        Intent intent = new Intent(this, GraduationRequirementAddActivity.class);
+        startActivity(intent);
+    }
+
+    /**
+     * 전공 문서 추가 Activity 열기
+     */
+    private void openMajorDocumentAdd() {
+        Intent intent = new Intent(this, MajorDocumentManageActivity.class);
+        startActivity(intent);
+    }
+
+    /**
+     * 교양 문서 추가 Activity 열기
+     */
+    private void openGeneralDocumentAdd() {
+        Intent intent = new Intent(this, GeneralDocumentManageActivity.class);
+        startActivity(intent);
     }
 
     /**
@@ -165,8 +350,14 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
                     Set<String> tracks = new HashSet<>();
 
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        // 교양 문서는 제외
-                        if (document.getId().startsWith("교양_")) {
+                        // 참조 문서 ID 먼저 확인
+                        String majorDocId = document.getString("majorDocId");
+                        String generalEducationDocId = document.getString("generalEducationDocId");
+
+                        // 졸업요건 문서만 표시 (전공문서나 교양문서 참조가 있는 경우만)
+                        // 참조 문서 자체는 제외
+                        if (majorDocId == null && generalEducationDocId == null) {
+                            Log.d(TAG, "참조 문서로 판단되어 제외: " + document.getId());
                             continue;
                         }
 
@@ -174,17 +365,18 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
                         GraduationRequirement requirement = new GraduationRequirement();
                         requirement.setId(document.getId()); // 문서 ID 설정하면 자동으로 year, department, track 파싱됨
 
-                        // 학점 정보 가져오기 (Firestore는 한글 필드명 사용)
-                        int totalCredits = GraduationRequirementUtils.getIntValue(document, "totalCredits", 130);
-                        int majorRequired = GraduationRequirementUtils.getIntValue(document, "전공필수", 0);
-                        int majorElective = GraduationRequirementUtils.getIntValue(document, "전공선택", 0);
-                        int majorAdvanced = GraduationRequirementUtils.getIntValue(document, "전공심화", 0);
-                        int generalRequired = GraduationRequirementUtils.getIntValue(document, "교양필수", 0);
-                        int generalElective = GraduationRequirementUtils.getIntValue(document, "교양선택", 0);
-                        int liberalArts = GraduationRequirementUtils.getIntValue(document, "소양", 0);
-                        int freeElective = GraduationRequirementUtils.getIntValue(document, "자율선택", 0);
-                        int departmentCommon = GraduationRequirementUtils.getIntValue(document, "학부공통", 0);
-                        int remainingCredits = GraduationRequirementUtils.getIntValue(document, "잔여학점", 0);
+                        // 학점 정보 가져오기
+                        // 통합 구조(v2: creditRequirements 객체) 또는 이전 구조(v1: 루트 필드)에서 읽기
+                        int totalCredits = GraduationRequirementUtils.getCreditFromRequirements(document, "totalCredits", 130);
+                        int majorRequired = GraduationRequirementUtils.getCreditFromRequirements(document, "전공필수", 0);
+                        int majorElective = GraduationRequirementUtils.getCreditFromRequirements(document, "전공선택", 0);
+                        int majorAdvanced = GraduationRequirementUtils.getCreditFromRequirements(document, "전공심화", 0);
+                        int generalRequired = GraduationRequirementUtils.getCreditFromRequirements(document, "교양필수", 0);
+                        int generalElective = GraduationRequirementUtils.getCreditFromRequirements(document, "교양선택", 0);
+                        int liberalArts = GraduationRequirementUtils.getCreditFromRequirements(document, "소양", 0);
+                        int freeElective = GraduationRequirementUtils.getCreditFromRequirements(document, "자율선택", 0);
+                        int departmentCommon = GraduationRequirementUtils.getCreditFromRequirements(document, "학부공통", 0);
+                        int remainingCredits = GraduationRequirementUtils.getCreditFromRequirements(document, "잔여학점", 0);
 
                         requirement.setTotalCredits(totalCredits);
                         requirement.setMajorRequired(majorRequired);
@@ -197,12 +389,18 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
                         requirement.setDepartmentCommon(departmentCommon);
                         requirement.setRemainingCredits(remainingCredits);
 
+                        // 참조 문서 ID 설정
+                        requirement.setMajorDocId(majorDocId);
+                        requirement.setGeneralEducationDocId(generalEducationDocId);
+
                         Log.d(TAG, "문서 " + document.getId() + " 로드: 총=" + totalCredits
                             + ", 전필=" + majorRequired + ", 전선=" + majorElective
                             + ", 교필=" + generalRequired + ", 교선=" + generalElective
                             + ", 소양=" + liberalArts + ", 자율=" + freeElective
                             + ", 전심=" + majorAdvanced + ", 학공=" + departmentCommon
-                            + ", 잔여=" + remainingCredits);
+                            + ", 잔여=" + remainingCredits
+                            + ", 전공문서=" + (majorDocId != null ? majorDocId : "없음")
+                            + ", 교양문서=" + (generalEducationDocId != null ? generalEducationDocId : "없음"));
 
                         allRequirements.add(requirement);
 
@@ -231,8 +429,11 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
                     // 스피너 데이터 설정
                     updateSpinnerData(years, departments, tracks);
 
-                    // 초기에는 결과 표시 안 함
+                    // 로딩 종료
                     showLoading(false);
+
+                    // 마지막 필터 조건 재적용 (onCreate가 아닐 때만 - onResume에서 호출된 경우)
+                    reapplyLastFilter();
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
@@ -309,6 +510,11 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
         String selectedTrack = spinnerTrack.getSelectedItem() != null ?
             spinnerTrack.getSelectedItem().toString() : "전체";
 
+        // 마지막 선택 조건 저장 (편집 후 복원용)
+        lastSelectedYear = selectedYear;
+        lastSelectedDepartment = selectedDepartment;
+        lastSelectedTrack = selectedTrack;
+
         // 2자리 학번을 4자리로 변환 ("20" -> "2020")
         if (!"전체".equals(selectedYear) && selectedYear.length() == 2) {
             selectedYear = "20" + selectedYear;
@@ -364,6 +570,148 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
             rvRequirements.setVisibility(View.GONE);
         } else {
             progressBar.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * 옵션 메뉴 생성
+     */
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_graduation_requirements, menu);
+        return true;
+    }
+
+    /**
+     * 옵션 메뉴 아이템 선택
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_delete) {
+            toggleDeleteMode();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * 삭제 모드 토글
+     */
+    private void toggleDeleteMode() {
+        boolean newDeleteMode = !adapter.isDeleteMode();
+        adapter.setDeleteMode(newDeleteMode);
+
+        if (newDeleteMode) {
+            // 삭제 모드 활성화
+            Toast.makeText(this, "삭제할 항목을 선택하세요", Toast.LENGTH_SHORT).show();
+            // Toolbar 제목 변경
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setTitle("삭제 모드");
+            }
+            // FAB 숨기기
+            fabAdd.hide();
+            // 삭제 버튼 표시
+            btnDeleteSelected.setVisibility(View.VISIBLE);
+            btnDeleteSelected.setEnabled(false);
+            btnDeleteSelected.setText("선택 항목 삭제");
+        } else {
+            // 삭제 모드 비활성화 - 그냥 종료
+            exitDeleteMode();
+        }
+    }
+
+    /**
+     * 삭제 확인 다이얼로그 표시
+     */
+    private void showDeleteConfirmDialog() {
+        int selectedCount = adapter.getSelectedCount();
+        if (selectedCount == 0) {
+            Toast.makeText(this, "삭제할 항목을 선택하세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("졸업요건 삭제")
+                .setMessage(selectedCount + "개의 졸업요건을 삭제하시겠습니까?")
+                .setNegativeButton("예", (dialog, which) -> deleteSelectedRequirements())
+                .setPositiveButton("아니오", null)
+                .show();
+    }
+
+    /**
+     * 선택된 졸업요건 삭제
+     */
+    private void deleteSelectedRequirements() {
+        Set<String> selectedIds = adapter.getSelectedIds();
+        if (selectedIds.isEmpty()) {
+            exitDeleteMode();
+            return;
+        }
+
+        showLoading(true);
+
+        // 삭제할 개수 추적
+        final int[] deletedCount = {0};
+        final int totalCount = selectedIds.size();
+
+        for (String docId : selectedIds) {
+            db.collection("graduation_requirements")
+                    .document(docId)
+                    .delete()
+                    .addOnSuccessListener(aVoid -> {
+                        deletedCount[0]++;
+                        Log.d(TAG, "문서 삭제 성공: " + docId);
+
+                        // 모든 삭제가 완료되었는지 확인
+                        if (deletedCount[0] == totalCount) {
+                            showLoading(false);
+                            Toast.makeText(this, totalCount + "개의 졸업요건이 삭제되었습니다",
+                                    Toast.LENGTH_SHORT).show();
+                            exitDeleteMode();
+                            // 데이터 새로고침
+                            loadAllRequirements();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        deletedCount[0]++;
+                        Log.e(TAG, "문서 삭제 실패: " + docId, e);
+
+                        // 모든 작업 완료 확인 (실패 포함)
+                        if (deletedCount[0] == totalCount) {
+                            showLoading(false);
+                            Toast.makeText(this, "일부 졸업요건 삭제 실패: " + e.getMessage(),
+                                    Toast.LENGTH_LONG).show();
+                            exitDeleteMode();
+                            loadAllRequirements();
+                        }
+                    });
+        }
+    }
+
+    /**
+     * 삭제 모드 종료
+     */
+    private void exitDeleteMode() {
+        adapter.setDeleteMode(false);
+        // Toolbar 제목 복원
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setTitle("졸업요건 관리");
+        }
+        // FAB 표시
+        fabAdd.show();
+        // 삭제 버튼 숨기기
+        btnDeleteSelected.setVisibility(View.GONE);
+    }
+
+    /**
+     * 뒤로 가기 버튼 처리 (삭제 모드에서는 모드 종료)
+     */
+    @Override
+    public void onBackPressed() {
+        if (adapter.isDeleteMode()) {
+            exitDeleteMode();
+        } else {
+            super.onBackPressed();
         }
     }
 

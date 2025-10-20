@@ -9,7 +9,9 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 졸업요건 목록 RecyclerView Adapter
@@ -19,6 +21,11 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
     private List<GraduationRequirement> requirements = new ArrayList<>();
     private OnItemClickListener listener;
     private OnItemLongClickListener longClickListener;
+    private OnSelectionChangedListener selectionChangedListener;
+
+    // 삭제 모드 관련
+    private boolean deleteMode = false;
+    private Set<String> selectedIds = new HashSet<>();
 
     public interface OnItemClickListener {
         void onItemClick(GraduationRequirement requirement);
@@ -26,6 +33,10 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
 
     public interface OnItemLongClickListener {
         boolean onItemLongClick(GraduationRequirement requirement);
+    }
+
+    public interface OnSelectionChangedListener {
+        void onSelectionChanged(int selectedCount);
     }
 
     public void setOnItemClickListener(OnItemClickListener listener) {
@@ -36,9 +47,46 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
         this.longClickListener = listener;
     }
 
+    public void setOnSelectionChangedListener(OnSelectionChangedListener listener) {
+        this.selectionChangedListener = listener;
+    }
+
     public void setRequirements(List<GraduationRequirement> requirements) {
         this.requirements = requirements;
         notifyDataSetChanged();
+    }
+
+    /**
+     * 삭제 모드 설정
+     */
+    public void setDeleteMode(boolean deleteMode) {
+        this.deleteMode = deleteMode;
+        if (!deleteMode) {
+            // 삭제 모드 해제 시 선택 초기화
+            selectedIds.clear();
+        }
+        notifyDataSetChanged();
+    }
+
+    /**
+     * 삭제 모드 상태 반환
+     */
+    public boolean isDeleteMode() {
+        return deleteMode;
+    }
+
+    /**
+     * 선택된 항목 ID 목록 반환
+     */
+    public Set<String> getSelectedIds() {
+        return new HashSet<>(selectedIds);
+    }
+
+    /**
+     * 선택된 항목 개수 반환
+     */
+    public int getSelectedCount() {
+        return selectedIds.size();
     }
 
     @NonNull
@@ -66,6 +114,7 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
         private TextView tvGeneralRequired, tvGeneralElective;
         private TextView tvLiberalArts, tvFreeElective, tvDepartmentCommon, tvRemainingCredits;
         private TextView tvUpdatedAt;
+        private android.widget.CheckBox cbSelect;
 
         // 부모 LinearLayout들
         private View layoutMajorAdvanced, layoutDepartmentCommon;
@@ -87,6 +136,7 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
             tvDepartmentCommon = itemView.findViewById(R.id.tv_department_common);
             tvRemainingCredits = itemView.findViewById(R.id.tv_remaining_credits);
             tvUpdatedAt = itemView.findViewById(R.id.tv_updated_at);
+            cbSelect = itemView.findViewById(R.id.cb_select);
 
             // 부모 레이아웃 참조
             layoutMajorAdvanced = (View) tvMajorAdvanced.getParent();
@@ -97,9 +147,36 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
             layoutFreeElective = (View) tvFreeElective.getParent();
             layoutRemainingCredits = (View) tvRemainingCredits.getParent();
 
+            // 체크박스 클릭 리스너
+            cbSelect.setOnClickListener(v -> {
+                int position = getBindingAdapterPosition();
+                if (position != RecyclerView.NO_POSITION) {
+                    GraduationRequirement requirement = requirements.get(position);
+                    String id = requirement.getId();
+                    if (cbSelect.isChecked()) {
+                        selectedIds.add(id);
+                    } else {
+                        selectedIds.remove(id);
+                    }
+                    // 선택 변경 알림
+                    if (selectionChangedListener != null) {
+                        selectionChangedListener.onSelectionChanged(selectedIds.size());
+                    }
+                }
+            });
+
             itemView.setOnClickListener(v -> {
-                if (listener != null && getBindingAdapterPosition() != RecyclerView.NO_POSITION) {
-                    listener.onItemClick(requirements.get(getBindingAdapterPosition()));
+                int position = getBindingAdapterPosition();
+                if (position != RecyclerView.NO_POSITION) {
+                    if (deleteMode) {
+                        // 삭제 모드에서는 체크박스 토글
+                        cbSelect.setChecked(!cbSelect.isChecked());
+                    } else {
+                        // 일반 모드에서는 편집 화면으로 이동
+                        if (listener != null) {
+                            listener.onItemClick(requirements.get(position));
+                        }
+                    }
                 }
             });
 
@@ -112,28 +189,24 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
         }
 
         public void bind(GraduationRequirement requirement) {
+            // 삭제 모드에 따라 체크박스 표시/숨김
+            if (deleteMode) {
+                cbSelect.setVisibility(View.VISIBLE);
+                cbSelect.setChecked(selectedIds.contains(requirement.getId()));
+            } else {
+                cbSelect.setVisibility(View.GONE);
+            }
+
             tvTitle.setText(requirement.getDisplayTitle());
             tvTrack.setText(requirement.getDisplayTrack());
 
-            // 각 필드의 합 계산
-            int sumOfCredits = requirement.getMajorRequired()
-                             + requirement.getMajorElective()
-                             + requirement.getMajorAdvanced()
-                             + requirement.getGeneralRequired()
-                             + requirement.getGeneralElective()
-                             + requirement.getLiberalArts()
-                             + requirement.getFreeElective()
-                             + requirement.getDepartmentCommon();
-
-            // 잔여학점 = 127 - 합계 (Firestore에 잔여학점이 있으면 그 값 사용, 없으면 계산)
-            int remainingCredits = requirement.getRemainingCredits();
-            if (remainingCredits == 0 && sumOfCredits < 127) {
-                remainingCredits = 127 - sumOfCredits;
-            }
-
-            // 총 이수학점 = 각 필드의 합 + 잔여학점 (항상 127학점)
-            int totalCredits = sumOfCredits + remainingCredits;
+            // 총이수학점은 Firestore에 저장된 값 사용
+            int totalCredits = requirement.getTotalCredits();
             tvTotalCredits.setText(totalCredits + "학점");
+
+            // 잔여학점/일반선택은 Firestore에 저장된 값 그대로 사용
+            int remainingCredits = requirement.getRemainingCredits();
+            int freeElective = requirement.getFreeElective();
 
             // 전공심화 또는 학부공통 (둘 중 하나만 표시, 부모 레이아웃도 함께 숨김)
             if (requirement.getMajorAdvanced() > 0) {
@@ -177,10 +250,10 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
                 layoutLiberalArts.setVisibility(View.GONE);
             }
 
-            // 자율선택 또는 잔여학점 (둘 중 하나만 표시)
-            if (requirement.getFreeElective() > 0) {
+            // 자율선택 또는 잔여학점 (둘 중 하나만 표시, Firestore 값 그대로 사용)
+            if (freeElective > 0) {
                 layoutFreeElective.setVisibility(View.VISIBLE);
-                tvFreeElective.setText(requirement.getFreeElective() + "학점");
+                tvFreeElective.setText(freeElective + "학점");
                 layoutRemainingCredits.setVisibility(View.GONE);
             } else if (remainingCredits > 0) {
                 layoutFreeElective.setVisibility(View.GONE);
@@ -191,7 +264,15 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
                 layoutRemainingCredits.setVisibility(View.GONE);
             }
 
-            tvUpdatedAt.setText("문서 ID: " + requirement.getId());
+            // 문서 ID와 참조 문서 ID 표시
+            String displayText = "문서 ID: " + requirement.getId();
+            if (requirement.getMajorDocId() != null && !requirement.getMajorDocId().isEmpty()) {
+                displayText += "\n전공문서: " + requirement.getMajorDocId();
+            }
+            if (requirement.getGeneralEducationDocId() != null && !requirement.getGeneralEducationDocId().isEmpty()) {
+                displayText += "\n교양문서: " + requirement.getGeneralEducationDocId();
+            }
+            tvUpdatedAt.setText(displayText);
         }
     }
 }

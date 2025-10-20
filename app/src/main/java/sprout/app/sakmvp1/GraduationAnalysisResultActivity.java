@@ -7,6 +7,7 @@ import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,6 +32,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import sprout.app.sakmvp1.CourseInputActivity.Course;
 
 /**
  * 졸업 요건 분석 결과 화면
@@ -111,8 +114,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     private static GeneralEducationAnalysis generalEducationAnalysis;
     private static Map<String, Integer> courseCreditsMap = new HashMap<>(); // 모든 강의의 학점 정보 저장
 
-    // 대체과목 관련 필드
-    private static List<ReplacementCourse> replacementCourses = new ArrayList<>(); // Firestore에서 로드한 대체과목 목록
+    // 대체과목 관련 필드 (레거시 - 현재는 GraduationRules 모델에서 처리)
+    // 통합 졸업요건 시스템으로 마이그레이션 되었으므로 별도 로드 불필요
     private static Map<String, List<String>> replacementCoursesMap = new HashMap<>(); // 폐지된 과목 -> 대체 과목 목록 매핑
 
     // Fragment에서 접근할 수 있도록 정적 필드 추가
@@ -126,16 +129,29 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_graduation_analysis_result);
 
+        // 저장된 데이터에서 불러오는 경우 체크
+        Intent intent = getIntent();
+        boolean fromSaved = intent.getBooleanExtra("fromSaved", false);
+        String savedDocId = intent.getStringExtra("savedDocId");
+
+        if (fromSaved && savedDocId != null) {
+            // 저장된 데이터 불러오기 (비동기)
+            loadSavedGraduationResult(savedDocId);
+            return; // onCreate 종료 - loadSavedGraduationResult에서 나머지 초기화 수행
+        }
+
+        // 일반적인 경우 (Intent로 데이터 전달받음)
         getIntentData();
         initViews();
         setupToolbar();
-
 
         performGraduationAnalysis();
     }
 
     private void getIntentData() {
         Intent intent = getIntent();
+
+        // 일반적인 경우 (Intent에서 직접 데이터 가져오기)
         selectedYear = intent.getStringExtra("year");
         selectedDepartment = intent.getStringExtra("department");
         selectedTrack = intent.getStringExtra("track");
@@ -162,6 +178,91 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         if (selectedDepartment != null) {
             DepartmentConfig.loadDepartmentConfigFromFirebase(selectedDepartment, FirebaseDataManager.getInstance());
         }
+    }
+
+    /**
+     * Firestore에서 저장된 졸업요건 검사 결과 불러오기
+     */
+    private void loadSavedGraduationResult(String docId) {
+        com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("users").document(user.getUid())
+                .collection("graduation_check_history")
+                .document(docId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
+                        Toast.makeText(this, "저장된 결과를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                        finish();
+                        return;
+                    }
+
+                    // 저장된 데이터 파싱
+                    selectedYear = documentSnapshot.getString("year");
+                    selectedDepartment = documentSnapshot.getString("department");
+                    selectedTrack = documentSnapshot.getString("track");
+
+                    // 과목 리스트 복원
+                    java.util.List<java.util.Map<String, Object>> courseMaps =
+                            (java.util.List<java.util.Map<String, Object>>) documentSnapshot.get("courses");
+                    if (courseMaps != null) {
+                        courseList = new java.util.ArrayList<>();
+                        for (java.util.Map<String, Object> courseMap : courseMaps) {
+                            String category = (String) courseMap.get("category");
+                            String name = (String) courseMap.get("name");
+                            int credits = ((Number) courseMap.get("credits")).intValue();
+                            String groupId = (String) courseMap.get("groupId");
+                            String competency = (String) courseMap.get("competency");
+
+                            CourseInputActivity.Course course = new CourseInputActivity.Course(
+                                    category, name, credits, groupId, competency
+                            );
+                            courseList.add(course);
+                        }
+                    }
+
+                    // 추가 요구사항 복원
+                    java.util.Map<String, Object> additionalReqMap =
+                            (java.util.Map<String, Object>) documentSnapshot.get("additionalRequirements");
+                    if (additionalReqMap != null) {
+                        additionalRequirements = new AdditionalRequirementsActivity.AdditionalRequirements(
+                                ((Number) additionalReqMap.getOrDefault("tlcCount", 0)).intValue(),
+                                ((Number) additionalReqMap.getOrDefault("chapelCount", 0)).intValue(),
+                                (Boolean) additionalReqMap.getOrDefault("mileageCompleted", false),
+                                (Boolean) additionalReqMap.getOrDefault("extraGradCompleted", false)
+                        );
+                    } else {
+                        additionalRequirements = new AdditionalRequirementsActivity.AdditionalRequirements(0, 0, false, false);
+                    }
+
+                    // 데이터 유효성 검사
+                    if (selectedYear == null || selectedDepartment == null || selectedTrack == null || courseList == null) {
+                        Toast.makeText(this, "저장된 데이터가 유효하지 않습니다", Toast.LENGTH_SHORT).show();
+                        finish();
+                        return;
+                    }
+
+                    // Firebase에서 학부 설정 로드
+                    if (selectedDepartment != null) {
+                        DepartmentConfig.loadDepartmentConfigFromFirebase(selectedDepartment, FirebaseDataManager.getInstance());
+                    }
+
+                    // UI 초기화 및 분석 수행
+                    initViews();
+                    setupToolbar();
+                    performGraduationAnalysis();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "저장된 결과 불러오기 실패", e);
+                    Toast.makeText(this, "저장된 결과를 불러오는데 실패했습니다", Toast.LENGTH_SHORT).show();
+                    finish();
+                });
     }
 
     private void initViews() {
@@ -223,12 +324,105 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_graduation_result, menu);
+        return true;
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
             getOnBackPressedDispatcher().onBackPressed();
             return true;
+        } else if (item.getItemId() == R.id.action_save) {
+            // 저장 버튼 클릭 시 수동 저장 후 홈으로 이동
+            saveGraduationCheckAndGoHome();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * 졸업요건 검사 결과를 저장하고 홈으로 이동
+     */
+    private void saveGraduationCheckAndGoHome() {
+        com.google.firebase.auth.FirebaseAuth auth = com.google.firebase.auth.FirebaseAuth.getInstance();
+        com.google.firebase.auth.FirebaseUser currentUser = auth.getCurrentUser();
+
+        if (currentUser == null) {
+            Toast.makeText(this, "로그인된 사용자가 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String userId = currentUser.getUid();
+        long currentTime = System.currentTimeMillis();
+
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        // 졸업분석 데이터 전체 저장
+        Map<String, Object> graduationData = new HashMap<>();
+        graduationData.put("checkedAt", currentTime);
+        graduationData.put("year", selectedYear);
+        graduationData.put("department", selectedDepartment);
+        graduationData.put("track", selectedTrack);
+
+        // 과목 리스트를 Map 형태로 변환
+        java.util.List<java.util.Map<String, Object>> coursesData = new java.util.ArrayList<>();
+        if (courseList != null) {
+            for (Course course : courseList) {
+                java.util.Map<String, Object> courseMap = new java.util.HashMap<>();
+                courseMap.put("name", course.getName());
+                courseMap.put("credits", course.getCredits());
+                courseMap.put("category", course.getCategory());
+                if (course.getGroupId() != null) {
+                    courseMap.put("groupId", course.getGroupId());
+                }
+                if (course.getCompetency() != null) {
+                    courseMap.put("competency", course.getCompetency());
+                }
+                coursesData.add(courseMap);
+            }
+        }
+        graduationData.put("courses", coursesData);
+
+        // 추가 요건 저장
+        if (additionalRequirements != null) {
+            java.util.Map<String, Object> reqMap = new java.util.HashMap<>();
+            reqMap.put("tlcCount", additionalRequirements.getTlcCount());
+            reqMap.put("chapelCount", additionalRequirements.getChapelCount());
+            reqMap.put("mileageCompleted", additionalRequirements.isMileageCompleted());
+            reqMap.put("extraGradCompleted", additionalRequirements.isExtraGradCompleted());
+            graduationData.put("additionalRequirements", reqMap);
+        }
+
+        // 진행 중 메시지 표시
+        Toast.makeText(this, "저장 중...", Toast.LENGTH_SHORT).show();
+
+        db.collection("users")
+                .document(userId)
+                .collection("graduation_check_history")
+                .add(graduationData)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "졸업분석 결과 저장 성공: " + documentReference.getId());
+
+                    // users 문서에도 lastGraduationCheckDate 업데이트
+                    Map<String, Object> updateData = new HashMap<>();
+                    updateData.put("lastGraduationCheckDate", currentTime);
+                    db.collection("users")
+                            .document(userId)
+                            .set(updateData, com.google.firebase.firestore.SetOptions.merge());
+
+                    // 저장 완료 후 홈으로 이동
+                    Toast.makeText(this, "졸업요건 검사 결과가 저장되었습니다.", Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(this, MainActivityNew.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "졸업분석 결과 저장 실패", e);
+                    Toast.makeText(this, "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void saveGraduationAnalysisResult() {
@@ -253,32 +447,307 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         staticAdditionalRequirements = additionalRequirements;
         staticCourseList = courseList;
 
-        // 졸업 요건 설정
+        // 졸업 요건 설정 (하위 호환성 유지)
         graduationRequirements = new GraduationRequirements(selectedYear);
 
-        // 1단계: 대체과목 데이터 로드
-        loadReplacementCourses(() -> {
-            // 2단계: 전공필수, 전공선택, 학부공통 과목 목록 로드
-            analyzeMajorRequiredCoursesForReplacementCalculation(() -> {
-                // 3단계: 대체과목 로직을 적용하여 학점 계산
-                Map<String, Integer> creditsByCategory = calculateCreditsByCategoryWithReplacements();
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "통합 졸업요건 분석 시작");
+        Log.d(TAG, "학번: " + selectedYear + ", 학과: " + selectedDepartment + ", 트랙: " + selectedTrack);
+        Log.d(TAG, "입력 과목 수: " + courseList.size());
+        Log.d(TAG, "========================================");
 
-                // 4단계: Firebase에서 졸업이수학점 요건을 로드하고 진행도 계산
-                loadCreditRequirements(creditsByCategory);
+        // 새로운 통합 모델로 졸업요건 분석 수행
+        FirebaseDataManager.getInstance().loadGraduationRules(
+                selectedYear, selectedDepartment, selectedTrack,
+                new FirebaseDataManager.OnGraduationRulesLoadedListener() {
+                    @Override
+                    public void onSuccess(sprout.app.sakmvp1.models.GraduationRules rules) {
+                        Log.d(TAG, "졸업요건 데이터 로드 성공: " + rules.toString());
 
-                // 5단계: 교양 과목 상세 분석
-                analyzeGeneralEducationCourses();
+                        // 단일 분석 호출로 모든 졸업요건 분석
+                        sprout.app.sakmvp1.models.GraduationAnalysisResult analysisResult = rules.analyze(courseList);
 
-                int totalCredits = 0;
-                for (int credits : creditsByCategory.values()) {
-                    totalCredits += credits;
-                }
+                        Log.d(TAG, "========================================");
+                        Log.d(TAG, "분석 결과:");
+                        Log.d(TAG, "총 학점: " + analysisResult.getTotalEarnedCredits() + "/" + analysisResult.getTotalRequiredCredits());
+                        Log.d(TAG, "졸업 가능: " + analysisResult.isGraduationReady());
+                        Log.d(TAG, "카테고리 수: " + analysisResult.getAllCategoryResults().size());
+                        Log.d(TAG, "========================================");
 
-                Log.d(TAG, "졸업 요건 분석 완료 - 총 " + courseList.size() + "개 강의, " + totalCredits + "학점");
-            });
-        });
+                        // 분석 결과를 기존 형식으로 변환하여 Fragment에서 사용
+                        convertAnalysisResultToLegacyFormat(analysisResult);
+
+                        // UI 업데이트
+                        setupTabs();
+                        notifyUIUpdate();
+
+                        // Firestore에 졸업요건 검사 이력 저장
+                        saveGraduationCheckToFirestore();
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+                        Log.e(TAG, "졸업요건 데이터 로드 실패", e);
+
+                        // V2 통합 시스템만 사용 (V1 레거시 폴백 비활성화)
+                        // V1 폴백 로직은 하단에 주석으로 보존됨
+                        Log.e(TAG, "V2 통합 졸업요건 데이터가 없습니다. 관리자 화면에서 먼저 등록해주세요.");
+
+                        runOnUiThread(() -> {
+                            android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(GraduationAnalysisResultActivity.this);
+                            builder.setTitle("졸업요건 데이터 없음");
+                            builder.setMessage("해당 학번/학과/트랙의 졸업요건 데이터가 없습니다.\n\n" +
+                                    "관리자 화면에서 '졸업요건통합관리'를 통해\n" +
+                                    "졸업요건 데이터를 먼저 등록해주세요.\n\n" +
+                                    "학번: " + selectedYear + "\n" +
+                                    "학과: " + selectedDepartment + "\n" +
+                                    "트랙: " + selectedTrack);
+                            builder.setPositiveButton("확인", (dialog, which) -> finish());
+                            builder.setCancelable(false);
+                            builder.show();
+                        });
+
+                        /* V1 레거시 폴백 (임시 비활성화)
+                        Log.w(TAG, "기존 방식으로 폴백하여 분석 시도...");
+                        performLegacyGraduationAnalysis();
+                        */
+                    }
+                });
     }
 
+    /**
+     * 새로운 통합 분석 결과를 기존 형식으로 변환
+     * Fragment들이 기존 정적 필드를 사용하므로 호환성 유지
+     */
+    private void convertAnalysisResultToLegacyFormat(sprout.app.sakmvp1.models.GraduationAnalysisResult result) {
+        // CreditRequirements 변환 (초기값 0으로 생성 후 값 설정)
+        creditRequirements = new FirebaseDataManager.CreditRequirements(0, 0, 0, 0, 0, 0, 0, 0, 0);
+        creditRequirements.totalCredits = result.getTotalRequiredCredits();
+
+        // 카테고리별 과목 목록 초기화 (null 방지)
+        takenMajorRequiredCourses = new ArrayList<>();
+        takenMajorElectiveCourses = new ArrayList<>();
+        takenMajorAdvancedCourses = new ArrayList<>();
+        takenDepartmentCommonCourses = new ArrayList<>();
+
+        // 카테고리별 요구 학점 설정
+        for (sprout.app.sakmvp1.models.CategoryAnalysisResult categoryResult : result.getAllCategoryResults()) {
+            String categoryName = categoryResult.getCategoryName();
+            int required = categoryResult.getRequiredCredits();
+
+            switch (categoryName) {
+                case "전공필수":
+                    creditRequirements.majorRequired = required;
+                    takenMajorRequiredCourses = new ArrayList<>(categoryResult.getCompletedCourses());
+                    break;
+                case "전공선택":
+                    creditRequirements.majorElective = required;
+                    takenMajorElectiveCourses = new ArrayList<>(categoryResult.getCompletedCourses());
+                    break;
+                case "교양필수":
+                    creditRequirements.generalRequired = required;
+                    break;
+                case "교양선택":
+                    creditRequirements.generalElective = required;
+                    break;
+                case "소양":
+                    creditRequirements.liberalArts = required;
+                    break;
+                case "학부공통":
+                    creditRequirements.departmentCommon = required;
+                    takenDepartmentCommonCourses = new ArrayList<>(categoryResult.getCompletedCourses());
+                    break;
+                case "전공심화":
+                    creditRequirements.majorAdvanced = required;
+                    takenMajorAdvancedCourses = new ArrayList<>(categoryResult.getCompletedCourses());
+                    break;
+                case "일반선택":
+                case "잔여학점":
+                    creditRequirements.freeElective = required;
+                    break;
+            }
+        }
+
+        // GraduationProgress 생성
+        graduationProgress = new GraduationProgress();
+        graduationProgress.totalEarned = result.getTotalEarnedCredits();
+        graduationProgress.totalRequired = result.getTotalRequiredCredits();
+
+        // 카테고리별 진행도 생성
+        for (sprout.app.sakmvp1.models.CategoryAnalysisResult categoryResult : result.getAllCategoryResults()) {
+            String categoryName = categoryResult.getCategoryName();
+            CategoryProgress progress = new CategoryProgress(
+                    categoryResult.getEarnedCredits(),
+                    categoryResult.getRequiredCredits()
+            );
+
+            switch (categoryName) {
+                case "전공필수":
+                    graduationProgress.majorRequired = progress;
+                    break;
+                case "전공선택":
+                    graduationProgress.majorElective = progress;
+                    break;
+                case "교양필수":
+                    graduationProgress.generalRequired = progress;
+                    break;
+                case "교양선택":
+                    graduationProgress.generalElective = progress;
+                    break;
+                case "소양":
+                    graduationProgress.liberalArts = progress;
+                    break;
+                case "학부공통":
+                    graduationProgress.departmentCommon = progress;
+                    break;
+                case "전공심화":
+                    graduationProgress.majorAdvanced = progress;
+                    break;
+                case "일반선택":
+                    graduationProgress.generalSelection = progress;
+                    break;
+                case "잔여학점":
+                    graduationProgress.remainingCredits = progress;
+                    break;
+            }
+        }
+
+        // 교양 분석 결과 변환
+        generalEducationAnalysis = new GeneralEducationAnalysis();
+        generalEducationAnalysis.oneOfGroupStatus = new HashMap<>();
+        generalEducationAnalysis.individualRequiredStatus = new HashMap<>();
+        generalEducationAnalysis.takenGeneralElective = new ArrayList<>();
+        generalEducationAnalysis.takenLiberalArts = new ArrayList<>();
+
+        // 교양필수 상세 분석 (oneOf 그룹 등)
+        for (sprout.app.sakmvp1.models.CategoryAnalysisResult categoryResult : result.getAllCategoryResults()) {
+            if ("교양필수".equals(categoryResult.getCategoryName())) {
+                // oneOf 그룹 상태 변환
+                for (sprout.app.sakmvp1.models.CategoryAnalysisResult.SubgroupResult subgroup : categoryResult.getSubgroupResults()) {
+                    OneOfGroupStatus groupStatus = new OneOfGroupStatus();
+                    groupStatus.groupName = subgroup.getGroupName();
+                    // SubgroupResult의 availableCourses를 사용하여 선택 가능한 모든 과목 목록 채우기
+                    groupStatus.requiredCourses = new ArrayList<>(subgroup.getAvailableCourses());
+                    groupStatus.takenCourse = subgroup.getSelectedCourse();
+                    groupStatus.isCompleted = subgroup.isCompleted();
+
+                    generalEducationAnalysis.oneOfGroupStatus.put(subgroup.getGroupName(), groupStatus);
+                }
+
+                // 개별 필수 과목 상태
+                for (String course : categoryResult.getCompletedCourses()) {
+                    generalEducationAnalysis.individualRequiredStatus.put(course, true);
+                }
+                for (String course : categoryResult.getMissingCourses()) {
+                    generalEducationAnalysis.individualRequiredStatus.put(course, false);
+                }
+
+                // V2 분석 결과에서 학점 정보를 courseCreditsMap에 추가
+                if (categoryResult.getCourseCreditsMap() != null) {
+                    for (Map.Entry<String, Integer> entry : categoryResult.getCourseCreditsMap().entrySet()) {
+                        courseCreditsMap.put(entry.getKey(), entry.getValue());
+                        Log.d(TAG, "교양필수 과목 학점 정보 추가: " + entry.getKey() + " = " + entry.getValue() + "학점");
+                    }
+                }
+                break;
+            }
+        }
+
+        // 교양선택 과목 수집
+        for (CourseInputActivity.Course course : courseList) {
+            if ("교양선택".equals(course.getCategory())) {
+                generalEducationAnalysis.takenGeneralElective.add(course.getName());
+            } else if ("소양".equals(course.getCategory())) {
+                generalEducationAnalysis.takenLiberalArts.add(course.getName());
+            }
+        }
+
+        // 역량 분석
+        graduationProgress.competencyProgress = analyzeCompetencies();
+
+        // 전공/학부공통 과목 목록 설정 (Fragment 상세 표시용)
+        allMajorRequiredCourses = new ArrayList<>();
+        allMajorElectiveCourses = new ArrayList<>();
+        allMajorAdvancedCourses = new ArrayList<>();
+        allDepartmentCommonCourses = new ArrayList<>();
+
+        // V2 분석 결과에서 모든 과목 목록 가져오기 (완료 + 미이수)
+        for (sprout.app.sakmvp1.models.CategoryAnalysisResult categoryResult : result.getAllCategoryResults()) {
+            String categoryName = categoryResult.getCategoryName();
+            List<String> allCoursesInCategory = new ArrayList<>();
+
+            // 완료된 과목 + 미이수 과목 = 모든 과목
+            allCoursesInCategory.addAll(categoryResult.getCompletedCourses());
+            allCoursesInCategory.addAll(categoryResult.getMissingCourses());
+
+            switch (categoryName) {
+                case "전공필수":
+                    allMajorRequiredCourses.addAll(allCoursesInCategory);
+                    break;
+                case "전공선택":
+                    allMajorElectiveCourses.addAll(allCoursesInCategory);
+                    break;
+                case "전공심화":
+                    allMajorAdvancedCourses.addAll(allCoursesInCategory);
+                    break;
+                case "학부공통":
+                    allDepartmentCommonCourses.addAll(allCoursesInCategory);
+                    break;
+            }
+        }
+
+        Log.d(TAG, "기존 형식으로 변환 완료");
+        Log.d(TAG, "  - oneOf 그룹: " + generalEducationAnalysis.oneOfGroupStatus.size() + "개");
+        Log.d(TAG, "  - 개별 필수: " + generalEducationAnalysis.individualRequiredStatus.size() + "개");
+        Log.d(TAG, "  - 교양선택: " + generalEducationAnalysis.takenGeneralElective.size() + "개");
+        Log.d(TAG, "  - 소양: " + generalEducationAnalysis.takenLiberalArts.size() + "개");
+        Log.d(TAG, "  - 역량: " + (graduationProgress.competencyProgress != null ?
+                     graduationProgress.competencyProgress.completedCompetencies.size() : 0) + "개");
+    }
+
+    /**
+     * 기존 방식의 졸업요건 분석 (폴백용) - 임시 비활성화
+     * 레거시: 별도 replacement_courses 컬렉션 로드 제거 (현재는 GraduationRules에 통합)
+     *
+     * 현재는 V2 통합 시스템만 사용합니다.
+     * 이 메서드와 관련 V1 레거시 메서드들은 향후 완전 제거 예정입니다.
+     *
+     * @deprecated V2 통합 졸업요건 시스템을 사용하세요
+     */
+    @Deprecated
+    private void performLegacyGraduationAnalysis() {
+        Log.w(TAG, "performLegacyGraduationAnalysis() 호출됨 - 하지만 비활성화 상태");
+        Log.w(TAG, "V2 통합 졸업요건 시스템을 사용해야 합니다.");
+
+        // V1 레거시 로직 임시 비활성화
+        // 아래 주석을 해제하면 기존 방식으로 동작합니다
+        /*
+        // 1단계: 전공필수, 전공선택, 학부공통 과목 목록 로드
+        analyzeMajorRequiredCoursesForReplacementCalculation(() -> {
+            // 2단계: 대체과목 로직을 적용하여 학점 계산
+            Map<String, Integer> creditsByCategory = calculateCreditsByCategoryWithReplacements();
+
+            // 3단계: Firebase에서 졸업이수학점 요건을 로드하고 진행도 계산
+            loadCreditRequirements(creditsByCategory);
+
+            // 4단계: 교양 과목 상세 분석
+            analyzeGeneralEducationCourses();
+
+            int totalCredits = 0;
+            for (int credits : creditsByCategory.values()) {
+                totalCredits += credits;
+            }
+
+            Log.d(TAG, "졸업 요건 분석 완료 (기존 방식) - 총 " + courseList.size() + "개 강의, " + totalCredits + "학점");
+        });
+        */
+    }
+
+    /**
+     * V1 레거시 메서드
+     * @deprecated V2 GraduationRules.analyze() 사용
+     */
+    @Deprecated
     private Map<String, Integer> calculateCreditsByCategory() {
         Map<String, Integer> creditsByCategory = new HashMap<>();
 
@@ -295,7 +764,11 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     /**
      * 대체과목 로직을 적용하여 카테고리별 학점을 계산하는 함수
      * 이 함수는 대체과목 데이터가 로드된 후에만 호출되어야 합니다.
+     *
+     * V1 레거시 메서드
+     * @deprecated V2 GraduationRules.analyze() 사용
      */
+    @Deprecated
     private Map<String, Integer> calculateCreditsByCategoryWithReplacements() {
         Map<String, Integer> creditsByCategory = new HashMap<>();
 
@@ -441,6 +914,11 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         return creditRequirements;
     }
 
+    /**
+     * V1 레거시 메서드
+     * @deprecated V2 GraduationRules.analyze() 사용
+     */
+    @Deprecated
     private void loadCreditRequirements(Map<String, Integer> creditsByCategory) {
         FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
         dataManager.loadCreditRequirements(selectedDepartment, selectedTrack, selectedYear,
@@ -523,8 +1001,142 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 졸업요건 검사 결과를 Firestore에 저장
+     * users/{userId} 문서에 lastGraduationCheckDate 필드 업데이트
+     */
+    private void saveGraduationCheckToFirestore() {
+        com.google.firebase.auth.FirebaseAuth auth = com.google.firebase.auth.FirebaseAuth.getInstance();
+        com.google.firebase.auth.FirebaseUser currentUser = auth.getCurrentUser();
+
+        if (currentUser == null) {
+            Log.w(TAG, "saveGraduationCheckToFirestore: 로그인된 사용자가 없습니다.");
+            return;
+        }
+
+        String userId = currentUser.getUid();
+        long currentTime = System.currentTimeMillis();
+
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        Map<String, Object> updateData = new HashMap<>();
+        updateData.put("lastGraduationCheckDate", currentTime);
+
+        db.collection("users")
+                .document(userId)
+                .update(updateData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "졸업요건 검사 이력 저장 성공: " + userId + " at " + currentTime);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "졸업요건 검사 이력 저장 실패", e);
+                    // 문서가 없는 경우 set 시도
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("lastGraduationCheckDate", currentTime);
+                    data.put("updatedAt", currentTime);
+
+                    db.collection("users")
+                            .document(userId)
+                            .set(data, com.google.firebase.firestore.SetOptions.merge())
+                            .addOnSuccessListener(aVoid2 -> {
+                                Log.d(TAG, "졸업요건 검사 이력 생성 성공: " + userId);
+                            })
+                            .addOnFailureListener(e2 -> {
+                                Log.e(TAG, "졸업요건 검사 이력 생성 실패", e2);
+                            });
+                });
+    }
+
+    /**
+     * 졸업요건 검사 결과를 Firestore에 저장하고 사용자에게 피드백 제공
+     * users/{userId}/graduation_check_history 컬렉션에 저장
+     */
+    private void saveGraduationCheckToFirestoreWithFeedback() {
+        com.google.firebase.auth.FirebaseAuth auth = com.google.firebase.auth.FirebaseAuth.getInstance();
+        com.google.firebase.auth.FirebaseUser currentUser = auth.getCurrentUser();
+
+        if (currentUser == null) {
+            Log.w(TAG, "saveGraduationCheckToFirestoreWithFeedback: 로그인된 사용자가 없습니다.");
+            Toast.makeText(this, "로그인된 사용자가 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String userId = currentUser.getUid();
+        long currentTime = System.currentTimeMillis();
+
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        // 졸업분석 데이터 전체 저장
+        Map<String, Object> graduationData = new HashMap<>();
+        graduationData.put("checkedAt", currentTime);
+        graduationData.put("year", selectedYear);
+        graduationData.put("department", selectedDepartment);
+        graduationData.put("track", selectedTrack);
+
+        // 과목 리스트를 Map 형태로 변환
+        java.util.List<java.util.Map<String, Object>> coursesData = new java.util.ArrayList<>();
+        if (courseList != null) {
+            for (Course course : courseList) {
+                java.util.Map<String, Object> courseMap = new java.util.HashMap<>();
+                courseMap.put("name", course.getName());
+                courseMap.put("credits", course.getCredits());
+                courseMap.put("category", course.getCategory());
+                if (course.getGroupId() != null) {
+                    courseMap.put("groupId", course.getGroupId());
+                }
+                if (course.getCompetency() != null) {
+                    courseMap.put("competency", course.getCompetency());
+                }
+                coursesData.add(courseMap);
+            }
+        }
+        graduationData.put("courses", coursesData);
+
+        // 추가 요건 저장
+        if (additionalRequirements != null) {
+            java.util.Map<String, Object> reqMap = new java.util.HashMap<>();
+            reqMap.put("tlcCount", additionalRequirements.getTlcCount());
+            reqMap.put("chapelCount", additionalRequirements.getChapelCount());
+            reqMap.put("mileageCompleted", additionalRequirements.isMileageCompleted());
+            reqMap.put("extraGradCompleted", additionalRequirements.isExtraGradCompleted());
+            graduationData.put("additionalRequirements", reqMap);
+        }
+
+        // 진행 중 메시지 표시
+        Toast.makeText(this, "저장 중...", Toast.LENGTH_SHORT).show();
+
+        db.collection("users")
+                .document(userId)
+                .collection("graduation_check_history")
+                .add(graduationData)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "졸업분석 결과 저장 성공: " + documentReference.getId());
+                    Toast.makeText(this, "졸업요건 검사 결과가 저장되었습니다.", Toast.LENGTH_SHORT).show();
+
+                    // users 문서에도 lastGraduationCheckDate 업데이트
+                    Map<String, Object> updateData = new HashMap<>();
+                    updateData.put("lastGraduationCheckDate", currentTime);
+                    db.collection("users")
+                            .document(userId)
+                            .set(updateData, com.google.firebase.firestore.SetOptions.merge());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "졸업분석 결과 저장 실패", e);
+                    Toast.makeText(this, "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
     private GraduationProgress calculateGraduationProgressWithRequirements(
             Map<String, Integer> creditsByCategory, FirebaseDataManager.CreditRequirements creditReqs) {
+
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "calculateGraduationProgressWithRequirements 시작");
+        Log.d(TAG, "creditsByCategory 내용:");
+        for (Map.Entry<String, Integer> entry : creditsByCategory.entrySet()) {
+            Log.d(TAG, "  " + entry.getKey() + ": " + entry.getValue() + "학점");
+        }
+        Log.d(TAG, "creditReqs: " + creditReqs);
+        Log.d(TAG, "========================================");
 
         GraduationProgress progress = new GraduationProgress();
         boolean isOldCurriculum = isOldCurriculum(selectedYear);
@@ -593,7 +1205,11 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     /**
      * 대체과목 학점 계산을 위해 과목 목록만 로드하는 버전
      * 콜백을 받아서 모든 과목 로드 완료 후 실행
+     *
+     * V1 레거시 메서드
+     * @deprecated V2 GraduationRules.analyze() 사용
      */
+    @Deprecated
     private void analyzeMajorRequiredCoursesForReplacementCalculation(Runnable onComplete) {
         FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
 
@@ -863,8 +1479,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         int majorRequiredOverflow = Math.max(0, progress.majorRequired.earned - progress.majorRequired.required);
         int majorElectiveOverflow = Math.max(0, progress.majorElective.earned - progress.majorElective.required);
         int generalRequiredOverflow = Math.max(0, progress.generalRequired.earned - progress.generalRequired.required);
-        int generalElectiveOverflow = Math.max(0, progress.generalElective.earned - progress.generalElective.required);
-        int liberalArtsOverflow = Math.max(0, progress.liberalArts.earned - progress.liberalArts.required);
+        int generalElectiveOverflow = progress.generalElective != null ? Math.max(0, progress.generalElective.earned - progress.generalElective.required) : 0;
+        int liberalArtsOverflow = progress.liberalArts != null ? Math.max(0, progress.liberalArts.earned - progress.liberalArts.required) : 0;
 
         totalOverflow = majorRequiredOverflow + majorElectiveOverflow + generalRequiredOverflow +
                        generalElectiveOverflow + liberalArtsOverflow;
@@ -924,15 +1540,19 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 progress.generalRequired.required
             );
 
-            progress.generalElective = new CategoryProgress(
-                Math.min(progress.generalElective.earned, progress.generalElective.required),
-                progress.generalElective.required
-            );
+            if (progress.generalElective != null) {
+                progress.generalElective = new CategoryProgress(
+                    Math.min(progress.generalElective.earned, progress.generalElective.required),
+                    progress.generalElective.required
+                );
+            }
 
-            progress.liberalArts = new CategoryProgress(
-                Math.min(progress.liberalArts.earned, progress.liberalArts.required),
-                progress.liberalArts.required
-            );
+            if (progress.liberalArts != null) {
+                progress.liberalArts = new CategoryProgress(
+                    Math.min(progress.liberalArts.earned, progress.liberalArts.required),
+                    progress.liberalArts.required
+                );
+            }
 
             if (usesOldCurriculum && progress.departmentCommon != null) {
                 progress.departmentCommon = new CategoryProgress(
@@ -2045,10 +2665,23 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                         }
                     }
 
-                    // 개별 필수 과목 중 미완료된 것들
+                    // oneOf 그룹에 포함된 모든 과목 이름을 수집
+                    java.util.Set<String> coursesInOneOfGroups = new java.util.HashSet<>();
+                    for (OneOfGroupStatus groupStatus : analysis.oneOfGroupStatus.values()) {
+                        if (groupStatus.requiredCourses != null) {
+                            coursesInOneOfGroups.addAll(groupStatus.requiredCourses);
+                        }
+                    }
+
+                    // 개별 필수 과목 중 미완료된 것들 (oneOf 그룹에 포함되지 않은 것만)
                     for (Map.Entry<String, Boolean> entry : analysis.individualRequiredStatus.entrySet()) {
                         if (!entry.getValue()) {
                             String courseName = entry.getKey();
+                            // oneOf 그룹에 포함된 과목은 건너뜁니다
+                            if (coursesInOneOfGroups.contains(courseName)) {
+                                android.util.Log.d(TAG, "Skipping course in oneOf group: " + courseName);
+                                continue;
+                            }
                             int credits = getCreditsForCourse(courseName);
                             addMissingCourseItem(contentLayout, courseName, credits);
                         }
@@ -2069,6 +2702,12 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             }
 
             if (headerText != null) {
+                // generalElective가 null일 수 있으므로 체크
+                if (progress.generalElective == null) {
+                    headerText.setText("📖 교양선택 (데이터 없음)");
+                    return;
+                }
+
                 int remaining = progress.generalElective.remaining;
                 String headerMessage = "📖 교양선택";
 
@@ -2304,6 +2943,11 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             }
 
             if (headerText != null) {
+                // liberalArts가 null일 수 있으므로 체크
+                if (progress.liberalArts == null) {
+                    headerText.setText("🎨 소양 (데이터 없음)");
+                    return;
+                }
                 int remaining = progress.liberalArts.remaining;
                 if (remaining > 0) {
                     headerText.setText("🎨 소양 (" + remaining + "학점 부족)");
@@ -2357,6 +3001,12 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         }
 
         private void addOneOfGroupItem(LinearLayout parent, OneOfGroupStatus groupStatus) {
+            // requiredCourses가 비어있으면 해당 그룹을 건너뜁니다
+            if (groupStatus.requiredCourses == null || groupStatus.requiredCourses.isEmpty()) {
+                android.util.Log.w("GradAnalysis", "Skipping oneOf group with empty requiredCourses: " + groupStatus.groupName);
+                return;
+            }
+
             LinearLayout groupLayout = new LinearLayout(getContext());
             groupLayout.setOrientation(LinearLayout.VERTICAL);
             groupLayout.setPadding(0, dpToPx(8), 0, dpToPx(8));
@@ -2914,48 +3564,47 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
     }
 
     /**
-     * Firestore에서 대체과목 데이터 로드
-     * @param onComplete 로드 완료 후 실행할 콜백
+     * 레거시: Firestore에서 대체과목 데이터 로드 (더 이상 사용 안 함)
+     *
+     * 현재는 통합 졸업요건 시스템에서 GraduationRules.replacementRules로 처리됩니다.
+     * 별도의 replacement_courses 컬렉션을 사용하지 않습니다.
+     *
+     * @deprecated 이 메서드는 더 이상 사용되지 않습니다. GraduationRules 모델의 replacementRules를 사용하세요.
      */
+    @Deprecated
     private void loadReplacementCourses(Runnable onComplete) {
+        // 레거시 메서드 - 더 이상 사용하지 않음
+        Log.d(TAG, "loadReplacementCourses: 레거시 메서드 (사용 안 함, GraduationRules.replacementRules 사용)");
+
+        // 콜백만 실행
+        if (onComplete != null) {
+            onComplete.run();
+        }
+
+        /* 이전 코드 (주석 처리)
         com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
 
         db.collection("replacement_courses")
                 .whereEqualTo("department", selectedDepartment)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    replacementCourses.clear();
                     replacementCoursesMap.clear();
 
                     for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        ReplacementCourse course = document.toObject(ReplacementCourse.class);
-                        course.setId(document.getId());
-                        replacementCourses.add(course);
-
-                        // 맵에 추가: 폐지된 과목명 -> 대체 가능한 과목 목록
-                        replacementCoursesMap.put(
-                            course.getDiscontinuedCourseName(),
-                            course.getReplacementCourseNames()
-                        );
+                        // ReplacementCourse 클래스는 삭제됨 - 현재는 GraduationRules.replacementRules 사용
                     }
 
-                    Log.d(TAG, "대체과목 로드 완료: " + replacementCourses.size() + "개 (학부: " + selectedDepartment + ")");
-                    for (ReplacementCourse rc : replacementCourses) {
-                        Log.d(TAG, "  - " + rc.getDiscontinuedCourseName() + " → " + rc.getReplacementCoursesAsString());
-                    }
-
-                    // 로드 완료 후 콜백 실행
                     if (onComplete != null) {
                         onComplete.run();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "대체과목 로드 실패", e);
-                    // 실패해도 분석은 진행 (대체과목 없이)
                     if (onComplete != null) {
                         onComplete.run();
                     }
                 });
+        */
     }
 
     /**

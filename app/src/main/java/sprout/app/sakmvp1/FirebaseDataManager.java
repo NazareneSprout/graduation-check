@@ -580,7 +580,17 @@ public class FirebaseDataManager {
                     if (documentSnapshot.exists()) {
                         Map<String, Object> data = documentSnapshot.getData();
                         Log.d(TAG, "졸업 요건 조회 성공: " + documentId);
-                        listener.onSuccess(data);
+
+                        // 교양 문서 참조가 있는지 확인
+                        String generalEducationDocId = documentSnapshot.getString("generalEducationDocId");
+                        if (generalEducationDocId != null && !generalEducationDocId.isEmpty()) {
+                            Log.d(TAG, "교양 문서 참조 발견: " + generalEducationDocId);
+                            // 교양 문서를 로드하여 병합
+                            loadAndMergeGeneralEducationDocument(data, generalEducationDocId, listener);
+                        } else {
+                            Log.d(TAG, "교양 문서 참조 없음 - 전공 문서만 반환");
+                            listener.onSuccess(data);
+                        }
                     } else {
                         Log.w(TAG, "졸업 요건 문서 없음: " + documentId);
                         listener.onFailure(new Exception("해당 조건의 졸업요건을 찾을 수 없습니다: " + documentId));
@@ -590,6 +600,60 @@ public class FirebaseDataManager {
                     String errorMsg = "졸업 요건 문서 조회 실패: " + documentId;
                     Log.e(TAG, errorMsg, e);
                     listener.onFailure(new Exception(errorMsg, e));
+                });
+    }
+
+    /**
+     * 교양 문서를 로드하여 전공 문서 데이터에 병합
+     */
+    private void loadAndMergeGeneralEducationDocument(Map<String, Object> majorData,
+                                                     String generalDocId,
+                                                     OnGraduationRequirementsLoadedListener listener) {
+        db.collection("graduation_requirements").document(generalDocId)
+                .get()
+                .addOnSuccessListener(generalDoc -> {
+                    if (generalDoc.exists() && generalDoc.getData() != null) {
+                        Map<String, Object> generalData = generalDoc.getData();
+                        Log.d(TAG, "교양 문서 로드 성공: " + generalDocId);
+
+                        // 교양 문서의 rules를 전공 문서에 병합
+                        // 교양 문서 구조: { rules: { requirements: [...] } }
+                        Object generalRulesObj = generalData.get("rules");
+                        if (generalRulesObj instanceof Map) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> generalRules = (Map<String, Object>) generalRulesObj;
+
+                            // 전공 문서의 rules 가져오기 (없으면 생성)
+                            Object majorRulesObj = majorData.get("rules");
+                            Map<String, Object> majorRules;
+                            if (majorRulesObj instanceof Map) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> temp = (Map<String, Object>) majorRulesObj;
+                                majorRules = new java.util.HashMap<>(temp);
+                            } else {
+                                majorRules = new java.util.HashMap<>();
+                            }
+
+                            // 교양 requirements를 전공 rules에 추가
+                            if (generalRules.containsKey("requirements")) {
+                                majorRules.put("generalRequirements", generalRules.get("requirements"));
+                                Log.d(TAG, "교양 과목 데이터 병합 완료");
+                            }
+
+                            // 병합된 rules를 전공 데이터에 다시 저장
+                            majorData.put("rules", majorRules);
+                        }
+
+                        listener.onSuccess(majorData);
+                    } else {
+                        Log.w(TAG, "교양 문서를 찾을 수 없음: " + generalDocId + " - 전공 문서만 반환");
+                        listener.onSuccess(majorData);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "교양 문서 로드 실패: " + generalDocId + " - 전공 문서만 반환", e);
+                    // 교양 문서 로드 실패해도 전공 문서는 반환
+                    listener.onSuccess(majorData);
                 });
     }
 
@@ -1373,13 +1437,8 @@ public class FirebaseDataManager {
                                         // 설정 기반 카테고리 조회 로직
                                         String categoryKey = DepartmentConfig.getDepartmentCommonCategoryName(department, actualYear);
 
-                                        // 학부공통의 경우 Firestore에서는 "학부공통필수"로 저장되어 있으므로 매핑
-                                        String firestoreCategoryKey = categoryKey;
-                                        if ("학부공통".equals(categoryKey)) {
-                                            firestoreCategoryKey = "학부공통필수";
-                                        }
-
-                                        Object departmentCommon = semester.get(firestoreCategoryKey);
+                                        // Firestore에서 "학부공통" 카테고리 직접 조회 (2024-10-19: 학부공통필수 → 학부공통 병합 완료)
+                                        Object departmentCommon = semester.get(categoryKey);
                                         if (departmentCommon instanceof List) {
                                             List<?> commonList = (List<?>) departmentCommon;
                                             for (Object courseObj : commonList) {
@@ -1967,5 +2026,680 @@ public class FirebaseDataManager {
                 listener.onFailure(e);
             }
         });
+    }
+
+    // ========== 통합 졸업요건 시스템 ==========
+
+    /**
+     * 통합 졸업요건 규칙 로드 (graduation_requirements 컬렉션)
+     *
+     * @param cohort 학번 (예: "2020")
+     * @param department 학부 (예: "IT학부")
+     * @param track 트랙 (예: "인공지능")
+     * @param listener 로드 완료 리스너
+     */
+    public void loadGraduationRules(String cohort, String department, String track,
+                                     OnGraduationRulesLoadedListener listener) {
+        // V1과 동일한 문서 ID 형식 사용: 학과_트랙_학번
+        String docId = department + "_" + track + "_" + cohort;
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "Loading unified graduation rules: " + docId);
+        Log.d(TAG, "========================================");
+
+        // 캐시 확인
+        String cacheKey = "graduation_rules_" + docId;
+        Long cacheTime = cacheTimestamps.get(cacheKey);
+        if (cacheTime != null && (System.currentTimeMillis() - cacheTime) < CACHE_VALIDITY_MS) {
+            sprout.app.sakmvp1.models.GraduationRules cached =
+                (sprout.app.sakmvp1.models.GraduationRules) graduationCache.get(cacheKey);
+            if (cached != null) {
+                Log.d(TAG, "✓ Cache hit for graduation rules: " + docId);
+                listener.onSuccess(cached);
+                return;
+            }
+        }
+
+        // Firestore에서 로드
+        db.collection("graduation_requirements")
+            .document(docId)
+            .get()
+            .addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    sprout.app.sakmvp1.models.GraduationRules rules =
+                        documentSnapshot.toObject(sprout.app.sakmvp1.models.GraduationRules.class);
+
+                    if (rules != null) {
+                        // V2 데이터 구조 검증: categories가 비어있으면 V1 데이터만 있는 것
+                        if (rules.getCategories() == null || rules.getCategories().isEmpty()) {
+                            Log.w(TAG, "Document exists but has no V2 categories: " + docId);
+                            Log.w(TAG, "Converting V1 data structure to V2 format...");
+
+                            // V1 → V2 변환 시도 (비동기, 교양 문서 포함)
+                            convertV1ToV2Async(documentSnapshot, cohort, department, track, new OnV1ToV2ConversionListener() {
+                                @Override
+                                public void onSuccess(sprout.app.sakmvp1.models.GraduationRules convertedRules) {
+                                    // 변환 성공
+                                    graduationCache.put(cacheKey, convertedRules);
+                                    cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+
+                                    Log.d(TAG, "✓ Successfully converted V1 to V2: " + docId);
+                                    Log.d(TAG, "  - Categories: " + convertedRules.getCategories().size());
+                                    Log.d(TAG, "  - Replacement rules: " + (convertedRules.getReplacementRules() != null ? convertedRules.getReplacementRules().size() : 0));
+
+                                    listener.onSuccess(convertedRules);
+                                }
+
+                                @Override
+                                public void onFailure(Exception e) {
+                                    Log.e(TAG, "V1→V2 변환 실패", e);
+                                    listener.onFailure(new Exception("V1→V2 변환 중 오류 발생: " + e.getMessage()));
+                                }
+                            });
+                            return;
+                        }
+
+                        // V2 데이터가 있는 경우 (정상 케이스)
+                        // 캐시 저장
+                        graduationCache.put(cacheKey, rules);
+                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+
+                        Log.d(TAG, "✓ Loaded graduation rules: " + docId);
+                        Log.d(TAG, "  - Version: " + rules.getVersion());
+                        Log.d(TAG, "  - TotalCredits: " + rules.getTotalCredits());
+                        Log.d(TAG, "  - Categories: " + rules.getCategories().size());
+                        Log.d(TAG, "  - Replacement rules: " + (rules.getReplacementRules() != null ? rules.getReplacementRules().size() : 0));
+
+                        listener.onSuccess(rules);
+                    } else {
+                        Log.e(TAG, "Failed to deserialize graduation rules: " + docId);
+                        listener.onFailure(new Exception("졸업요건 데이터 역직렬화 실패"));
+                    }
+                } else {
+                    Log.e(TAG, "Graduation rules document not found: " + docId);
+                    listener.onFailure(new Exception("졸업요건 문서를 찾을 수 없습니다: " + docId));
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Failed to load graduation rules: " + docId, e);
+                listener.onFailure(e);
+            });
+    }
+
+    /**
+     * V1 Firestore 문서를 V2 GraduationRules 객체로 비동기 변환 (교양 문서 포함)
+     *
+     * V1 구조:
+     * - rules (Map): 학기별 전공 강의 목록
+     * - generalEducationDocId (String): 교양 문서 참조
+     * - 전공필수, 전공선택, 교양필수, 교양선택, 소양, 학부공통, 전공심화 (Number): 학점
+     *
+     * V2 구조:
+     * - categories (List<RequirementCategory>): 통합 카테고리 (전공 + 교양)
+     * - creditRequirements (CreditRequirements): 학점 요건
+     * - replacementRules (List<ReplacementRule>): 대체 과목 규칙
+     *
+     * @param documentSnapshot V1 전공 문서 스냅샷
+     * @param cohort 학번
+     * @param department 학부
+     * @param track 트랙
+     * @param listener 변환 완료 리스너
+     */
+    private void convertV1ToV2Async(
+            com.google.firebase.firestore.DocumentSnapshot documentSnapshot,
+            String cohort, String department, String track,
+            OnV1ToV2ConversionListener listener) {
+
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "V1 → V2 비동기 변환 시작");
+        Log.d(TAG, "문서 ID: " + documentSnapshot.getId());
+        Log.d(TAG, "========================================");
+
+        Map<String, Object> majorData = documentSnapshot.getData();
+        if (majorData == null) {
+            Log.e(TAG, "문서 데이터가 null입니다");
+            listener.onFailure(new Exception("문서 데이터가 null"));
+            return;
+        }
+
+        // 교양 문서 참조 확인
+        String generalDocId = documentSnapshot.getString("generalEducationDocId");
+
+        if (generalDocId != null && !generalDocId.isEmpty()) {
+            Log.d(TAG, "교양 문서 참조 발견: " + generalDocId + ", 로드 중...");
+
+            // 교양 문서 로드 후 병합
+            db.collection("graduation_requirements").document(generalDocId)
+                .get()
+                .addOnSuccessListener(generalDoc -> {
+                    if (generalDoc.exists() && generalDoc.getData() != null) {
+                        Map<String, Object> generalData = generalDoc.getData();
+                        Log.d(TAG, "✓ 교양 문서 로드 성공: " + generalDocId);
+
+                        // 전공 + 교양 데이터 병합 후 변환
+                        Map<String, Object> mergedData = mergeV1Data(majorData, generalData);
+                        sprout.app.sakmvp1.models.GraduationRules rules =
+                            convertV1DataToV2Rules(mergedData, cohort, department, track, documentSnapshot.getId());
+
+                        listener.onSuccess(rules);
+                    } else {
+                        Log.w(TAG, "교양 문서가 없음, 전공 데이터만 변환: " + generalDocId);
+                        // 전공 데이터만으로 변환
+                        sprout.app.sakmvp1.models.GraduationRules rules =
+                            convertV1DataToV2Rules(majorData, cohort, department, track, documentSnapshot.getId());
+                        listener.onSuccess(rules);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "교양 문서 로드 실패, 전공 데이터만 변환", e);
+                    // 전공 데이터만으로 변환
+                    sprout.app.sakmvp1.models.GraduationRules rules =
+                        convertV1DataToV2Rules(majorData, cohort, department, track, documentSnapshot.getId());
+                    listener.onSuccess(rules);
+                });
+        } else {
+            Log.d(TAG, "교양 문서 참조 없음, 전공 데이터만 변환");
+            // 전공 데이터만으로 변환
+            sprout.app.sakmvp1.models.GraduationRules rules =
+                convertV1DataToV2Rules(majorData, cohort, department, track, documentSnapshot.getId());
+            listener.onSuccess(rules);
+        }
+    }
+
+    /**
+     * V1 전공 데이터와 교양 데이터 병합
+     */
+    private Map<String, Object> mergeV1Data(Map<String, Object> majorData, Map<String, Object> generalData) {
+        Map<String, Object> merged = new HashMap<>(majorData);
+
+        // 교양 문서의 rules 병합
+        Object generalRulesObj = generalData.get("rules");
+        if (generalRulesObj instanceof Map) {
+            Map<String, Object> generalRules = (Map<String, Object>) generalRulesObj;
+
+            // 전공 rules 가져오기
+            Object majorRulesObj = merged.get("rules");
+            Map<String, Object> majorRules;
+            if (majorRulesObj instanceof Map) {
+                majorRules = new HashMap<>((Map<String, Object>) majorRulesObj);
+            } else {
+                majorRules = new HashMap<>();
+            }
+
+            // 교양 requirements를 전공 rules에 추가
+            if (generalRules.containsKey("requirements")) {
+                majorRules.put("generalRequirements", generalRules.get("requirements"));
+                Log.d(TAG, "  교양 requirements 병합 완료");
+            }
+
+            merged.put("rules", majorRules);
+        }
+
+        return merged;
+    }
+
+    /**
+     * 병합된 V1 데이터를 V2 GraduationRules로 변환
+     */
+    private sprout.app.sakmvp1.models.GraduationRules convertV1DataToV2Rules(
+            Map<String, Object> data, String cohort, String department, String track, String sourceDocId) {
+
+        // GraduationRules 객체 생성
+        sprout.app.sakmvp1.models.GraduationRules rules =
+            new sprout.app.sakmvp1.models.GraduationRules(
+                Long.parseLong(cohort), department, track);
+
+        // 1. CreditRequirements 변환
+        sprout.app.sakmvp1.models.CreditRequirements creditReqs = convertV1CreditRequirements(data);
+        rules.setCreditRequirements(creditReqs);
+
+        // totalCredits 필드 설정 (V2 필드 우선, 없으면 V1의 "총이수" 필드 사용)
+        int totalCreditsValue;
+        if (data.containsKey("totalCredits")) {
+            totalCreditsValue = getIntValue(data, "totalCredits", 130);
+            Log.d(TAG, "  totalCredits 필드 발견 (V2): " + totalCreditsValue);
+        } else {
+            totalCreditsValue = getIntValue(data, "총이수", 130);
+            Log.d(TAG, "  총이수 필드 사용 (V1): " + totalCreditsValue);
+        }
+        rules.setTotalCredits(totalCreditsValue);
+        Log.d(TAG, "✓ CreditRequirements 변환 완료 (totalCredits: " + totalCreditsValue + ")");
+
+        // 2. Categories 변환 (전공 + 교양)
+        List<sprout.app.sakmvp1.models.RequirementCategory> categories = convertV1CategoriesWithGeneral(data, creditReqs);
+        rules.setCategories(categories);
+        Log.d(TAG, "✓ Categories 변환 완료: " + categories.size() + "개");
+
+        // 3. 넘치는 학점 처리 설정 - 잔여학점 또는 일반선택 중 사용하는 것으로 설정
+        String overflowDest = creditReqs.getRequiredCredits("잔여학점") > 0 ? "잔여학점" : "일반선택";
+        rules.setOverflowDestination(overflowDest);
+        Log.d(TAG, "✓ Overflow destination 설정: " + overflowDest);
+
+        // 4. ReplacementRules는 빈 리스트
+        rules.setReplacementRules(new ArrayList<>());
+        Log.d(TAG, "✓ ReplacementRules 초기화 (빈 리스트)");
+
+        // 5. 메타데이터
+        rules.setVersion("V1_CONVERTED");
+        rules.setUpdatedAt(com.google.firebase.Timestamp.now());
+        rules.setSourceDocumentName(sourceDocId);
+
+        Log.d(TAG, "========================================");
+        Log.d(TAG, "V1 → V2 변환 완료");
+        Log.d(TAG, "========================================");
+
+        return rules;
+    }
+
+    /**
+     * V1 학점 데이터를 V2 CreditRequirements로 변환
+     */
+    private sprout.app.sakmvp1.models.CreditRequirements convertV1CreditRequirements(Map<String, Object> data) {
+        sprout.app.sakmvp1.models.CreditRequirements creditReqs =
+            new sprout.app.sakmvp1.models.CreditRequirements();
+
+        // V1 필드에서 학점 추출
+        int totalCredits = getIntValue(data, "총이수", 130);
+        int majorRequired = getIntValue(data, "전공필수", 0);
+        int majorElective = getIntValue(data, "전공선택", 0);
+        int generalRequired = getIntValue(data, "교양필수", 0);
+        int generalElective = getIntValue(data, "교양선택", 0);
+        int liberalArts = getIntValue(data, "소양", 0);
+        int departmentCommon = getIntValue(data, "학부공통", 0);
+        int majorAdvanced = getIntValue(data, "전공심화", 0);
+
+        // 자율선택/일반선택과 잔여학점 필드 읽기
+        int freeElective = getIntValue(data, "자율선택", 0);
+        int remainingCredits = getIntValue(data, "잔여학점", 0);
+
+        // 둘 다 0이면 계산해서 잔여학점에 넣기
+        if (freeElective == 0 && remainingCredits == 0) {
+            int specifiedCredits = majorRequired + majorElective + generalRequired + generalElective +
+                    liberalArts + departmentCommon + majorAdvanced;
+            remainingCredits = Math.max(0, totalCredits - specifiedCredits);
+            Log.d(TAG, "  자율선택/잔여학점 계산됨 → 잔여학점: " + remainingCredits);
+        } else if (remainingCredits > 0) {
+            Log.d(TAG, "  잔여학점 필드 사용: " + remainingCredits);
+        } else if (freeElective > 0) {
+            Log.d(TAG, "  자율선택 필드 사용: " + freeElective);
+        }
+
+        creditReqs.setTotal(totalCredits);
+        creditReqs.setRequiredCredits("전공필수", majorRequired);
+        creditReqs.setRequiredCredits("전공선택", majorElective);
+        creditReqs.setRequiredCredits("교양필수", generalRequired);
+        creditReqs.setRequiredCredits("교양선택", generalElective);
+        creditReqs.setRequiredCredits("소양", liberalArts);
+        creditReqs.setRequiredCredits("일반선택", freeElective);
+        creditReqs.setRequiredCredits("잔여학점", remainingCredits);
+        creditReqs.setRequiredCredits("학부공통", departmentCommon);
+        creditReqs.setRequiredCredits("전공심화", majorAdvanced);
+
+        Log.d(TAG, "  총이수: " + totalCredits + "학점");
+        Log.d(TAG, "  전공필수: " + majorRequired + ", 전공선택: " + majorElective);
+        Log.d(TAG, "  교양필수: " + generalRequired + ", 교양선택: " + generalElective);
+        Log.d(TAG, "  소양: " + liberalArts + ", 일반선택: " + freeElective + ", 잔여학점: " + remainingCredits);
+        Log.d(TAG, "  학부공통: " + departmentCommon + ", 전공심화: " + majorAdvanced);
+
+        return creditReqs;
+    }
+
+    /**
+     * V1 rules 데이터를 V2 Categories로 변환 (전공 + 교양)
+     */
+    private List<sprout.app.sakmvp1.models.RequirementCategory> convertV1CategoriesWithGeneral(
+            Map<String, Object> data, sprout.app.sakmvp1.models.CreditRequirements creditReqs) {
+
+        List<sprout.app.sakmvp1.models.RequirementCategory> categories = new ArrayList<>();
+
+        // V1의 rules 필드에서 강의 목록 추출
+        Object rulesObj = data.get("rules");
+        Map<String, List<sprout.app.sakmvp1.models.CourseRequirement>> coursesByCategory = new HashMap<>();
+
+        // 교양 requirements 처리를 위한 변수들 (메서드 스코프로 선언)
+        List<sprout.app.sakmvp1.models.RequirementCategory> generalSubgroups = new ArrayList<>();
+        List<sprout.app.sakmvp1.models.CourseRequirement> individualGeneralCourses = new ArrayList<>();
+        int oneOfGroupCounter = 0;
+
+        if (rulesObj instanceof Map) {
+            Map<String, Object> rules = (Map<String, Object>) rulesObj;
+
+            // 학기별 강의를 카테고리별로 그룹화 (전공)
+            for (Map.Entry<String, Object> semesterEntry : rules.entrySet()) {
+                String semester = semesterEntry.getKey();
+
+                // generalRequirements는 별도 처리
+                if ("generalRequirements".equals(semester)) {
+                    continue;
+                }
+
+                // 학기 형식("X학년 X학기")만 처리, 다른 키는 무시
+                if (!semester.matches(".*학년.*학기")) {
+                    Log.d(TAG, "  Skipping non-semester key: " + semester);
+                    continue;
+                }
+
+                if (semesterEntry.getValue() instanceof Map) {
+                    Map<String, Object> semesterData = (Map<String, Object>) semesterEntry.getValue();
+
+                    for (Map.Entry<String, Object> categoryEntry : semesterData.entrySet()) {
+                        String category = categoryEntry.getKey();
+
+                        if (categoryEntry.getValue() instanceof List) {
+                            List<Object> courses = (List<Object>) categoryEntry.getValue();
+
+                            if (!coursesByCategory.containsKey(category)) {
+                                coursesByCategory.put(category, new ArrayList<>());
+                            }
+
+                            for (Object courseObj : courses) {
+                                if (courseObj instanceof Map) {
+                                    Map<String, Object> courseMap = (Map<String, Object>) courseObj;
+                                    // V1 데이터는 한글 필드명 사용: "과목명", "학점"
+                                    String courseName = (String) courseMap.get("과목명");
+                                    int credits = getIntValue(courseMap, "학점", 3);
+                                    // V1 데이터: 전공필수, 교양필수, 학부공통, 전공선택, 전공심화 등 모든 과목 추적 필요
+                                    boolean mandatory = courseMap.containsKey("mandatory") ?
+                                        (boolean) courseMap.get("mandatory") :
+                                        (category.contains("필수") || category.equals("학부공통") ||
+                                         category.equals("전공선택") || category.equals("전공심화"));
+
+                                    sprout.app.sakmvp1.models.CourseRequirement courseReq =
+                                        new sprout.app.sakmvp1.models.CourseRequirement();
+                                    courseReq.setName(courseName);
+                                    courseReq.setCredits(credits);
+                                    courseReq.setMandatory(mandatory);
+
+                                    coursesByCategory.get(category).add(courseReq);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 교양 requirements 처리
+            // generalRequirements는 List<Requirement>로, 각 requirement는 단일 과목 또는 oneOf 그룹
+            // 교양 카테고리는 "교양필수", "교양선택", "소양" 등으로 고정
+            // V2 통합 시스템: oneOf 그룹은 별도의 서브그룹으로 처리
+
+            if (rules.containsKey("generalRequirements")) {
+                Object generalReqObj = rules.get("generalRequirements");
+                if (generalReqObj instanceof List) {
+                    List<Object> generalReqs = (List<Object>) generalReqObj;
+
+                    for (Object reqObj : generalReqs) {
+                        if (reqObj instanceof Map) {
+                            Map<String, Object> reqMap = (Map<String, Object>) reqObj;
+
+                            // Case 1: 단일 과목 { name: "...", credit: N }
+                            if (reqMap.containsKey("name") && !reqMap.containsKey("options")) {
+                                String courseName = (String) reqMap.get("name");
+                                int credits = getIntValue(reqMap, "credit", 2);
+
+                                sprout.app.sakmvp1.models.CourseRequirement courseReq =
+                                    new sprout.app.sakmvp1.models.CourseRequirement();
+                                courseReq.setName(courseName);
+                                courseReq.setCredits(credits);
+                                courseReq.setMandatory(true);  // 교양필수 개별 과목은 모두 필수
+
+                                individualGeneralCourses.add(courseReq);
+                            }
+                            // Case 2: oneOf 그룹 { type: "oneOf", options: [...] }
+                            else if (reqMap.containsKey("options")) {
+                                oneOfGroupCounter++;
+                                String groupId = "교양필수_oneOf_" + oneOfGroupCounter;
+                                List<sprout.app.sakmvp1.models.CourseRequirement> oneOfCourses = new ArrayList<>();
+                                int totalCredits = 0;
+
+                                Log.d(TAG, "  oneOf 그룹 #" + oneOfGroupCounter + " 파싱 시작");
+                                Log.d(TAG, "    reqMap keys: " + reqMap.keySet());
+
+                                List<Object> options = (List<Object>) reqMap.get("options");
+                                Log.d(TAG, "    options 개수: " + (options != null ? options.size() : "null"));
+
+                                if (options != null) {
+                                    for (int i = 0; i < options.size(); i++) {
+                                        Object optionObj = options.get(i);
+                                        Log.d(TAG, "      option #" + (i+1) + " type: " + optionObj.getClass().getSimpleName());
+
+                                        if (optionObj instanceof Map) {
+                                            Map<String, Object> optionMap = (Map<String, Object>) optionObj;
+                                            Log.d(TAG, "        optionMap keys: " + optionMap.keySet());
+
+                                            // Firestore 구조: options: [{name: "과목명"}] 형태
+                                            // 즉, option 자체가 과목 정보
+                                            if (optionMap.containsKey("name")) {
+                                                String courseName = (String) optionMap.get("name");
+                                                // credit은 option 레벨이 아닌 reqMap 레벨에 있음
+                                                int credits = getIntValue(reqMap, "credit", 2);
+
+                                                sprout.app.sakmvp1.models.CourseRequirement courseReq =
+                                                    new sprout.app.sakmvp1.models.CourseRequirement();
+                                                courseReq.setName(courseName);
+                                                courseReq.setCredits(credits);
+                                                courseReq.setMandatory(false);  // oneOf 내 과목은 선택사항
+
+                                                oneOfCourses.add(courseReq);
+                                                if (totalCredits == 0) {
+                                                    totalCredits = credits;
+                                                }
+
+                                                Log.d(TAG, "          과목 추가: " + courseName + " (" + credits + "학점)");
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // oneOf 서브그룹 생성
+                                if (!oneOfCourses.isEmpty()) {
+                                    sprout.app.sakmvp1.models.RequirementCategory oneOfGroup =
+                                        new sprout.app.sakmvp1.models.RequirementCategory(groupId, groupId, "oneOf");
+                                    oneOfGroup.setCourses(oneOfCourses);
+                                    oneOfGroup.setRequired(totalCredits);
+                                    oneOfGroup.setRequiredType("credits");
+                                    generalSubgroups.add(oneOfGroup);
+
+                                    Log.d(TAG, "  교양필수 oneOf 그룹 생성: " + groupId + " (" + oneOfCourses.size() + "개 과목 중 1개 선택, " + totalCredits + "학점)");
+                                }
+                            }
+                        }
+                    }
+
+                    Log.d(TAG, "  교양 카테고리 추출 완료: 개별 " + individualGeneralCourses.size() + "개 과목, oneOf 그룹 " + oneOfGroupCounter + "개");
+                }
+            }
+        }
+
+        Log.d(TAG, "  카테고리별 과목 그룹화 완료: " + coursesByCategory.size() + "개 카테고리");
+
+        // 카테고리별로 RequirementCategory 생성
+        for (Map.Entry<String, List<sprout.app.sakmvp1.models.CourseRequirement>> entry : coursesByCategory.entrySet()) {
+            String categoryName = entry.getKey();
+            List<sprout.app.sakmvp1.models.CourseRequirement> courses = entry.getValue();
+
+            sprout.app.sakmvp1.models.RequirementCategory category =
+                new sprout.app.sakmvp1.models.RequirementCategory(
+                    categoryName, categoryName, "list");
+
+            category.setCourses(courses);
+            category.setRequired(creditReqs.getRequiredCredits(categoryName));
+            category.setRequiredType("credits");
+
+            categories.add(category);
+
+            Log.d(TAG, "    - " + categoryName + ": " + courses.size() + "개 과목, " +
+                  category.getRequired() + "학점 필요");
+        }
+
+        // 교양필수 카테고리 특별 처리: oneOf 그룹이 있으면 group 타입으로 재구성
+        if (!generalSubgroups.isEmpty() || !individualGeneralCourses.isEmpty()) {
+            // 기존 list 타입 교양필수 카테고리 제거
+            categories.removeIf(cat -> "교양필수".equals(cat.getName()));
+
+            // group 타입 교양필수 카테고리 생성
+            sprout.app.sakmvp1.models.RequirementCategory generalCategory =
+                new sprout.app.sakmvp1.models.RequirementCategory(
+                    "교양필수", "교양필수", "group");
+
+            generalCategory.setRequired(creditReqs.getRequiredCredits("교양필수"));
+            generalCategory.setRequiredType("credits");
+
+            // 개별 과목이 있으면 list 서브그룹으로 추가
+            if (!individualGeneralCourses.isEmpty()) {
+                sprout.app.sakmvp1.models.RequirementCategory individualGroup =
+                    new sprout.app.sakmvp1.models.RequirementCategory(
+                        "교양필수_개별", "개별 필수 과목", "list");
+                individualGroup.setCourses(individualGeneralCourses);
+                individualGroup.setRequired(0);  // 개별 서브그룹은 학점 요구 없음 (상위에서 관리)
+                individualGroup.setRequiredType("credits");
+                generalSubgroups.add(0, individualGroup);  // 맨 앞에 추가
+            }
+
+            generalCategory.setSubgroups(generalSubgroups);
+            categories.add(generalCategory);
+
+            Log.d(TAG, "  ✓ 교양필수 group 카테고리 생성: " + generalSubgroups.size() + "개 서브그룹, " +
+                  creditReqs.getRequiredCredits("교양필수") + "학점 필요");
+        }
+
+        // CreditRequirements에는 있지만 과목 목록이 없는 카테고리들 추가
+        // (교양선택, 소양, 잔여학점/일반선택 등)
+        Log.d(TAG, "  빈 카테고리 생성 로직 시작...");
+        String[] allCategories = {"전공필수", "전공선택", "교양필수", "교양선택", "소양", "학부공통", "전공심화", "일반선택", "잔여학점"};
+        for (String categoryName : allCategories) {
+            int required = creditReqs.getRequiredCredits(categoryName);
+
+            // categories 리스트에서 이미 존재하는지 확인 (group 타입 카테고리도 감지)
+            boolean alreadyExists = false;
+            for (sprout.app.sakmvp1.models.RequirementCategory cat : categories) {
+                if (categoryName.equals(cat.getName())) {
+                    alreadyExists = true;
+                    break;
+                }
+            }
+
+            Log.d(TAG, "    체크 중: " + categoryName + " (required=" + required +
+                  ", 이미 존재=" + alreadyExists + ")");
+
+            if (required > 0 && !alreadyExists) {
+                // 빈 카테고리 생성
+                sprout.app.sakmvp1.models.RequirementCategory category =
+                    new sprout.app.sakmvp1.models.RequirementCategory(
+                        categoryName, categoryName, "list");
+
+                category.setCourses(new ArrayList<>()); // 빈 리스트
+                category.setRequired(required);
+                category.setRequiredType("credits");
+
+                categories.add(category);
+
+                Log.d(TAG, "    ✓ 빈 카테고리 생성: " + categoryName + " (0개 과목, " +
+                      required + "학점 필요)");
+            }
+        }
+        Log.d(TAG, "  빈 카테고리 생성 완료. 총 카테고리 수: " + categories.size());
+
+        return categories;
+    }
+
+    /**
+     * V1 rules 데이터를 V2 Categories로 변환 (전공만, 구버전 - 사용 안 함)
+     * @deprecated Use convertV1CategoriesWithGeneral instead
+     */
+    @Deprecated
+    private List<sprout.app.sakmvp1.models.RequirementCategory> convertV1Categories(
+            Map<String, Object> data, sprout.app.sakmvp1.models.CreditRequirements creditReqs) {
+
+        List<sprout.app.sakmvp1.models.RequirementCategory> categories = new ArrayList<>();
+
+        // V1의 rules 필드에서 강의 목록 추출
+        Object rulesObj = data.get("rules");
+        Map<String, List<sprout.app.sakmvp1.models.CourseRequirement>> coursesByCategory = new HashMap<>();
+
+        if (rulesObj instanceof Map) {
+            Map<String, Object> rules = (Map<String, Object>) rulesObj;
+
+            // 학기별 강의를 카테고리별로 그룹화
+            for (Map.Entry<String, Object> semesterEntry : rules.entrySet()) {
+                String semester = semesterEntry.getKey();
+
+                if (semesterEntry.getValue() instanceof Map) {
+                    Map<String, Object> semesterData = (Map<String, Object>) semesterEntry.getValue();
+
+                    for (Map.Entry<String, Object> categoryEntry : semesterData.entrySet()) {
+                        String category = categoryEntry.getKey();
+
+                        if (categoryEntry.getValue() instanceof List) {
+                            List<Object> courses = (List<Object>) categoryEntry.getValue();
+
+                            if (!coursesByCategory.containsKey(category)) {
+                                coursesByCategory.put(category, new ArrayList<>());
+                            }
+
+                            for (Object courseObj : courses) {
+                                if (courseObj instanceof Map) {
+                                    Map<String, Object> courseMap = (Map<String, Object>) courseObj;
+                                    // V1 데이터는 한글 필드명 사용: "과목명", "학점"
+                                    String courseName = (String) courseMap.get("과목명");
+                                    int credits = getIntValue(courseMap, "학점", 3);
+                                    // V1 데이터: 전공필수, 교양필수, 학부공통, 전공선택, 전공심화 등 모든 과목 추적 필요
+                                    boolean mandatory = courseMap.containsKey("mandatory") ?
+                                        (boolean) courseMap.get("mandatory") :
+                                        (category.contains("필수") || category.equals("학부공통") ||
+                                         category.equals("전공선택") || category.equals("전공심화"));
+
+                                    sprout.app.sakmvp1.models.CourseRequirement courseReq =
+                                        new sprout.app.sakmvp1.models.CourseRequirement();
+                                    courseReq.setName(courseName);
+                                    courseReq.setCredits(credits);
+                                    courseReq.setMandatory(mandatory);
+
+                                    coursesByCategory.get(category).add(courseReq);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Log.d(TAG, "  카테고리별 과목 그룹화 완료: " + coursesByCategory.size() + "개 카테고리");
+
+        // 카테고리별로 RequirementCategory 생성
+        for (Map.Entry<String, List<sprout.app.sakmvp1.models.CourseRequirement>> entry : coursesByCategory.entrySet()) {
+            String categoryName = entry.getKey();
+            List<sprout.app.sakmvp1.models.CourseRequirement> courses = entry.getValue();
+
+            sprout.app.sakmvp1.models.RequirementCategory category =
+                new sprout.app.sakmvp1.models.RequirementCategory(
+                    categoryName, categoryName, "list");
+
+            category.setCourses(courses);
+            category.setRequired(creditReqs.getRequiredCredits(categoryName));
+            category.setRequiredType("credits");
+
+            categories.add(category);
+
+            Log.d(TAG, "    - " + categoryName + ": " + courses.size() + "개 과목, " +
+                  category.getRequired() + "학점 필요");
+        }
+
+        return categories;
+    }
+
+    /**
+     * 통합 졸업요건 규칙 로드 완료 리스너
+     */
+    public interface OnGraduationRulesLoadedListener {
+        void onSuccess(sprout.app.sakmvp1.models.GraduationRules rules);
+        void onFailure(Exception e);
+    }
+
+    /**
+     * V1→V2 변환 완료 리스너
+     */
+    private interface OnV1ToV2ConversionListener {
+        void onSuccess(sprout.app.sakmvp1.models.GraduationRules rules);
+        void onFailure(Exception e);
     }
 }

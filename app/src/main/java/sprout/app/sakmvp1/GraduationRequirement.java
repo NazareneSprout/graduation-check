@@ -45,6 +45,9 @@ public class GraduationRequirement {
     @PropertyName("잔여학점")
     private int remainingCredits; // 잔여학점
 
+    private String majorDocId; // 참조된 전공 문서 ID
+    private String generalEducationDocId; // 참조된 교양 문서 ID
+
     public GraduationRequirement() {
         // Firestore 역직렬화를 위한 기본 생성자
     }
@@ -215,5 +218,21 @@ public class GraduationRequirement {
      */
     public int getTotalGeneralCredits() {
         return generalRequired + generalElective;
+    }
+
+    public String getMajorDocId() {
+        return majorDocId;
+    }
+
+    public void setMajorDocId(String majorDocId) {
+        this.majorDocId = majorDocId;
+    }
+
+    public String getGeneralEducationDocId() {
+        return generalEducationDocId;
+    }
+
+    public void setGeneralEducationDocId(String generalEducationDocId) {
+        this.generalEducationDocId = generalEducationDocId;
     }
 }
