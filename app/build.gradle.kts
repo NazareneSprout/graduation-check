@@ -61,6 +61,8 @@ dependencies {
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
 
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
 
     implementation(libs.appcompat)
     implementation(libs.material)
