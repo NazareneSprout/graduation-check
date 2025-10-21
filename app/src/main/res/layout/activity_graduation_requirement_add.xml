@@ -80,23 +80,31 @@
                         android:background="@android:drawable/btn_dropdown"
                         android:minHeight="48dp"/>
 
-                    <!-- 트랙 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="트랙"
-                        android:textSize="14sp"
-                        android:textColor="#616161"
-                        android:layout_marginBottom="8dp"/>
-
-                    <Spinner
-                        android:id="@+id/spinner_track"
+                    <!-- 트랙 (교양 문서 모드에서는 숨김) -->
+                    <LinearLayout
+                        android:id="@+id/layout_track"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
-                        android:padding="12dp"
-                        android:background="@android:drawable/btn_dropdown"
-                        android:minHeight="48dp"/>
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="트랙"
+                            android:textSize="14sp"
+                            android:textColor="#616161"
+                            android:layout_marginBottom="8dp"/>
+
+                        <Spinner
+                            android:id="@+id/spinner_track"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="16dp"
+                            android:padding="12dp"
+                            android:background="@android:drawable/btn_dropdown"
+                            android:minHeight="48dp"/>
+
+                    </LinearLayout>
 
                     <!-- 학번 -->
                     <com.google.android.material.textfield.TextInputLayout
@@ -114,12 +122,33 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <!-- 이전 연도에서 복사 옵션 -->
+                    <com.google.android.material.checkbox.MaterialCheckBox
+                        android:id="@+id/cb_copy_from_previous"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="이전 연도 졸업요건에서 복사"
+                        android:textSize="14sp"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:id="@+id/tv_copy_info"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="이전 연도의 졸업요건을 불러와 새 연도로 복사합니다"
+                        android:textSize="12sp"
+                        android:textColor="#757575"
+                        android:visibility="gone"
+                        android:layout_marginBottom="12dp"/>
+
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 전공 문서 선택 카드 -->
+            <!-- 전공 문서 선택 카드 (교양 문서 모드에서는 숨김) -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_major_doc"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
@@ -174,6 +203,7 @@
 
             <!-- 교양 문서 선택 카드 -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_general_doc"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"

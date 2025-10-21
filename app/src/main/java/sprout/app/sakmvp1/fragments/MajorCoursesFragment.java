@@ -25,6 +25,7 @@ import sprout.app.sakmvp1.models.GraduationRules;
 import sprout.app.sakmvp1.models.RequirementCategory;
 import sprout.app.sakmvp1.models.CourseRequirement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +64,7 @@ public class MajorCoursesFragment extends Fragment {
 
     private GraduationRules graduationRules;
     private String deptCommonCategoryName = "학부공통";  // 기본값: 학부공통
+    private String loadedDocumentName;  // 실제로 불러온 전공 문서명
     private FirebaseFirestore db;
     private FirebaseAuth auth;
     private boolean isDataLoading = false;  // 데이터 로딩 중인지 플래그
@@ -263,6 +265,9 @@ public class MajorCoursesFragment extends Fragment {
                     return;
                 }
 
+                // 로드된 문서명 저장
+                loadedDocumentName = docId;
+
                 // 문서명 표시
                 if (tvCurrentDocument != null) {
                     tvCurrentDocument.setText("현재 문서: " + docId);
@@ -287,12 +292,15 @@ public class MajorCoursesFragment extends Fragment {
 
                 // rules 객체 확인 (전공 문서는 rules 안에 과목 정보가 있음)
                 Object rulesObj = data.get("rules");
-                if (!(rulesObj instanceof Map)) {
-                    Toast.makeText(getContext(), "전공 문서 구조가 올바르지 않습니다 (rules가 없음)", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                Map<String, Object> rules;
 
-                Map<String, Object> rules = (Map<String, Object>) rulesObj;
+                if (!(rulesObj instanceof Map)) {
+                    // rules가 없으면 빈 구조로 초기화 (새 문서이거나 아직 과목이 추가되지 않은 경우)
+                    android.util.Log.w(TAG, "rules 필드가 없습니다. 빈 구조로 초기화합니다.");
+                    rules = new HashMap<>();
+                } else {
+                    rules = (Map<String, Object>) rulesObj;
+                }
                 android.util.Log.d(TAG, "=== rules 내부 키 목록 ===");
                 for (String key : rules.keySet()) {
                     Object value = rules.get(key);
@@ -673,5 +681,12 @@ public class MajorCoursesFragment extends Fragment {
         }
 
         android.util.Log.d(TAG, "updateGraduationRules: 전공 과목 업데이트 완료 - 총 " + categories.size() + "개 카테고리");
+    }
+
+    /**
+     * 로드된 전공 문서명 반환 (관리자가 선택한 문서)
+     */
+    public String getLoadedDocumentName() {
+        return loadedDocumentName;
     }
 }

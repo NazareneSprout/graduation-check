@@ -89,6 +89,20 @@ public class FirebaseDataManager {
     private final Map<String, DocumentSnapshot> docSnapshotCache = new ConcurrentHashMap<>();
 
     /**
+     * 전공 문서 캐시
+     * Key: "학부|트랙|년도" (예: "IT학부|멀티미디어|2025")
+     * Value: 최종 사용할 전공 문서 DocumentSnapshot
+     */
+    private final Map<String, DocumentSnapshot> majorDocCache = new ConcurrentHashMap<>();
+
+    /**
+     * 학부공통 문서 캐시
+     * Key: "학부|트랙|년도" (예: "IT학부|멀티미디어|2025")
+     * Value: 학부공통 문서 DocumentSnapshot
+     */
+    private final Map<String, DocumentSnapshot> deptCommonDocCache = new ConcurrentHashMap<>();
+
+    /**
      * 캐시 타임스탬프 관리
      * Key: 캐시 키
      * Value: 캐시 생성 시간 (밀리초)
@@ -1065,6 +1079,23 @@ public class FirebaseDataManager {
 
         // graduation_requirements 컬렉션에서 해당 학과/트랙의 전공 강의 조회
         String documentId = department + "_" + track + "_" + actualYear;
+        String cacheKey = department + "|" + track + "|" + actualYear;
+
+        // 캐시 확인 (유효 시간 체크 포함)
+        if (majorDocCache.containsKey(cacheKey)) {
+            Long cachedTime = cacheTimestamps.get(cacheKey);
+            if (cachedTime != null && (System.currentTimeMillis() - cachedTime) < CACHE_VALIDITY_MS) {
+                Log.d(TAG, "전공 문서 캐시 히트: " + cacheKey);
+                DocumentSnapshot cachedDoc = majorDocCache.get(cacheKey);
+                loadMajorCoursesFromSnapshot(cachedDoc, category, listener);
+                return;
+            } else {
+                // 캐시 만료
+                Log.d(TAG, "전공 문서 캐시 만료, 재조회: " + cacheKey);
+                majorDocCache.remove(cacheKey);
+                cacheTimestamps.remove(cacheKey);
+            }
+        }
 
         // 먼저 현재 졸업요건 문서에서 majorDocId가 설정되어 있는지 확인
         db.collection("graduation_requirements").document(documentId)
@@ -1075,11 +1106,35 @@ public class FirebaseDataManager {
                     if (customMajorDocId != null && !customMajorDocId.trim().isEmpty()) {
                         // 관리자가 설정한 전공 문서 사용
                         Log.d(TAG, "관리자 설정 전공 문서 사용: " + customMajorDocId);
-                        loadMajorCoursesFromDocument(customMajorDocId, category, listener);
+                        db.collection("graduation_requirements").document(customMajorDocId)
+                                .get()
+                                .addOnSuccessListener(customDoc -> {
+                                    if (customDoc.exists()) {
+                                        // 캐시 저장
+                                        majorDocCache.put(cacheKey, customDoc);
+                                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                                        loadMajorCoursesFromSnapshot(customDoc, category, listener);
+                                    } else {
+                                        Log.w(TAG, "지정된 전공 문서 없음, 기본 문서 사용: " + documentId);
+                                        // 기본 문서로 폴백
+                                        majorDocCache.put(cacheKey, mainDoc);
+                                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                                        loadMajorCoursesFromSnapshot(mainDoc, category, listener);
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "지정된 전공 문서 조회 실패, 기본 문서 사용", e);
+                                    // 기본 문서로 폴백
+                                    majorDocCache.put(cacheKey, mainDoc);
+                                    cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                                    loadMajorCoursesFromSnapshot(mainDoc, category, listener);
+                                });
                     } else {
                         // 기본 문서 사용
                         Log.d(TAG, "기본 전공 문서 사용: " + documentId);
-                        loadMajorCoursesFromDocument(documentId, category, listener);
+                        majorDocCache.put(cacheKey, mainDoc);
+                        cacheTimestamps.put(cacheKey, System.currentTimeMillis());
+                        loadMajorCoursesFromSnapshot(mainDoc, category, listener);
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -1088,35 +1143,34 @@ public class FirebaseDataManager {
                 });
     }
 
-    private void loadMajorCoursesFromDocument(String documentId, String category, OnMajorCoursesLoadedListener listener) {
-        db.collection("graduation_requirements").document(documentId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    // 중복 제거를 위해 Set 사용 (과목명을 키로)
-                    Set<String> addedCourseNames = new HashSet<>();
-                    List<CourseInfo> majorCourses = new ArrayList<>();
+    private void loadMajorCoursesFromSnapshot(DocumentSnapshot documentSnapshot, String category, OnMajorCoursesLoadedListener listener) {
+        String docId = documentSnapshot.getId();
 
-                    if (documentSnapshot.exists()) {
+        // 중복 제거를 위해 Set 사용 (과목명을 키로)
+        Set<String> addedCourseNames = new HashSet<>();
+        List<CourseInfo> majorCourses = new ArrayList<>();
+
+        if (documentSnapshot.exists()) {
                         Map<String, Object> data = documentSnapshot.getData();
-                        Log.d(TAG, "[" + documentId + "] 문서 존재, 전체 데이터 키: " + (data != null ? data.keySet() : "null"));
+                        Log.d(TAG, "[" + docId + "] 문서 존재, 전체 데이터 키: " + (data != null ? data.keySet() : "null"));
                         if (data != null) {
                             // rules 객체에서 학기별 데이터 추출
                             Object rulesObj = data.get("rules");
-                            Log.d(TAG, "[" + documentId + "] rules 타입: " + (rulesObj != null ? rulesObj.getClass().getSimpleName() : "null"));
+                            Log.d(TAG, "[" + docId + "] rules 타입: " + (rulesObj != null ? rulesObj.getClass().getSimpleName() : "null"));
                             if (rulesObj instanceof Map) {
                                 Map<String, Object> rules = (Map<String, Object>) rulesObj;
-                                Log.d(TAG, "[" + documentId + "] rules 키 개수: " + rules.size() + ", 키 목록: " + rules.keySet());
+                                Log.d(TAG, "[" + docId + "] rules 키 개수: " + rules.size() + ", 키 목록: " + rules.keySet());
 
                                 // rules의 첫 번째 키가 무엇인지 확인
                                 if (!rules.isEmpty()) {
                                     String firstKey = rules.keySet().iterator().next();
                                     Object firstValue = rules.get(firstKey);
-                                    Log.d(TAG, "[" + documentId + "] 첫 번째 키: '" + firstKey + "', 값 타입: " + (firstValue != null ? firstValue.getClass().getSimpleName() : "null"));
+                                    Log.d(TAG, "[" + docId + "] 첫 번째 키: '" + firstKey + "', 값 타입: " + (firstValue != null ? firstValue.getClass().getSimpleName() : "null"));
                                     if (firstValue instanceof Map) {
                                         Map<String, Object> firstValueMap = (Map<String, Object>) firstValue;
-                                        Log.d(TAG, "[" + documentId + "] 첫 번째 값의 키들: " + firstValueMap.keySet());
+                                        Log.d(TAG, "[" + docId + "] 첫 번째 값의 키들: " + firstValueMap.keySet());
                                     } else if (firstValue instanceof List) {
-                                        Log.d(TAG, "[" + documentId + "] 첫 번째 값은 List, 크기: " + ((List<?>) firstValue).size());
+                                        Log.d(TAG, "[" + docId + "] 첫 번째 값은 List, 크기: " + ((List<?>) firstValue).size());
                                     }
                                 }
 
@@ -1197,19 +1251,13 @@ public class FirebaseDataManager {
                             }
                         }
 
-                        Log.d(TAG, "전공 강의 로드 성공: " + majorCourses.size() + "개 - " + majorCourses);
-                        listener.onSuccess(majorCourses);
-                    } else {
-                        String errorMsg = "전공 강의 문서를 찾을 수 없습니다: " + documentId;
-                        Log.e(TAG, errorMsg);
-                        listener.onFailure(new Exception(errorMsg));
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    String errorMsg = "전공 강의 문서 조회 실패: " + documentId;
-                    Log.e(TAG, errorMsg, e);
-                    listener.onFailure(new Exception(errorMsg, e));
-                });
+            Log.d(TAG, "전공 강의 로드 성공: " + majorCourses.size() + "개 - " + majorCourses);
+            listener.onSuccess(majorCourses);
+        } else {
+            String errorMsg = "전공 강의 문서를 찾을 수 없습니다: " + docId;
+            Log.e(TAG, errorMsg);
+            listener.onFailure(new Exception(errorMsg));
+        }
     }
 
     // 학기 문자열에서 학년 추출 (예: "1학년 1학기" -> 1)
@@ -1399,70 +1447,33 @@ public class FirebaseDataManager {
 
         // graduation_requirements 컬렉션에서 해당 학부_트랙_학번 문서 조회
         String documentId = department + "_" + track + "_" + actualYear;
+        String cacheKey = department + "|" + track + "|" + actualYear;
         Log.d(TAG, categoryName + " 강의 문서 ID: " + documentId);
+
+        // 캐시 확인 (유효 시간 체크 포함)
+        if (deptCommonDocCache.containsKey(cacheKey)) {
+            Long cachedTime = cacheTimestamps.get(cacheKey + "_deptCommon");
+            if (cachedTime != null && (System.currentTimeMillis() - cachedTime) < CACHE_VALIDITY_MS) {
+                Log.d(TAG, "학부공통 문서 캐시 히트: " + cacheKey);
+                DocumentSnapshot cachedDoc = deptCommonDocCache.get(cacheKey);
+                loadDepartmentCommonFromSnapshot(cachedDoc, department, actualYear, listener);
+                return;
+            } else {
+                // 캐시 만료
+                Log.d(TAG, "학부공통 문서 캐시 만료, 재조회: " + cacheKey);
+                deptCommonDocCache.remove(cacheKey);
+                cacheTimestamps.remove(cacheKey + "_deptCommon");
+            }
+        }
 
         db.collection("graduation_requirements").document(documentId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
-                    Set<String> addedCourseNames = new HashSet<>();
-                    List<CourseInfo> commonCourses = new ArrayList<>();
-
                     if (documentSnapshot.exists()) {
-                        Map<String, Object> data = documentSnapshot.getData();
-                        if (data != null) {
-                            Object rulesObj = data.get("rules");
-                            if (rulesObj instanceof Map) {
-                                Map<String, Object> rules = (Map<String, Object>) rulesObj;
-                                Log.d(TAG, "rules 내부 키 목록: " + rules.keySet().toString());
-
-                                List<String> sortedSemesters = new ArrayList<>(rules.keySet());
-                                sortedSemesters.sort((s1, s2) -> {
-                                    int year1 = extractYear(s1);
-                                    int semester1 = extractSemester(s1);
-                                    int year2 = extractYear(s2);
-                                    int semester2 = extractSemester(s2);
-
-                                    if (year1 != year2) {
-                                        return Integer.compare(year1, year2);
-                                    }
-                                    return Integer.compare(semester1, semester2);
-                                });
-
-                                // 정렬된 순서로 각 학기에서 학부공통/전공심화 강의들을 수집
-                                for (String semesterKey : sortedSemesters) {
-                                    Object value = rules.get(semesterKey);
-                                    if (semesterKey.contains("학년") && value instanceof Map) {
-                                        Map<String, Object> semester = (Map<String, Object>) value;
-
-                                        // 설정 기반 카테고리 조회 로직
-                                        String categoryKey = DepartmentConfig.getDepartmentCommonCategoryName(department, actualYear);
-
-                                        // Firestore에서 "학부공통" 카테고리 직접 조회 (2024-10-19: 학부공통필수 → 학부공통 병합 완료)
-                                        Object departmentCommon = semester.get(categoryKey);
-                                        if (departmentCommon instanceof List) {
-                                            List<?> commonList = (List<?>) departmentCommon;
-                                            for (Object courseObj : commonList) {
-                                                if (courseObj instanceof Map) {
-                                                    Map<String, Object> course = (Map<String, Object>) courseObj;
-                                                    Object courseName = course.get("과목명");
-                                                    Object credits = course.get("학점");
-                                                    if (courseName instanceof String && credits instanceof Number) {
-                                                        String courseNameStr = (String) courseName;
-                                                        if (!addedCourseNames.contains(courseNameStr)) {
-                                                            addedCourseNames.add(courseNameStr);
-                                                            commonCourses.add(new CourseInfo(courseNameStr, ((Number) credits).intValue()));
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Log.d(TAG, categoryName + " 강의 로드 성공: " + commonCourses.size() + "개 - " + commonCourses);
-                        listener.onSuccess(commonCourses);
+                        // 캐시 저장
+                        deptCommonDocCache.put(cacheKey, documentSnapshot);
+                        cacheTimestamps.put(cacheKey + "_deptCommon", System.currentTimeMillis());
+                        loadDepartmentCommonFromSnapshot(documentSnapshot, department, actualYear, listener);
                     } else {
                         String errorMsg = categoryName + " 강의 문서를 찾을 수 없습니다: " + documentId;
                         Log.e(TAG, errorMsg);
@@ -1474,6 +1485,76 @@ public class FirebaseDataManager {
                     Log.e(TAG, errorMsg, e);
                     listener.onFailure(new Exception(errorMsg, e));
                 });
+    }
+
+    private void loadDepartmentCommonFromSnapshot(DocumentSnapshot documentSnapshot, String department, String year, OnMajorCoursesLoadedListener listener) {
+        String categoryName = DepartmentConfig.getDepartmentCommonCategoryName(department, year);
+        String docId = documentSnapshot.getId();
+
+        Set<String> addedCourseNames = new HashSet<>();
+        List<CourseInfo> commonCourses = new ArrayList<>();
+
+        if (documentSnapshot.exists()) {
+            Map<String, Object> data = documentSnapshot.getData();
+            if (data != null) {
+                Object rulesObj = data.get("rules");
+                if (rulesObj instanceof Map) {
+                    Map<String, Object> rules = (Map<String, Object>) rulesObj;
+                    Log.d(TAG, "rules 내부 키 목록: " + rules.keySet().toString());
+
+                    List<String> sortedSemesters = new ArrayList<>(rules.keySet());
+                    sortedSemesters.sort((s1, s2) -> {
+                        int year1 = extractYear(s1);
+                        int semester1 = extractSemester(s1);
+                        int year2 = extractYear(s2);
+                        int semester2 = extractSemester(s2);
+
+                        if (year1 != year2) {
+                            return Integer.compare(year1, year2);
+                        }
+                        return Integer.compare(semester1, semester2);
+                    });
+
+                    // 정렬된 순서로 각 학기에서 학부공통/전공심화 강의들을 수집
+                    for (String semesterKey : sortedSemesters) {
+                        Object value = rules.get(semesterKey);
+                        if (semesterKey.contains("학년") && value instanceof Map) {
+                            Map<String, Object> semester = (Map<String, Object>) value;
+
+                            // 설정 기반 카테고리 조회 로직
+                            String categoryKey = DepartmentConfig.getDepartmentCommonCategoryName(department, year);
+
+                            // Firestore에서 "학부공통" 카테고리 직접 조회 (2024-10-19: 학부공통필수 → 학부공통 병합 완료)
+                            Object departmentCommon = semester.get(categoryKey);
+                            if (departmentCommon instanceof List) {
+                                List<?> commonList = (List<?>) departmentCommon;
+                                for (Object courseObj : commonList) {
+                                    if (courseObj instanceof Map) {
+                                        Map<String, Object> course = (Map<String, Object>) courseObj;
+                                        Object courseName = course.get("과목명");
+                                        Object credits = course.get("학점");
+                                        if (courseName instanceof String && credits instanceof Number) {
+                                            String courseNameStr = (String) courseName;
+                                            if (!addedCourseNames.contains(courseNameStr)) {
+                                                addedCourseNames.add(courseNameStr);
+                                                commonCourses.add(new CourseInfo(courseNameStr, ((Number) credits).intValue()));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Log.d(TAG, categoryName + " 강의 로드 성공: " + commonCourses.size() + "개 - " + commonCourses);
+            listener.onSuccess(commonCourses);
+        } else {
+            String errorMsg = categoryName + " 강의 문서를 찾을 수 없습니다: " + docId;
+            Log.e(TAG, errorMsg);
+            listener.onFailure(new Exception(errorMsg));
+        }
     }
 
     // ---------- 교양 그룹(oneOf/required) ----------

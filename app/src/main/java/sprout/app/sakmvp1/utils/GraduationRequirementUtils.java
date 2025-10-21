@@ -185,6 +185,8 @@ public class GraduationRequirementUtils {
      */
     @SuppressWarnings("unchecked")
     public static int getCreditFromRequirements(DocumentSnapshot document, String categoryName, int defaultValue) {
+        String docId = document.getId();
+
         // 1. 먼저 통합 구조(v2)에서 시도: creditRequirements 객체 확인
         Object creditReqObj = document.get("creditRequirements");
         if (creditReqObj instanceof Map) {
@@ -193,16 +195,21 @@ public class GraduationRequirementUtils {
             // creditRequirements에 직접 카테고리 이름이 있는지 확인
             if (creditRequirements.containsKey(categoryName)) {
                 int value = getIntValue(creditRequirements, categoryName, defaultValue);
-                Log.d(TAG, "Found " + categoryName + " in creditRequirements (v2): " + value);
+                Log.d(TAG, "[" + docId + "] Found " + categoryName + " in creditRequirements (v2): " + value);
                 return value;
             }
         }
 
         // 2. 이전 구조(v1)로 fallback: 문서 루트에서 직접 읽기
-        int value = getIntValue(document, categoryName, defaultValue);
-        if (value != defaultValue) {
-            Log.d(TAG, "Found " + categoryName + " in document root (v1): " + value);
+        Object rootValue = document.get(categoryName);
+        if (rootValue != null) {
+            int value = getIntValue(document, categoryName, defaultValue);
+            Log.d(TAG, "[" + docId + "] Found " + categoryName + " in document root (v1): " + value);
+            return value;
         }
-        return value;
+
+        // 3. 둘 다 없으면 기본값 사용
+        Log.w(TAG, "[" + docId + "] " + categoryName + " NOT FOUND - using default value: " + defaultValue);
+        return defaultValue;
     }
 }

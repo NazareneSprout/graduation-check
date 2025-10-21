@@ -83,22 +83,38 @@ public class DepartmentConfig {
 
 ### 🖥️ **UI 계층 (Activity)**
 
-#### `MainActivity.java`
-**역할**: 앱의 메인 허브 화면
+#### `MainActivityNew.java`
+**역할**: 앱의 메인 허브 화면 (Fragment 기반 탭 시스템)
 ```java
-public class MainActivity extends AppCompatActivity {
-    private ViewPager2 viewPagerBanner;
+public class MainActivityNew extends AppCompatActivity {
+    private ViewPager2 viewPager;
     private BottomNavigationView bottomNavigation;
 }
 ```
 
 **주요 기능**:
-- 🎠 **배너 슬라이드**: 8초 간격 자동 슬라이드 (3개 배너)
-- 🧭 **내비게이션**: 하단 내비게이션으로 화면 이동
+- 🏠 **홈 탭**: 메인 화면 (HomeFragment)
+- 📅 **시간표 탭**: 시간표 관리 (TimeTableFragment)
+- 👤 **프로필 탭**: 사용자 프로필 (UserProfileFragment)
+- 🧭 **하단 내비게이션**: Fragment 전환 시스템
 - 📊 **Firebase Analytics**: 사용자 행동 트래킹
-- 🎨 **Edge-to-Edge UI**: 현대적인 전면 화면 레이아웃
-- ♿ **접근성 지원**: 고대비 테마 옵션 (현재 ANR 디버깅을 위해 임시 비활성화)
-- 📅 **시간표 연동**: 하단 네비게이션을 통한 시간표 화면 이동
+- 🎨 **Material Design 3**: 최신 디자인 시스템
+
+---
+
+#### `AdminActivity.java`
+**역할**: 교수/조교 전용 관리자 메인 화면
+```java
+public class AdminActivity extends AppCompatActivity {
+    // 졸업요건, 학생 데이터, 공지사항 관리
+}
+```
+
+**주요 기능**:
+- 📚 **졸업요건 통합 관리**: GraduationRequirementsActivity로 이동
+- 👥 **학생 데이터 조회**: StudentDataActivity로 이동
+- 📢 **공지사항 관리**: 개발 예정
+- 🔐 **권한 관리**: SharedPreferences로 관리자 모드 전환
 
 ---
 
@@ -177,7 +193,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
 
 ---
 
-#### `TimeTableActivity.java`
+#### `timetable/TimeTableActivity.java`
 **역할**: 주간 시간표 관리 및 수업 스케줄링
 ```java
 public class TimeTableActivity extends AppCompatActivity {
@@ -188,20 +204,99 @@ public class TimeTableActivity extends AppCompatActivity {
 
 **주요 기능**:
 - 📅 **주간 시간표 뷰**: 월~금요일 시간표 격자 레이아웃
-- ➕ **수업 추가**: Floating Action Button으로 새 수업 등록
-- 📝 **Bottom Sheet**: 수업 정보 입력을 위한 슬라이드업 다이얼로그
-- 🕒 **시간 선택**: 시작시간/종료시간 선택 위젯
-- 🎨 **Material Design**: CoordinatorLayout 기반 현대적 UI
-- 🧭 **네비게이션**: 하단 네비게이션 바 연동
+- ➕ **수업 추가**: AddScheduleActivity로 새 수업 등록
+- 💾 **Firestore 연동**: 사용자별 시간표 저장/조회
 - 📱 **반응형 레이아웃**: 다양한 화면 크기 대응
+- 🗂️ **저장된 시간표**: SavedTimetablesActivity로 이력 관리
 
 **UI 구성 요소**:
-- **AppBarLayout**: 상단 툴바 (제목: "시간표", 뒤로 가기 버튼)
+- **AppBarLayout**: 상단 툴바
 - **NestedScrollView**: 스크롤 가능한 시간표 컨테이너
-- **요일 헤더**: 월화수목금 표시 (Primary 색상 적용)
 - **시간표 그리드**: RelativeLayout 기반 동적 레이아웃
-- **FAB**: 우하단 고정 (+) 버튼 (improved positioning: 24dp margin, 120dp bottom)
-- **BottomNavigationView**: 하단 네비게이션 (compact design)
+- **FAB**: 우하단 고정 (+) 버튼
+
+---
+
+#### `timetable/AddScheduleActivity.java`
+**역할**: 수업 정보 입력 및 추가
+```java
+public class AddScheduleActivity extends AppCompatActivity {
+    // 과목명, 요일, 시간, 강의실 등 입력
+}
+```
+
+**주요 기능**:
+- 📝 **수업 정보 입력**: 과목명, 요일, 시간 선택
+- 🕒 **시간 충돌 검사**: 기존 수업과의 시간 중복 확인
+- 💾 **저장**: Firestore에 수업 정보 저장
+
+---
+
+#### `GraduationRequirementsActivity.java`
+**역할**: 관리자용 졸업요건 목록 관리
+```java
+public class GraduationRequirementsActivity extends AppCompatActivity {
+    // 졸업요건 문서 목록 조회 및 관리
+}
+```
+
+**주요 기능**:
+- 📋 **졸업요건 목록**: graduation_requirements 컬렉션 전체 조회
+- ➕ **새 요건 추가**: GraduationRequirementAddActivity로 이동
+- ✏️ **요건 편집**: GraduationRequirementEditActivity로 이동
+- 👁️ **요건 상세**: GraduationRequirementDetailActivity로 이동
+- 🔍 **검색 기능**: 학부/트랙/학번으로 필터링
+
+---
+
+#### `GraduationRequirementEditActivity.java`
+**역할**: 관리자용 졸업요건 통합 편집 화면
+```java
+public class GraduationRequirementEditActivity extends AppCompatActivity {
+    // 전공, 교양, 학부공통 과목을 탭 시스템으로 통합 편집
+}
+```
+
+**주요 기능**:
+- 📊 **탭 기반 편집**: ViewPager2로 전공/교양/학부공통 Fragment 관리
+- 📚 **전공 과목**: MajorCoursesFragment로 전공필수/선택/심화 편집
+- 📖 **교양 과목**: GeneralEducationFragment로 교양필수/선택 편집
+- 🏫 **학부공통**: DepartmentCommonFragment로 학부공통 편집
+- 💾 **문서 참조**: majorDocId, generalEducationDocId 설정 및 자동 로드
+- 🔄 **대체과목**: 폐지 과목 → 대체 과목 매핑 관리
+- 💾 **통합 저장**: 모든 변경사항을 단일 문서에 저장
+
+---
+
+#### `UserInfoActivity.java`
+**역할**: 사용자 학적 정보 입력
+```java
+public class UserInfoActivity extends AppCompatActivity {
+    // 학번, 학부, 트랙 선택 및 저장
+}
+```
+
+**주요 기능**:
+- 🎓 **학번 선택**: Firestore에서 동적 로드
+- 🏫 **학부 선택**: 전체 학부 목록 조회
+- 🎯 **트랙 선택**: 선택된 학부의 트랙 목록
+- 💾 **Firestore 저장**: users/{userId}에 학적 정보 저장
+- 🔄 **기존 정보 로드**: 저장된 정보 자동 복원
+
+---
+
+#### `CourseRecommendationActivity.java`
+**역할**: 과목 추천 시스템
+```java
+public class CourseRecommendationActivity extends AppCompatActivity {
+    // AI 기반 과목 추천
+}
+```
+
+**주요 기능**:
+- 🎯 **맞춤형 추천**: 사용자 학적 정보 기반 추천
+- 📊 **추천 결과**: RecommendationResultActivity로 표시
+- 🔍 **졸업요건 분석**: 부족한 학점 카테고리 파악
 
 ---
 
@@ -301,9 +396,21 @@ public class SignUpActivity extends AppCompatActivity {
 ### 데이터 계층 구조
 ```
 Firebase Firestore
-├── graduation_requirements/    # 졸업 요건 데이터(강의군, 강의명, 학점, 조건)
-├── graduation_meta/               # 모든 학부 데이터(졸업 학점, 추가졸업조건)
-└── users/                    # 사용자 프로필
+├── graduation_requirements/         # 졸업 요건 통합 데이터
+│   └── {학부}_{트랙}_{학번}/
+│       ├── 학점 요건                # 전공필수, 전공선택, 교양 등
+│       ├── majorDocId              # 참조 전공 문서 (선택)
+│       ├── generalEducationDocId   # 참조 교양 문서 (선택)
+│       ├── rules: {...}            # 통합 졸업 규칙 (과목 목록)
+│       └── replacementCourses      # 대체과목 규칙
+├── users/                          # 사용자 데이터
+│   └── {userId}/
+│       ├── 기본 정보                # name, email, signUpDate
+│       ├── 학적 정보                # studentYear, department, track
+│       └── graduation_check_history/ # 졸업검사 결과 서브컬렉션
+└── department_configs/             # 학부별 설정
+    └── {departmentId}/
+        └── usesMajorAdvanced       # 전공심화 사용 여부
 ```
 
 ---
@@ -351,4 +458,71 @@ Firebase Firestore
 
 ---
 
-*📝 이 문서는 2025년 9월 기준으로 작성되었으며, 지속적인 업데이트를 통해 최신 상태를 유지합니다.*
+---
+
+## 📦 **주요 모델 클래스**
+
+### `models/GraduationRules.java`
+**역할**: 통합 졸업 규칙 데이터 모델
+```java
+public class GraduationRules {
+    // 전공필수, 전공선택, 교양필수, 학부공통 등 통합 관리
+}
+```
+
+### `models/UserCustomizedRequirements.java`
+**역할**: 사용자 맞춤 졸업 요건
+```java
+public class UserCustomizedRequirements {
+    // 사용자가 커스터마이징한 졸업 요건 저장
+}
+```
+
+### `models/CourseInfo.java`
+**역할**: 과목 정보 모델
+```java
+public class CourseInfo {
+    private String name;
+    private int credits;
+    private String category;
+    // 과목 상세 정보
+}
+```
+
+---
+
+## 🧩 **주요 Fragment**
+
+### `HomeFragment.java`
+**역할**: 메인 홈 화면
+- 배너 슬라이드
+- 주요 기능 바로가기
+
+### `TimeTableFragment.java`
+**역할**: 시간표 Fragment
+- MainActivityNew의 시간표 탭
+- TimeTableActivity와 유사한 기능
+
+### `UserProfileFragment.java`
+**역할**: 사용자 프로필 Fragment
+- 학적 정보 표시
+- 졸업검사 바로가기
+- 로그아웃 기능
+
+### `MajorCoursesFragment.java`
+**역할**: 관리자용 전공 과목 편집 Fragment
+- 전공필수/선택/심화 과목 관리
+- GraduationRequirementEditActivity에서 사용
+
+### `GeneralEducationFragment.java`
+**역할**: 관리자용 교양 과목 편집 Fragment
+- 교양필수/선택 과목 관리
+- oneOf 그룹 시스템
+
+### `DepartmentCommonFragment.java`
+**역할**: 관리자용 학부공통 과목 편집 Fragment
+- 학부공통/전공심화 과목 관리
+
+---
+
+*📝 이 문서는 2025년 10월 20일 기준으로 작성되었으며, 지속적인 업데이트를 통해 최신 상태를 유지합니다.*

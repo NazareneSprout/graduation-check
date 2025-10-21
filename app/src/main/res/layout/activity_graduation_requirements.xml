@@ -214,9 +214,10 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
-        android:src="@android:drawable/ic_menu_add"
-        app:backgroundTint="@color/md_theme_light_tertiary"
-        app:tint="@android:color/white"/>
+        android:src="@drawable/ic_add_large"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="@android:color/white"
+        app:fabSize="normal"/>
 
     <!-- 삭제 모드 하단 버튼 (기본적으로 숨김) -->
     <com.google.android.material.button.MaterialButton

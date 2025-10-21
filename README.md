@@ -80,40 +80,92 @@ SakMvp1은 나사렛대학교 학생들이 졸업 요건을 쉽게 확인하고 
 
 ```
 app/src/main/java/sprout/app/sakmvp1/
-├── 📊 MainActivity.java                    # 메인 허브 화면
-├── 🎓 GraduationAnalysisActivity.java     # 졸업 요건 분석
-├── ➕ AdditionalRequirementsActivity.java # 추가 요건 입력
-├── 📝 CourseInputActivity.java            # 수강 강의 입력
-├── 📈 GraduationAnalysisResultActivity.java # 결과 표시
-├── 📅 TimeTableActivity.java              # 시간표 관리
-├── 🔍 DataViewerActivity.java             # 데이터 뷰어 (디버깅)
+├── 📊 MainActivityNew.java                 # 메인 허브 화면 (홈/시간표/프로필 탭)
 ├── 🔐 Login/
-│   ├── LoginActivity.java                 # 로그인
-│   └── SignUpActivity.java                # 회원가입
-├── 🛠️ FirebaseDataManager.java           # 데이터 매니저 (싱글톤)
-├── 📊 DonutChartView.java                 # 커스텀 도넛 차트
-├── ⚙️ DepartmentConfig.java               # 학부별 설정
-└── ♿ HighContrastHelper.java              # 접근성 지원
+│   ├── LoginActivity.java                  # 로그인
+│   └── SignUpActivity.java                 # 회원가입
+├── 👤 사용자 관리
+│   ├── UserInfoActivity.java               # 학적 정보 입력
+│   ├── UserProfileActivity.java            # 사용자 프로필 화면
+│   ├── UserProfileFragment.java            # 프로필 Fragment
+│   └── LoadingUserInfoActivity.java        # 사용자 정보 로딩 화면
+├── 🎓 졸업 요건 분석
+│   ├── GraduationAnalysisActivity.java     # 졸업 요건 분석 진입
+│   ├── AdditionalRequirementsActivity.java # 추가 요건 입력
+│   ├── CourseInputActivity.java            # 수강 강의 입력
+│   └── GraduationAnalysisResultActivity.java # 결과 표시
+├── 📚 추천 시스템
+│   ├── CourseRecommendationActivity.java   # 과목 추천
+│   └── RecommendationResultActivity.java   # 추천 결과
+├── 📅 시간표 관리
+│   ├── timetable/TimeTableActivity.java    # 시간표 메인
+│   ├── timetable/AddScheduleActivity.java  # 수업 추가
+│   ├── TimeTableFragment.java              # 시간표 Fragment
+│   └── SavedTimetablesActivity.java        # 저장된 시간표 목록
+├── 👨‍💼 관리자 기능
+│   ├── AdminActivity.java                  # 관리자 메인 화면
+│   ├── GraduationRequirementsActivity.java # 졸업요건 목록 관리
+│   ├── GraduationRequirementAddActivity.java # 졸업요건 추가
+│   ├── GraduationRequirementEditActivity.java # 졸업요건 편집
+│   ├── GraduationRequirementDetailActivity.java # 졸업요건 상세
+│   ├── StudentDataActivity.java            # 학생 데이터 조회
+│   ├── MajorDocumentManageActivity.java    # 전공 문서 관리
+│   ├── MajorDocumentEditActivity.java      # 전공 문서 편집
+│   └── GeneralDocumentManageActivity.java  # 교양 문서 관리
+├── 🛠️ 데이터 & 유틸리티
+│   ├── FirebaseDataManager.java            # 데이터 매니저 (싱글톤)
+│   ├── UserDataManager.java                # 사용자 데이터 매니저
+│   ├── DepartmentConfig.java               # 학부별 설정
+│   ├── DonutChartView.java                 # 커스텀 도넛 차트
+│   ├── HighContrastHelper.java             # 접근성 지원
+│   ├── DataViewerActivity.java             # 데이터 뷰어 (디버깅)
+│   ├── DebugFirestoreActivity.java         # Firestore 디버깅
+│   └── WebViewActivity.java                # 웹뷰 화면
+├── 📦 models/
+│   ├── GraduationRules.java                # 졸업 규칙 모델
+│   ├── UserCustomizedRequirements.java     # 사용자 맞춤 요건
+│   └── CourseInfo.java                     # 과목 정보 모델
+└── 🧩 fragments/
+    ├── HomeFragment.java                   # 홈 Fragment
+    ├── MajorCoursesFragment.java           # 전공 과목 Fragment
+    ├── GeneralEducationFragment.java       # 교양 과목 Fragment
+    └── DepartmentCommonFragment.java       # 학부공통 Fragment
 ```
 
 ## 🔥 Firebase 컬렉션 구조
 
 ```
 Firestore Database
-├── 📚 graduation_requirements/           # 졸업 요건 데이터
-│   ├── 2025_IT학부_컴퓨터학과/
-│   ├── 2024_경영학부_경영학과/
+├── 📚 graduation_requirements/           # 졸업 요건 통합 데이터
+│   ├── IT학부_멀티미디어_2020           # 문서 ID 형식: {학부}_{트랙}_{학번}
+│   │   ├── department, track, cohort    # 메타 정보
+│   │   ├── 전공필수, 전공선택, 교양필수  # 학점 요건
+│   │   ├── majorDocId                   # 참조 전공 문서 ID (선택)
+│   │   ├── generalEducationDocId        # 참조 교양 문서 ID (선택)
+│   │   ├── rules: {                     # 통합 졸업 규칙
+│   │   │   전공필수: [...],             # 전공필수 과목 배열
+│   │   │   전공선택: [...],             # 전공선택 과목 배열
+│   │   │   학부공통: [...],             # 학부공통 과목 배열
+│   │   │   교양필수: {                  # 교양필수 그룹 시스템
+│   │   │       oneOf: [[그룹1], [그룹2]]
+│   │   │   }
+│   │   │   }
+│   │   └── replacementCourses: {...}   # 대체과목 규칙
 │   └── ...
-├── 📋 graduation_meta/                   # 학부/트랙 메타데이터
-│   ├── departments/                      # 전체 학부 목록
-│   ├── tracks/                          # 학부별 트랙 목록
-│   └── total_credits/                   # 졸업이수학점
 ├── 👤 users/                            # 사용자 데이터
-│   └── [userId]/
-│       ├── profile/                     # 프로필 정보
-│       └── analysis_results/            # 분석 결과
+│   └── {userId}/
+│       ├── name, email, signUpDate      # 기본 정보
+│       ├── studentYear, department, track # 학적 정보
+│       ├── lastGraduationCheckDate      # 최근 졸업검사 일시
+│       └── graduation_check_history/    # 졸업검사 결과 서브컬렉션
+│           └── {docId}/
+│               ├── checkedAt            # 검사 시간
+│               ├── year, department, track
+│               ├── courses: [...]       # 수강 과목 배열
+│               └── additionalRequirements # 추가 요건 (TLC, 채플 등)
 └── 🏫 department_configs/               # 학부별 설정
-    └── [departmentId]/                  # 전공심화/학부공통 사용 여부
+    └── {departmentId}/
+        └── usesMajorAdvanced: true/false # 전공심화 사용 여부
 ```
 
 ## 📊 학점 오버플로우 시스템
@@ -237,7 +289,7 @@ cd graduation-check
 
 ---
 
-**📝 마지막 업데이트**: 2025년 9월 28일
+**📝 마지막 업데이트**: 2025년 10월 20일
 
 > 💡 **졸업 요건, 이제 한 번에 확인하세요!**
 > 나사렛대학교 학생들의 졸업 계획을 도와주는 스마트한 도구입니다.

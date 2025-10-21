@@ -264,15 +264,24 @@ public class GraduationRequirementAdapter extends RecyclerView.Adapter<Graduatio
                 layoutRemainingCredits.setVisibility(View.GONE);
             }
 
-            // 문서 ID와 참조 문서 ID 표시
-            String displayText = "문서 ID: " + requirement.getId();
-            if (requirement.getMajorDocId() != null && !requirement.getMajorDocId().isEmpty()) {
-                displayText += "\n전공문서: " + requirement.getMajorDocId();
+            // 참조 문서 ID만 표시 (문서 ID는 제외)
+            StringBuilder displayText = new StringBuilder();
+            if (requirement.getMajorDocRef() != null && !requirement.getMajorDocRef().isEmpty()) {
+                displayText.append("전공문서: ").append(requirement.getMajorDocRef());
             }
-            if (requirement.getGeneralEducationDocId() != null && !requirement.getGeneralEducationDocId().isEmpty()) {
-                displayText += "\n교양문서: " + requirement.getGeneralEducationDocId();
+            if (requirement.getGeneralDocRef() != null && !requirement.getGeneralDocRef().isEmpty()) {
+                if (displayText.length() > 0) {
+                    displayText.append("\n");
+                }
+                displayText.append("교양문서: ").append(requirement.getGeneralDocRef());
             }
-            tvUpdatedAt.setText(displayText);
+
+            // 전공문서와 교양문서가 모두 없으면 "참조 문서 없음" 표시
+            if (displayText.length() == 0) {
+                displayText.append("참조 문서 없음");
+            }
+
+            tvUpdatedAt.setText(displayText.toString());
         }
     }
 }

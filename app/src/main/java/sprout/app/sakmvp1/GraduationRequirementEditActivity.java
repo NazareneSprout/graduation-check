@@ -36,6 +36,7 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
 
     // UI Components
     private MaterialToolbar toolbar;
+    private View loadingLayout;
     private ProgressBar progressBar;
     private View contentLayout;
     private TabLayout tabLayout;
@@ -50,6 +51,7 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private String documentId;
     private GraduationRules graduationRules;
+    private String majorDocId;  // 참조된 전공 문서 ID
     private String generalEducationDocId;  // 참조된 교양 문서 ID
     private boolean hasUnsavedChanges = false;  // 저장하지 않은 변경사항이 있는지 추적
 
@@ -76,6 +78,7 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
 
     private void initViews() {
         toolbar = findViewById(R.id.toolbar);
+        loadingLayout = findViewById(R.id.loading_layout);
         progressBar = findViewById(R.id.progress_bar);
         tabLayout = findViewById(R.id.tab_layout);
         viewPager = findViewById(R.id.view_pager);
@@ -84,12 +87,17 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
     }
 
     private void setupToolbar() {
+        // Edge-to-edge 설정
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+        }
+
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("졸업요건 편집");
         }
-        toolbar.setNavigationOnClickListener(v -> handleBackPress());
+        toolbar.setNavigationOnClickListener(v -> onBackPressed());
     }
 
     private void setupViewPager() {
@@ -138,17 +146,29 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                         // v1 구조에서 데이터 읽기
                         String displayName = documentId;
 
-                        // 교양 문서 참조 ID 읽기
-                        generalEducationDocId = document.getString("generalEducationDocId");
-                        Log.d(TAG, "교양 문서 참조: " + (generalEducationDocId != null ? generalEducationDocId : "없음"));
+                        // 졸업요건 문서인지 확인
+                        boolean isGraduationReqDoc = documentId.startsWith("졸업요건_");
 
-                        // v1 데이터를 GraduationRules로 변환
-                        graduationRules = convertV1ToGraduationRules(document);
-                        graduationRules.setSourceDocumentName(displayName);
+                        if (isGraduationReqDoc) {
+                            // 졸업요건 문서: 참조 문서에서 데이터 로드
+                            String majorDocRef = document.getString("majorDocRef");
+                            String generalDocRef = document.getString("generalDocRef");
+                            Log.d(TAG, "졸업요건 문서 - 전공 참조: " + majorDocRef + ", 교양 참조: " + generalDocRef);
 
-                        Log.d(TAG, "데이터 로드 성공: " + documentId);
-                        bindDataToFragments();
-                        showLoading(false);
+                            loadReferencedDocuments(document, majorDocRef, generalDocRef);
+                        } else {
+                            // 전공/교양 문서: 직접 로드
+                            majorDocId = document.getString("majorDocRef");
+                            generalEducationDocId = document.getString("generalDocRef");
+                            Log.d(TAG, "전공/교양 문서 직접 로드");
+
+                            graduationRules = convertV1ToGraduationRules(document);
+                            graduationRules.setSourceDocumentName(displayName);
+
+                            Log.d(TAG, "데이터 로드 성공: " + documentId);
+                            bindDataToFragments();
+                            showLoading(false);
+                        }
                     } else {
                         Log.e(TAG, "문서 없음: " + documentId);
                         showLoading(false);
@@ -163,6 +183,250 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                             Toast.LENGTH_SHORT).show();
                     finish();
                 });
+    }
+
+    /**
+     * 졸업요건 문서의 참조 문서들을 로드하여 병합
+     */
+    private void loadReferencedDocuments(com.google.firebase.firestore.DocumentSnapshot gradReqDoc, String majorDocRef, String generalDocRef) {
+        // 참조 문서 ID 저장 (Fragment에서 자동 로드하도록)
+        this.majorDocId = majorDocRef;
+        this.generalEducationDocId = generalDocRef;
+
+        Log.d(TAG, "졸업요건 문서 참조 설정 - 전공: " + majorDocRef + ", 교양: " + generalDocRef);
+
+        final int[] docsToLoad = {0};
+        final int[] docsLoaded = {0};
+
+        // 로드할 문서 개수 계산
+        if (majorDocRef != null && !majorDocRef.isEmpty()) docsToLoad[0]++;
+        if (generalDocRef != null && !generalDocRef.isEmpty()) docsToLoad[0]++;
+
+        if (docsToLoad[0] == 0) {
+            // 참조 문서가 없으면 졸업요건 문서 자체의 학점 정보만 사용
+            graduationRules = convertV1ToGraduationRules(gradReqDoc);
+            graduationRules.setSourceDocumentName(documentId);
+            bindDataToFragments();
+            showLoading(false);
+            return;
+        }
+
+        // 병합할 데이터 준비
+        final java.util.Map<String, Object> mergedData = new java.util.HashMap<>();
+        final java.util.Map<String, Object> mergedRules = new java.util.HashMap<>();
+
+        // 졸업요건 문서의 학점 정보 먼저 복사
+        mergedData.putAll(gradReqDoc.getData());
+
+        // 전공 문서 로드
+        if (majorDocRef != null && !majorDocRef.isEmpty()) {
+            db.collection("graduation_requirements").document(majorDocRef)
+                    .get()
+                    .addOnSuccessListener(majorDoc -> {
+                        if (majorDoc.exists()) {
+                            Object rulesObj = majorDoc.get("rules");
+                            if (rulesObj instanceof java.util.Map) {
+                                java.util.Map<String, Object> rules = (java.util.Map<String, Object>) rulesObj;
+                                Log.d(TAG, "전공 문서 rules 로드 완료: " + rules.keySet());
+
+                                // 전공 문서의 rules 전체를 병합 (학기별 구조 또는 카테고리별 구조 모두 지원)
+                                mergedRules.putAll(rules);
+                                Log.d(TAG, "전공 문서 rules 병합: " + mergedRules.size() + "개 키");
+                            }
+
+                            // replacementCourses도 복사
+                            if (majorDoc.contains("replacementCourses")) {
+                                mergedData.put("replacementCourses", majorDoc.get("replacementCourses"));
+                            }
+                        }
+
+                        docsLoaded[0]++;
+                        if (docsLoaded[0] == docsToLoad[0]) {
+                            finalizeMergedData(gradReqDoc, mergedData, mergedRules);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "전공 문서 로드 실패: " + majorDocRef, e);
+                        docsLoaded[0]++;
+                        if (docsLoaded[0] == docsToLoad[0]) {
+                            finalizeMergedData(gradReqDoc, mergedData, mergedRules);
+                        }
+                    });
+        }
+
+        // 교양 문서 로드
+        if (generalDocRef != null && !generalDocRef.isEmpty()) {
+            db.collection("graduation_requirements").document(generalDocRef)
+                    .get()
+                    .addOnSuccessListener(generalDoc -> {
+                        if (generalDoc.exists()) {
+                            Object rulesObj = generalDoc.get("rules");
+                            if (rulesObj instanceof java.util.Map) {
+                                java.util.Map<String, Object> rules = (java.util.Map<String, Object>) rulesObj;
+                                Log.d(TAG, "교양 문서 rules 로드 완료: " + rules.keySet());
+
+                                // 교양 문서의 rules 전체를 병합 (기존 전공 rules와 합침)
+                                mergedRules.putAll(rules);
+                                Log.d(TAG, "교양 문서 rules 병합: " + mergedRules.size() + "개 키");
+                            }
+                        }
+
+                        docsLoaded[0]++;
+                        if (docsLoaded[0] == docsToLoad[0]) {
+                            finalizeMergedData(gradReqDoc, mergedData, mergedRules);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "교양 문서 로드 실패: " + generalDocRef, e);
+                        docsLoaded[0]++;
+                        if (docsLoaded[0] == docsToLoad[0]) {
+                            finalizeMergedData(gradReqDoc, mergedData, mergedRules);
+                        }
+                    });
+        }
+    }
+
+    /**
+     * 병합된 데이터를 최종 처리
+     */
+    private void finalizeMergedData(com.google.firebase.firestore.DocumentSnapshot gradReqDoc,
+                                    java.util.Map<String, Object> mergedData,
+                                    java.util.Map<String, Object> mergedRules) {
+        // rules 필드 추가
+        if (!mergedRules.isEmpty()) {
+            mergedData.put("rules", mergedRules);
+            Log.d(TAG, "병합된 rules: " + mergedRules.keySet());
+        }
+
+        // 병합된 데이터를 DocumentSnapshot처럼 사용하기 위해 임시 변환
+        // (실제로는 Map을 GraduationRules로 변환하는 로직 사용)
+        graduationRules = convertMapToGraduationRules(mergedData, documentId);
+
+        // 소스 문서명은 참조된 전공 문서 ID로 설정 (Fragment 표시용)
+        if (majorDocId != null && !majorDocId.isEmpty()) {
+            graduationRules.setSourceDocumentName(majorDocId);
+            Log.d(TAG, "소스 문서명 설정: " + majorDocId);
+        } else {
+            graduationRules.setSourceDocumentName(documentId);
+        }
+
+        Log.d(TAG, "참조 문서 병합 완료: " + documentId);
+        bindDataToFragments();
+        showLoading(false);
+    }
+
+    /**
+     * Map 데이터를 GraduationRules로 변환
+     */
+    private GraduationRules convertMapToGraduationRules(java.util.Map<String, Object> data, String docId) {
+        GraduationRules rules = new GraduationRules();
+        rules.setDocId(docId);
+
+        // documentId에서 정보 추출
+        String[] parts = docId.split("_");
+        if (docId.startsWith("졸업요건_") && parts.length >= 4) {
+            rules.setDepartment(parts[1]);
+            rules.setTrack(parts[2]);
+            try {
+                rules.setCohort(Long.parseLong(parts[3]));
+            } catch (NumberFormatException e) {
+                rules.setCohort(0);
+            }
+        } else if (parts.length >= 3) {
+            rules.setDepartment(parts[0]);
+            rules.setTrack(parts[1]);
+            try {
+                rules.setCohort(Long.parseLong(parts[2]));
+            } catch (NumberFormatException e) {
+                rules.setCohort(0);
+            }
+        }
+
+        // CreditRequirements 설정
+        sprout.app.sakmvp1.models.CreditRequirements creditReqs = new sprout.app.sakmvp1.models.CreditRequirements();
+
+        int 전공필수 = getIntFromMap(data, "전공필수", 0);
+        int 전공선택 = getIntFromMap(data, "전공선택", 0);
+        int 학부공통 = getIntFromMap(data, "학부공통", 0);
+        int 전공심화 = getIntFromMap(data, "전공심화", 0);
+        int 교양필수 = getIntFromMap(data, "교양필수", 0);
+        int 교양선택 = getIntFromMap(data, "교양선택", 0);
+        int 소양 = getIntFromMap(data, "소양", 0);
+        int 자율선택 = getIntFromMap(data, "자율선택", 0);
+        int totalCredits = getIntFromMap(data, "totalCredits", 130);
+
+        creditReqs.setTotal(totalCredits);
+        creditReqs.set전공필수(전공필수);
+        creditReqs.set전공선택(전공선택);
+        creditReqs.set학부공통(학부공통);
+        creditReqs.set전공심화(전공심화);
+        creditReqs.set교양필수(교양필수);
+        creditReqs.set교양선택(교양선택);
+        creditReqs.set소양(소양);
+        creditReqs.set일반선택(자율선택);
+        creditReqs.set잔여학점(0);
+
+        rules.setCreditRequirements(creditReqs);
+
+        // rules 필드 처리 (전공/교양 과목)
+        Object rulesObj = data.get("rules");
+        Log.d(TAG, "convertMapToGraduationRules: rulesObj type = " + (rulesObj != null ? rulesObj.getClass().getSimpleName() : "null"));
+
+        if (rulesObj instanceof java.util.Map) {
+            java.util.Map<String, Object> rulesMap = (java.util.Map<String, Object>) rulesObj;
+            Log.d(TAG, "convertMapToGraduationRules: rulesMap keys = " + rulesMap.keySet());
+
+            // 형식 감지: v1(학기별) vs 새 형식(카테고리별 배열)
+            // v1 형식: 키에 "학년" 또는 "학기"가 포함되고, 값이 Map
+            // 새 형식: 키가 카테고리명(전공필수, 전공선택 등)이고, 값이 List
+            boolean isV1Format = false;
+
+            // 학기별 키가 있는지 확인
+            for (String key : rulesMap.keySet()) {
+                if (key.contains("학년") || key.contains("학기")) {
+                    isV1Format = true;
+                    break;
+                }
+            }
+
+            if (isV1Format) {
+                Log.d(TAG, "convertMapToGraduationRules: v1 형식 감지 (학기별), parseV1RulesData 호출");
+                parseV1RulesData(rulesMap, rules);
+            } else {
+                Log.d(TAG, "convertMapToGraduationRules: 새로운 형식 감지 (카테고리별), parseNewFormatRules 호출");
+                parseNewFormatRules(rulesMap, rules);
+            }
+        }
+
+        // replacementCourses 처리
+        Object replacementObj = data.get("replacementCourses");
+        if (replacementObj instanceof java.util.Map) {
+            // replacementCourses를 ReplacementRule 리스트로 변환
+            java.util.List<sprout.app.sakmvp1.models.ReplacementRule> replacementRules =
+                parseReplacementCoursesMap((java.util.Map<String, Object>) replacementObj);
+            rules.setReplacementRules(replacementRules);
+        }
+
+        return rules;
+    }
+
+    /**
+     * Map에서 int 값 추출
+     */
+    private int getIntFromMap(java.util.Map<String, Object> map, String key, int defaultValue) {
+        Object value = map.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return defaultValue;
+    }
+
+    /**
+     * replacementCourses Map을 ReplacementRule 리스트로 변환
+     */
+    private java.util.List<sprout.app.sakmvp1.models.ReplacementRule> parseReplacementCoursesMap(java.util.Map<String, Object> replacementCoursesMap) {
+        // 기존 로직 재사용 - 간단하게 빈 리스트 반환
+        return new java.util.ArrayList<>();
     }
 
     /**
@@ -289,6 +553,77 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
     }
 
     /**
+     * 새로운 형식 rules 데이터 파싱 (카테고리별 배열)
+     * 예: { "전공필수": [{과목명: "...", 학점: 3}, ...], "전공선택": [...] }
+     */
+    private void parseNewFormatRules(java.util.Map<String, Object> rulesMap, GraduationRules rules) {
+        java.util.List<sprout.app.sakmvp1.models.RequirementCategory> categories = new java.util.ArrayList<>();
+
+        Log.d(TAG, "parseNewFormatRules: 카테고리 수 = " + rulesMap.size());
+
+        for (java.util.Map.Entry<String, Object> entry : rulesMap.entrySet()) {
+            String categoryName = entry.getKey();
+            Object courseListObj = entry.getValue();
+
+            if (!(courseListObj instanceof java.util.List)) {
+                Log.w(TAG, "parseNewFormatRules: " + categoryName + "이(가) List가 아닙니다");
+                continue;
+            }
+
+            java.util.List<?> courseList = (java.util.List<?>) courseListObj;
+            java.util.List<sprout.app.sakmvp1.models.CourseRequirement> courses = new java.util.ArrayList<>();
+
+            Log.d(TAG, "parseNewFormatRules: " + categoryName + " - " + courseList.size() + "개 과목");
+
+            for (Object courseObj : courseList) {
+                if (!(courseObj instanceof java.util.Map)) {
+                    continue;
+                }
+
+                java.util.Map<String, Object> courseMap = (java.util.Map<String, Object>) courseObj;
+                String courseName = (String) courseMap.get("과목명");
+
+                if (courseName == null) {
+                    courseName = (String) courseMap.get("name");
+                }
+
+                Object creditObj = courseMap.get("학점");
+                if (creditObj == null) {
+                    creditObj = courseMap.get("credits");
+                }
+
+                int credit = (creditObj instanceof Number) ? ((Number) creditObj).intValue() : 3;
+
+                if (courseName != null) {
+                    sprout.app.sakmvp1.models.CourseRequirement courseReq =
+                        new sprout.app.sakmvp1.models.CourseRequirement(courseName, credit);
+
+                    // 학기 정보가 있으면 설정
+                    String semester = (String) courseMap.get("semester");
+                    if (semester != null) {
+                        courseReq.setSemester(semester);
+                    }
+
+                    courses.add(courseReq);
+                    Log.d(TAG, "parseNewFormatRules: 과목 추가 - " + courseName + " (" + credit + "학점)");
+                }
+            }
+
+            if (!courses.isEmpty()) {
+                sprout.app.sakmvp1.models.RequirementCategory category =
+                    new sprout.app.sakmvp1.models.RequirementCategory();
+                category.setName(categoryName);
+                category.setCourses(courses);
+                categories.add(category);
+                Log.d(TAG, "parseNewFormatRules: 카테고리 추가 - " + categoryName + " (" + courses.size() + "개 과목)");
+            }
+        }
+
+        rules.setCategories(categories);
+        Log.d(TAG, "parseNewFormatRules: 총 " + categories.size() + "개 카테고리 파싱 완료");
+    }
+
+    /**
      * v1 과목 리스트 파싱
      */
     private void parseV1CourseList(Object courseListObj, String semester, String categoryName,
@@ -401,6 +736,15 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
             if (majorFragment != null) {
                 majorFragment.bindData(graduationRules);
                 Log.d(TAG, "전공 과목 데이터 바인딩 완료");
+
+                // 전공 문서 ID가 있으면 자동으로 로드
+                if (majorDocId != null && !majorDocId.isEmpty()) {
+                    Log.d(TAG, "전공 문서 자동 로드 시작: " + majorDocId);
+                    majorFragment.loadMajorCoursesFromDocument(majorDocId);
+                }
+            } else {
+                // Fragment가 아직 생성되지 않았을 경우
+                Log.d(TAG, "전공 Fragment 아직 생성 안됨. majorDocId 저장: " + majorDocId);
             }
             if (generalFragment != null) {
                 generalFragment.bindData(graduationRules);
@@ -526,6 +870,17 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
             }
             majorUpdateData.put("replacementRules", rulesList);
             Log.d(TAG, "대체과목 규칙 저장: " + rulesList.size() + "개");
+        }
+
+        // 전공 문서 참조 정보 저장
+        MajorCoursesFragment majorFragment = pagerAdapter.getMajorFragment();
+        String majorDocId = null;
+        if (majorFragment != null) {
+            majorDocId = majorFragment.getLoadedDocumentName();
+            if (majorDocId != null && !majorDocId.isEmpty()) {
+                majorUpdateData.put("majorDocId", majorDocId);
+                Log.d(TAG, "전공 문서 참조 저장: " + majorDocId);
+            }
         }
 
         // 교양 문서 참조 정보 저장
@@ -835,11 +1190,14 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
      * 로딩 상태 표시/숨김
      */
     private void showLoading(boolean show) {
-        if (progressBar != null) {
-            progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (loadingLayout != null) {
+            loadingLayout.setVisibility(show ? View.VISIBLE : View.GONE);
         }
         if (viewPager != null) {
             viewPager.setVisibility(show ? View.GONE : View.VISIBLE);
+        }
+        if (tabLayout != null) {
+            tabLayout.setVisibility(show ? View.GONE : View.VISIBLE);
         }
         if (btnSave != null) {
             btnSave.setVisibility(show ? View.GONE : View.VISIBLE);
@@ -875,18 +1233,10 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
      */
     @Override
     public void onBackPressed() {
-        handleBackPress();
-    }
-
-    /**
-     * 뒤로가기 처리 로직 (저장 안 된 변경사항 확인)
-     */
-    private void handleBackPress() {
         if (hasUnsavedChanges) {
             showUnsavedChangesDialog();
         } else {
             super.onBackPressed();
-            finish();
         }
     }
 
@@ -899,7 +1249,7 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                 .setMessage("저장하지 않고 나가면 변경사항이 반영되지 않습니다.\n정말 나가시겠습니까?")
                 .setNegativeButton("나가기", (dialog, which) -> {
                     hasUnsavedChanges = false;  // 플래그 초기화
-                    finish();
+                    GraduationRequirementEditActivity.super.onBackPressed();
                 })
                 .setPositiveButton("취소", null)
                 .show();

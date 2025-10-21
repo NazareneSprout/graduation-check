@@ -86,6 +86,11 @@ public class GeneralDocumentManageActivity extends AppCompatActivity {
     }
 
     private void setupToolbar() {
+        // Edge-to-edge 설정
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+        }
+
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
