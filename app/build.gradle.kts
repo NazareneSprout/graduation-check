@@ -51,6 +51,9 @@ android {
 }
 
 dependencies {
+
+    implementation("androidx.cardview:cardview:1.0.0")
+
     // Firebase BOM (최신 버전)
     implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
 
