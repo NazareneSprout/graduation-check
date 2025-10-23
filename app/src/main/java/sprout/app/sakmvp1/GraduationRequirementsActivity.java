@@ -119,8 +119,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
             selectedYear = "20" + selectedYear;
         }
 
-        Log.d(TAG, "필터링 (저장된 조건): " + selectedYear + "/" + selectedDepartment + "/" + selectedTrack);
-
         List<GraduationRequirement> filtered = new ArrayList<>();
 
         for (GraduationRequirement req : allRequirements) {
@@ -141,7 +139,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
             }
         }
 
-        Log.d(TAG, "필터링 결과: " + filtered.size() + "개");
         displayResults(filtered);
     }
 
@@ -149,12 +146,9 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
      * 저장된 조건으로 스피너 위치 복원
      */
     private void restoreSpinnerSelections() {
-        Log.d(TAG, "restoreSpinnerSelections 호출 - 저장된 조건: " + lastSelectedYear + "/" + lastSelectedDepartment + "/" + lastSelectedTrack);
-
         // 학번 스피너 복원
         if (!"전체".equals(lastSelectedYear)) {
             int yearPosition = findSpinnerPosition(studentIdAdapter, lastSelectedYear);
-            Log.d(TAG, "학번 위치 찾기: " + lastSelectedYear + " → " + yearPosition);
             if (yearPosition >= 0) {
                 spinnerStudentId.setSelection(yearPosition);
             }
@@ -163,7 +157,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
         // 학과 스피너 복원
         if (!"전체".equals(lastSelectedDepartment)) {
             int deptPosition = findSpinnerPosition(departmentAdapter, lastSelectedDepartment);
-            Log.d(TAG, "학과 위치 찾기: " + lastSelectedDepartment + " → " + deptPosition);
             if (deptPosition >= 0) {
                 spinnerDepartment.setSelection(deptPosition);
                 // 학과 선택 시 트랙 업데이트 (리스너가 자동으로 호출되지 않을 수 있으므로 명시적 호출)
@@ -173,7 +166,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
                     // 트랙 스피너 복원
                     if (!"전체".equals(lastSelectedTrack)) {
                         int trackPosition = findSpinnerPosition(trackAdapter, lastSelectedTrack);
-                        Log.d(TAG, "트랙 위치 찾기 (학과 선택 후): " + lastSelectedTrack + " → " + trackPosition + ", adapter 크기: " + trackAdapter.getCount());
                         if (trackPosition >= 0) {
                             spinnerTrack.setSelection(trackPosition);
                         }
@@ -187,7 +179,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
             if (!"전체".equals(lastSelectedTrack)) {
                 spinnerTrack.post(() -> {
                     int trackPosition = findSpinnerPosition(trackAdapter, lastSelectedTrack);
-                    Log.d(TAG, "트랙 위치 찾기 (학과=전체): " + lastSelectedTrack + " → " + trackPosition);
                     if (trackPosition >= 0) {
                         spinnerTrack.setSelection(trackPosition);
                     }
@@ -367,7 +358,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
 
                         // 졸업요건 문서만 표시 (문서 ID가 "졸업요건_"로 시작하는 것만)
                         if (!docId.startsWith("졸업요건_")) {
-                            Log.d(TAG, "졸업요건 문서 아님 제외: " + docId);
                             continue;
                         }
 
@@ -407,28 +397,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
                         requirement.setMajorDocRef(majorDocRef);
                         requirement.setGeneralDocRef(generalDocRef);
 
-                        // 디버깅: 특정 문서는 상세 로그 출력
-                        if (document.getId().startsWith("졸업요건_")) {
-                            Log.d(TAG, "========== " + document.getId() + " 상세 정보 ==========");
-                            Log.d(TAG, "문서 ID: " + document.getId());
-                            Log.d(TAG, "majorDocRef 필드: " + (majorDocRef != null ? "'" + majorDocRef + "'" : "null"));
-                            Log.d(TAG, "generalDocRef 필드: " + (generalDocRef != null ? "'" + generalDocRef + "'" : "null"));
-                            Log.d(TAG, "totalCredits 필드: " + document.get("totalCredits"));
-                            Log.d(TAG, "creditRequirements 필드: " + document.get("creditRequirements"));
-                            Log.d(TAG, "총학점 (로드된 값): " + totalCredits);
-                            Log.d(TAG, "문서의 모든 필드: " + document.getData());
-                            Log.d(TAG, "=======================================================");
-                        }
-
-                        Log.d(TAG, "문서 " + document.getId() + " 로드: 총=" + totalCredits
-                            + ", 전필=" + majorRequired + ", 전선=" + majorElective
-                            + ", 교필=" + generalRequired + ", 교선=" + generalElective
-                            + ", 소양=" + liberalArts + ", 자율=" + freeElective
-                            + ", 전심=" + majorAdvanced + ", 학공=" + departmentCommon
-                            + ", 잔여=" + remainingCredits
-                            + ", 전공문서=" + (majorDocRef != null ? majorDocRef : "없음")
-                            + ", 교양문서=" + (generalDocRef != null ? generalDocRef : "없음"));
-
                         allRequirements.add(requirement);
 
                         // 스피너 옵션 수집
@@ -450,8 +418,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
                             tracks.add(requirement.getTrack());
                         }
                     }
-
-                    Log.d(TAG, "전체 졸업요건 로드: " + allRequirements.size() + "개");
 
                     // 스피너 데이터 설정
                     updateSpinnerData(years, departments, tracks);
@@ -506,17 +472,12 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
      * 선택한 학과에 따라 트랙 스피너 업데이트
      */
     private void updateTrackSpinner(String selectedDepartment) {
-        Log.d(TAG, "updateTrackSpinner 호출됨: " + selectedDepartment);
-        Log.d(TAG, "departmentTrackMap 크기: " + departmentTrackMap.size());
-        Log.d(TAG, "departmentTrackMap 내용: " + departmentTrackMap);
-
         trackAdapter.clear();
         trackAdapter.add("전체");
 
         if (!"전체".equals(selectedDepartment) && departmentTrackMap.containsKey(selectedDepartment)) {
             Set<String> tracks = departmentTrackMap.get(selectedDepartment);
             if (tracks != null) {
-                Log.d(TAG, "트랙 개수: " + tracks.size() + ", 내용: " + tracks);
                 trackAdapter.addAll(new ArrayList<>(tracks));
             }
         } else if ("전체".equals(selectedDepartment)) {
@@ -525,7 +486,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
             for (Set<String> tracks : departmentTrackMap.values()) {
                 allTracks.addAll(tracks);
             }
-            Log.d(TAG, "전체 트랙 개수: " + allTracks.size() + ", 내용: " + allTracks);
             trackAdapter.addAll(new ArrayList<>(allTracks));
         }
 
@@ -553,8 +513,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
             selectedYear = "20" + selectedYear;
         }
 
-        Log.d(TAG, "필터링: " + selectedYear + "/" + selectedDepartment + "/" + selectedTrack);
-
         List<GraduationRequirement> filtered = new ArrayList<>();
 
         for (GraduationRequirement req : allRequirements) {
@@ -575,7 +533,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
             }
         }
 
-        Log.d(TAG, "필터링 결과: " + filtered.size() + "개");
         displayResults(filtered);
     }
 

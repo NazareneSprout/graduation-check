@@ -6,10 +6,13 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.ImageButton;
 import android.widget.NumberPicker;
+import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -41,17 +44,8 @@ public class TimeTableFragment extends Fragment {
 
     private RelativeLayout timetableLayout;
     private Toolbar toolbar;
+    private ImageButton btnTimetableMenu;
     private FloatingActionButton fabAddSchedule;
-    private FloatingActionButton fabSaveTimetable;
-    private FloatingActionButton fabNewTimetable;
-    private FloatingActionButton fabEditTimetable;
-    private FloatingActionButton fabViewTimetables;
-    private View fabOverlay;
-    private View layoutSaveTimetable;
-    private View layoutNewTimetable;
-    private View layoutEditTimetable;
-    private View layoutViewTimetables;
-    private boolean isFabMenuOpen = false;
 
     private int startHour = 9, startMinute = 0, endHour = 10, endMinute = 0;
 
@@ -109,56 +103,25 @@ public class TimeTableFragment extends Fragment {
         }
 
         timetableLayout = view.findViewById(R.id.timetable_layout);
+        btnTimetableMenu = view.findViewById(R.id.btnTimetableMenu);
         fabAddSchedule = view.findViewById(R.id.fab_add_schedule);
-        fabSaveTimetable = view.findViewById(R.id.fab_save_timetable);
-        fabNewTimetable = view.findViewById(R.id.fab_new_timetable);
-        fabEditTimetable = view.findViewById(R.id.fab_edit_timetable);
-        fabViewTimetables = view.findViewById(R.id.fab_view_timetables);
-        fabOverlay = view.findViewById(R.id.fab_overlay);
-        layoutSaveTimetable = view.findViewById(R.id.layout_save_timetable);
-        layoutNewTimetable = view.findViewById(R.id.layout_new_timetable);
-        layoutEditTimetable = view.findViewById(R.id.layout_edit_timetable);
-        layoutViewTimetables = view.findViewById(R.id.layout_view_timetables);
 
         // 로컬 저장소 초기화
         currentStorage = new sprout.app.sakmvp1.CurrentTimetableStorage(requireContext());
 
         drawTimetableBase();
 
-        // 메인 FAB 클릭 - 메뉴 토글
-        fabAddSchedule.setOnClickListener(v -> toggleFabMenu());
+        // 연필 모양 메뉴 버튼 클릭 - PopupMenu 표시
+        btnTimetableMenu.setOnClickListener(v -> showTimetableMenu(v));
 
-        // 오버레이 클릭 - 메뉴 닫기
-        fabOverlay.setOnClickListener(v -> closeFabMenu());
+        // 수업 추가 FAB 클릭 - BottomSheet 표시
+        fabAddSchedule.setOnClickListener(v -> showAddScheduleBottomSheet());
 
-        // 시간표 저장 FAB
-        fabSaveTimetable.setOnClickListener(v -> {
-            closeFabMenu();
-            showSaveTimetableDialog();
-        });
-
-        // 시간표 추가 FAB
-        fabNewTimetable.setOnClickListener(v -> {
-            closeFabMenu();
-            showCreateNewTimetableDialog();
-        });
-
-        // 시간표 수정 FAB (현재 활성화된 시간표 이름 수정)
-        fabEditTimetable.setOnClickListener(v -> {
-            closeFabMenu();
-            showEditActiveTimetableDialog();
-        });
-
-        // 시간표 조회 FAB
-        fabViewTimetables.setOnClickListener(v -> {
-            closeFabMenu();
+        // 이전 시간표 조회 버튼 클릭
+        view.findViewById(R.id.btnPreviousTimetable).setOnClickListener(v -> {
             android.content.Intent intent = new android.content.Intent(requireContext(), sprout.app.sakmvp1.SavedTimetablesActivity.class);
             startActivity(intent);
         });
-
-        // 툴바의 기존 버튼들은 숨김 처리 (FAB 메뉴로 대체)
-        view.findViewById(R.id.btnPreviousTimetable).setVisibility(View.GONE);
-        view.findViewById(R.id.btnSaveTimetable).setVisibility(View.GONE);
     }
 
     @Override
@@ -509,55 +472,28 @@ public class TimeTableFragment extends Fragment {
     }
 
     /**
-     * FAB 메뉴 토글
+     * 시간표 메뉴 표시 (PopupMenu)
      */
-    private void toggleFabMenu() {
-        if (isFabMenuOpen) {
-            closeFabMenu();
-        } else {
-            openFabMenu();
-        }
-    }
+    private void showTimetableMenu(View anchor) {
+        PopupMenu popup = new PopupMenu(requireContext(), anchor);
+        popup.getMenuInflater().inflate(R.menu.menu_timetable, popup.getMenu());
 
-    /**
-     * FAB 메뉴 열기
-     */
-    private void openFabMenu() {
-        isFabMenuOpen = true;
-        fabOverlay.setVisibility(View.VISIBLE);
-        layoutSaveTimetable.setVisibility(View.VISIBLE);
-        layoutNewTimetable.setVisibility(View.VISIBLE);
-        layoutEditTimetable.setVisibility(View.VISIBLE);
-        layoutViewTimetables.setVisibility(View.VISIBLE);
+        popup.setOnMenuItemClickListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.action_save_timetable) {
+                showSaveTimetableDialog();
+                return true;
+            } else if (itemId == R.id.action_new_timetable) {
+                showCreateNewTimetableDialog();
+                return true;
+            } else if (itemId == R.id.action_edit_timetable) {
+                showEditActiveTimetableDialog();
+                return true;
+            }
+            return false;
+        });
 
-        // 메인 FAB 아이콘 변경
-        fabAddSchedule.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
-
-        // 애니메이션 추가
-        layoutSaveTimetable.setAlpha(0f);
-        layoutNewTimetable.setAlpha(0f);
-        layoutEditTimetable.setAlpha(0f);
-        layoutViewTimetables.setAlpha(0f);
-
-        layoutSaveTimetable.animate().alpha(1f).setDuration(200).start();
-        layoutNewTimetable.animate().alpha(1f).setDuration(200).setStartDelay(50).start();
-        layoutEditTimetable.animate().alpha(1f).setDuration(200).setStartDelay(100).start();
-        layoutViewTimetables.animate().alpha(1f).setDuration(200).setStartDelay(150).start();
-    }
-
-    /**
-     * FAB 메뉴 닫기
-     */
-    private void closeFabMenu() {
-        isFabMenuOpen = false;
-        fabOverlay.setVisibility(View.GONE);
-        layoutSaveTimetable.setVisibility(View.GONE);
-        layoutNewTimetable.setVisibility(View.GONE);
-        layoutEditTimetable.setVisibility(View.GONE);
-        layoutViewTimetables.setVisibility(View.GONE);
-
-        // 메인 FAB 아이콘 변경
-        fabAddSchedule.setImageResource(android.R.drawable.ic_menu_more);
+        popup.show();
     }
 
     /**

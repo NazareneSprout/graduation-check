@@ -177,15 +177,38 @@ public class GraduationRequirementUtils {
     /**
      * Firestore 문서에서 creditRequirements 객체를 통해 특정 카테고리의 학점 가져오기
      * 통합 구조(v2)를 지원하며, 이전 구조(v1)로 fallback
+     * totalCredits/총학점 필드명 양쪽 지원
      *
      * @param document Firestore DocumentSnapshot
-     * @param categoryName 카테고리 이름 (예: "전공심화", "전공필수" 등)
+     * @param categoryName 카테고리 이름 (예: "전공심화", "전공필수", "totalCredits" 등)
      * @param defaultValue 기본값
      * @return 해당 카테고리의 학점
      */
     @SuppressWarnings("unchecked")
     public static int getCreditFromRequirements(DocumentSnapshot document, String categoryName, int defaultValue) {
         String docId = document.getId();
+
+        // 0. totalCredits의 경우 한글 필드명 "총학점"도 함께 확인
+        if (categoryName.equals("totalCredits")) {
+            // 먼저 한글 필드명 "총학점"을 확인 (v2 구조)
+            Object creditReqObj = document.get("creditRequirements");
+            if (creditReqObj instanceof Map) {
+                Map<String, Object> creditRequirements = (Map<String, Object>) creditReqObj;
+                if (creditRequirements.containsKey("총학점")) {
+                    int value = getIntValue(creditRequirements, "총학점", defaultValue);
+                    Log.d(TAG, "[" + docId + "] Found 총학점 in creditRequirements (v2): " + value);
+                    return value;
+                }
+            }
+
+            // v1 구조에서 "총학점" 확인
+            Object koreanValue = document.get("총학점");
+            if (koreanValue != null) {
+                int value = getIntValue(document, "총학점", defaultValue);
+                Log.d(TAG, "[" + docId + "] Found 총학점 in document root (v1): " + value);
+                return value;
+            }
+        }
 
         // 1. 먼저 통합 구조(v2)에서 시도: creditRequirements 객체 확인
         Object creditReqObj = document.get("creditRequirements");

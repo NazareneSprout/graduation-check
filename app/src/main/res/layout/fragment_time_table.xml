@@ -42,16 +42,16 @@
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
-                <!-- 우측 저장 버튼 -->
+                <!-- 우측 메뉴 버튼 (연필 모양) -->
                 <ImageButton
-                    android:id="@+id/btnSaveTimetable"
+                    android:id="@+id/btnTimetableMenu"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@android:drawable/ic_menu_save"
-                    android:contentDescription="시간표 저장"
+                    android:src="@android:drawable/ic_menu_edit"
+                    android:contentDescription="시간표 메뉴"
                     app:tint="@android:color/white" />
 
             </RelativeLayout>
@@ -73,148 +73,14 @@
 
     </androidx.core.widget.NestedScrollView>
 
-    <!-- 반투명 배경 오버레이 -->
-    <View
-        android:id="@+id/fab_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#80000000"
-        android:visibility="gone"
-        android:clickable="true"
-        android:focusable="true" />
-
-    <!-- 시간표 조회 -->
-    <LinearLayout
-        android:id="@+id/layout_view_timetables"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="396dp"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:visibility="gone">
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_view_timetables"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_calendar"
-            android:contentDescription="시간표 조회"
-            app:fabSize="mini" />
-
-        <TextView
-            android:id="@+id/label_view_timetables"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="시간표 조회"
-            android:textColor="@android:color/white"
-            android:textSize="12sp"
-            android:gravity="center" />
-    </LinearLayout>
-
-    <!-- 시간표 수정 -->
-    <LinearLayout
-        android:id="@+id/layout_edit_timetable"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="300dp"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:visibility="gone">
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_edit_timetable"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_menu_edit"
-            android:contentDescription="시간표 수정"
-            app:fabSize="mini" />
-
-        <TextView
-            android:id="@+id/label_edit_timetable"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="시간표 수정"
-            android:textColor="@android:color/white"
-            android:textSize="12sp"
-            android:gravity="center" />
-    </LinearLayout>
-
-    <!-- 시간표 추가 -->
-    <LinearLayout
-        android:id="@+id/layout_new_timetable"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="204dp"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:visibility="gone">
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_new_timetable"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_input_add"
-            android:contentDescription="시간표 추가"
-            app:fabSize="mini" />
-
-        <TextView
-            android:id="@+id/label_new_timetable"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="시간표 추가"
-            android:textColor="@android:color/white"
-            android:textSize="12sp"
-            android:gravity="center" />
-    </LinearLayout>
-
-    <!-- 시간표 저장 -->
-    <LinearLayout
-        android:id="@+id/layout_save_timetable"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="108dp"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:visibility="gone">
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_save_timetable"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_menu_save"
-            android:contentDescription="시간표 저장"
-            app:fabSize="mini" />
-
-        <TextView
-            android:id="@+id/label_save_timetable"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="시간표 저장"
-            android:textColor="@android:color/white"
-            android:textSize="12sp"
-            android:gravity="center" />
-    </LinearLayout>
-
-    <!-- 메인 FAB -->
+    <!-- 수업 추가 FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_add_schedule"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
-        android:src="@android:drawable/ic_menu_more"
-        android:contentDescription="메뉴" />
+        android:src="@android:drawable/ic_input_add"
+        android:contentDescription="수업 추가" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

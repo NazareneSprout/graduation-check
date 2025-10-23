@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_save_timetable"
+        android:title="시간표 저장"
+        android:icon="@android:drawable/ic_menu_save" />
+
+    <item
+        android:id="@+id/action_new_timetable"
+        android:title="시간표 추가"
+        android:icon="@android:drawable/ic_input_add" />
+
+    <item
+        android:id="@+id/action_edit_timetable"
+        android:title="시간표 수정"
+        android:icon="@android:drawable/ic_menu_edit" />
+</menu>

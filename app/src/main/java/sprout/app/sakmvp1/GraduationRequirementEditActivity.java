@@ -153,31 +153,26 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                             // 졸업요건 문서: 참조 문서에서 데이터 로드
                             String majorDocRef = document.getString("majorDocRef");
                             String generalDocRef = document.getString("generalDocRef");
-                            Log.d(TAG, "졸업요건 문서 - 전공 참조: " + majorDocRef + ", 교양 참조: " + generalDocRef);
 
                             loadReferencedDocuments(document, majorDocRef, generalDocRef);
                         } else {
                             // 전공/교양 문서: 직접 로드
                             majorDocId = document.getString("majorDocRef");
                             generalEducationDocId = document.getString("generalDocRef");
-                            Log.d(TAG, "전공/교양 문서 직접 로드");
 
                             graduationRules = convertV1ToGraduationRules(document);
                             graduationRules.setSourceDocumentName(displayName);
 
-                            Log.d(TAG, "데이터 로드 성공: " + documentId);
                             bindDataToFragments();
                             showLoading(false);
                         }
                     } else {
-                        Log.e(TAG, "문서 없음: " + documentId);
                         showLoading(false);
                         Toast.makeText(this, "문서를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
                         finish();
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "데이터 로드 실패", e);
                     showLoading(false);
                     Toast.makeText(this, "데이터 로드 실패: " + e.getMessage(),
                             Toast.LENGTH_SHORT).show();
@@ -192,8 +187,6 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
         // 참조 문서 ID 저장 (Fragment에서 자동 로드하도록)
         this.majorDocId = majorDocRef;
         this.generalEducationDocId = generalDocRef;
-
-        Log.d(TAG, "졸업요건 문서 참조 설정 - 전공: " + majorDocRef + ", 교양: " + generalDocRef);
 
         final int[] docsToLoad = {0};
         final int[] docsLoaded = {0};
