@@ -1,6 +1,7 @@
 package sprout.app.sakmvp1;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -13,13 +14,21 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+// Firestore 및 Auth 임포트
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
 /**
- * 저장된 시간표 목록을 표시하는 Activity
+ * 저장된 시간표 목록을 표시하는 Activity (Firestore 연동, Nested Collection)
  */
 public class SavedTimetablesActivity extends AppCompatActivity implements SavedTimetableAdapter.OnTimetableActionListener {
 
@@ -28,25 +37,25 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
     private FloatingActionButton fabNewTimetable;
     private SavedTimetableAdapter adapter;
     private List<SavedTimetable> timetableList;
+
     private TimetableLocalStorage localStorage;
+
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Edge-to-edge 디스플레이 설정
         getWindow().setDecorFitsSystemWindows(false);
-
         setContentView(R.layout.activity_saved_timetables);
 
-        // 로컬 저장소 초기화
         localStorage = new TimetableLocalStorage(this);
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
 
-        // Toolbar 설정
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         toolbar.setNavigationOnClickListener(v -> finish());
 
-        // RecyclerView 설정
         recyclerView = findViewById(R.id.recycler_saved_timetables);
         emptyView = findViewById(R.id.empty_view);
 
@@ -56,35 +65,63 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
-        // FAB 설정
         fabNewTimetable = findViewById(R.id.fab_new_timetable);
         fabNewTimetable.setOnClickListener(v -> showCreateTimetableDialog());
+    }
 
-        // 저장된 시간표 불러오기
-        loadSavedTimetables();
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadSavedTimetablesFromFirestore();
+    }
+
+    private String getCurrentUserId() {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null) {
+            return user.getUid();
+        } else {
+            Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return null;
+        }
     }
 
     /**
-     * 로컬 저장소에서 저장된 시간표 목록 불러오기
+     * [수정됨] Firestore 쿼리 경로 변경 (하위 컬렉션 조회)
      */
-    private void loadSavedTimetables() {
-        timetableList.clear();
-        timetableList.addAll(localStorage.getAllTimetables());
+    private void loadSavedTimetablesFromFirestore() {
+        String userId = getCurrentUserId();
+        if (userId == null) {
+            updateEmptyView();
+            return;
+        }
 
-        // 저장 날짜 기준 내림차순 정렬 (최신순)
-        Collections.sort(timetableList, new Comparator<SavedTimetable>() {
-            @Override
-            public int compare(SavedTimetable t1, SavedTimetable t2) {
-                return Long.compare(t2.getSavedDate(), t1.getSavedDate());
-            }
-        });
+        // [수정됨] 쿼리 경로 변경 (timetables -> userId -> user_timetables)
+        // 1. whereEqualTo("userId")가 더 이상 필요 없음
+        // 2. orderBy("savedDate")가 복합 색인 없이도 작동함!
+        db.collection("timetables").document(userId)
+                .collection("user_timetables") // <-- 하위 컬렉션 지정
+                .orderBy("savedDate", Query.Direction.DESCENDING) // 정렬 재활성화
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    timetableList.clear();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        SavedTimetable timetable = document.toObject(SavedTimetable.class);
+                        timetable.setId(document.getId());
+                        timetableList.add(timetable);
+                    }
 
-        // 활성 시간표 ID를 어댑터에 전달
-        String activeTimetableId = localStorage.getActiveTimetableId();
-        adapter.setActiveTimetableId(activeTimetableId);
+                    // [삭제] Collections.sort(...) // Firestore에서 이미 정렬했으므로 필요 없음
 
-        adapter.notifyDataSetChanged();
-        updateEmptyView();
+                    String activeTimetableId = localStorage.getActiveTimetableId();
+                    adapter.setActiveTimetableId(activeTimetableId);
+                    adapter.notifyDataSetChanged();
+                    updateEmptyView();
+                })
+                .addOnFailureListener(e -> {
+                    Log.w("SavedTimetablesActivity", "Error loading timetables", e);
+                    Toast.makeText(this, "시간표 로드 실패", Toast.LENGTH_SHORT).show();
+                    updateEmptyView();
+                });
     }
 
     /**
@@ -101,14 +138,12 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
     }
 
     /**
-     * 시간표 활성화 버튼 클릭 리스너
+     * 시간표 활성화 버튼 클릭 리스너 (로컬 작업이므로 수정 필요 없음)
      */
     @Override
     public void onActivateTimetable(SavedTimetable timetable, int position) {
-        // 활성 시간표 ID 설정
         localStorage.setActiveTimetableId(timetable.getId());
 
-        // ScheduleItem을 ScheduleData로 변환하여 현재 시간표에 저장
         List<sprout.app.sakmvp1.timetable.TimeTableFragment.ScheduleData> scheduleDataList = new ArrayList<>();
 
         if (timetable.getSchedules() != null) {
@@ -129,61 +164,67 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
             }
         }
 
-        // 현재 시간표 저장소에 저장
         CurrentTimetableStorage currentStorage = new CurrentTimetableStorage(this);
         currentStorage.saveCurrentTimetable(scheduleDataList);
 
-        // UI 업데이트
         adapter.setActiveTimetableId(timetable.getId());
-
         Toast.makeText(this, "'" + timetable.getName() + "'이(가) 활성화되었습니다", Toast.LENGTH_SHORT).show();
     }
 
     /**
-     * 시간표 삭제 버튼 클릭 리스너
+     * [수정됨] Firestore 경로 변경 (시간표 삭제)
      */
     @Override
     public void onDeleteTimetable(SavedTimetable timetable, int position) {
+        String userId = getCurrentUserId();
+        if (userId == null) return;
+
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("시간표 삭제")
                 .setMessage(timetable.getName() + "을(를) 삭제하시겠습니까?")
                 .setPositiveButton("삭제", (dialog, which) -> {
-                    boolean success = localStorage.deleteTimetable(timetable.getId());
-                    if (success) {
-                        timetableList.remove(position);
-                        adapter.notifyItemRemoved(position);
-                        updateEmptyView();
-                        Toast.makeText(this, "삭제되었습니다", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(this, "삭제에 실패했습니다", Toast.LENGTH_SHORT).show();
-                    }
+
+                    // [수정됨] 경로 변경
+                    db.collection("timetables").document(userId)
+                            .collection("user_timetables").document(timetable.getId())
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                timetableList.remove(position);
+                                adapter.notifyItemRemoved(position);
+                                adapter.notifyItemRangeChanged(position, timetableList.size());
+                                updateEmptyView();
+                                Toast.makeText(this, "삭제되었습니다", Toast.LENGTH_SHORT).show();
+
+                                if (timetable.getId().equals(localStorage.getActiveTimetableId())) {
+                                    localStorage.setActiveTimetableId(null);
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(this, "삭제에 실패했습니다", Toast.LENGTH_SHORT).show();
+                            });
                 })
                 .setNegativeButton("취소", null)
                 .show();
     }
 
     /**
-     * 시간표 이름 수정 버튼 클릭 리스너
+     * [수정됨] Firestore 경로 변경 (시간표 이름 수정)
      */
     @Override
     public void onEditTimetable(SavedTimetable timetable, int position) {
+        String userId = getCurrentUserId();
+        if (userId == null) return;
+
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
         android.view.View dialogView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_save_timetable, null);
         builder.setView(dialogView);
-
         com.google.android.material.textfield.TextInputEditText editTimetableName = dialogView.findViewById(R.id.edit_timetable_name);
         com.google.android.material.button.MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
         com.google.android.material.button.MaterialButton btnSave = dialogView.findViewById(R.id.btn_save);
-
-        // 현재 이름으로 초기화
         editTimetableName.setText(timetable.getName());
         editTimetableName.setSelection(timetable.getName().length());
-
-        // 저장 버튼 텍스트 변경
         btnSave.setText("수정");
-
         androidx.appcompat.app.AlertDialog dialog = builder.create();
-
         btnCancel.setOnClickListener(v -> dialog.dismiss());
 
         btnSave.setOnClickListener(v -> {
@@ -191,48 +232,41 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
                     ? editTimetableName.getText().toString().trim()
                     : "";
 
-            if (newName.isEmpty()) {
-                Toast.makeText(this, "시간표 이름을 입력하세요", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (newName.equals(timetable.getName())) {
+            if (newName.isEmpty() || newName.equals(timetable.getName())) {
                 dialog.dismiss();
                 return;
             }
 
-            // 로컬 저장소 업데이트
-            boolean success = localStorage.updateTimetableName(timetable.getId(), newName);
-            if (success) {
-                timetable.setName(newName);
-                adapter.notifyItemChanged(position);
-                Toast.makeText(this, "시간표 이름이 수정되었습니다", Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
-            } else {
-                Toast.makeText(this, "수정에 실패했습니다", Toast.LENGTH_SHORT).show();
-            }
+            // [수정됨] 경로 변경
+            db.collection("timetables").document(userId)
+                    .collection("user_timetables").document(timetable.getId())
+                    .update("name", newName)
+                    .addOnSuccessListener(aVoid -> {
+                        timetable.setName(newName);
+                        adapter.notifyItemChanged(position);
+                        Toast.makeText(this, "시간표 이름이 수정되었습니다", Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "수정에 실패했습니다", Toast.LENGTH_SHORT).show();
+                    });
         });
 
         dialog.show();
     }
 
     /**
-     * 새 시간표 만들기 다이얼로그 표시
+     * [수정됨] Firestore 경로 변경 (새 시간표 생성)
      */
     private void showCreateTimetableDialog() {
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
         android.view.View dialogView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_save_timetable, null);
         builder.setView(dialogView);
-
         com.google.android.material.textfield.TextInputEditText editTimetableName = dialogView.findViewById(R.id.edit_timetable_name);
         com.google.android.material.button.MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
         com.google.android.material.button.MaterialButton btnSave = dialogView.findViewById(R.id.btn_save);
-
-        // 버튼 텍스트 변경
         btnSave.setText("만들기");
-
         androidx.appcompat.app.AlertDialog dialog = builder.create();
-
         btnCancel.setOnClickListener(v -> dialog.dismiss());
 
         btnSave.setOnClickListener(v -> {
@@ -240,33 +274,41 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
                     ? editTimetableName.getText().toString().trim()
                     : "";
 
+            String userId = getCurrentUserId();
+            if (userId == null) {
+                dialog.dismiss();
+                return;
+            }
+
             if (timetableName.isEmpty()) {
                 Toast.makeText(this, "시간표 이름을 입력하세요", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // 새 시간표 생성
             SavedTimetable newTimetable = new SavedTimetable();
             newTimetable.setName(timetableName);
             newTimetable.setSavedDate(System.currentTimeMillis());
             newTimetable.setSchedules(new ArrayList<>());
+            // [삭제] setUserId() 호출 제거
 
-            // 저장
-            localStorage.saveTimetable(newTimetable);
+            // [수정됨] 경로 변경
+            db.collection("timetables").document(userId)
+                    .collection("user_timetables")
+                    .add(newTimetable)
+                    .addOnSuccessListener(documentReference -> {
+                        String newId = documentReference.getId();
+                        localStorage.setActiveTimetableId(newId);
 
-            // 생성한 시간표를 활성화
-            localStorage.setActiveTimetableId(newTimetable.getId());
+                        CurrentTimetableStorage currentStorage = new CurrentTimetableStorage(this);
+                        currentStorage.saveCurrentTimetable(new ArrayList<>());
 
-            // 현재 시간표를 빈 시간표로 초기화
-            CurrentTimetableStorage currentStorage = new CurrentTimetableStorage(this);
-            currentStorage.saveCurrentTimetable(new ArrayList<>());
-
-            Toast.makeText(this, "'" + timetableName + "'이(가) 생성되었습니다", Toast.LENGTH_SHORT).show();
-
-            // 목록 새로고침
-            loadSavedTimetables();
-
-            dialog.dismiss();
+                        Toast.makeText(this, "'" + timetableName + "'이(가) 생성되었습니다", Toast.LENGTH_SHORT).show();
+                        loadSavedTimetablesFromFirestore();
+                        dialog.dismiss();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "생성에 실패했습니다", Toast.LENGTH_SHORT).show();
+                    });
         });
 
         dialog.show();

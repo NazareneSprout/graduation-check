@@ -69,12 +69,18 @@ public class SavedTimetableAdapter extends RecyclerView.Adapter<SavedTimetableAd
         }
         holder.tvSavedDate.setText(savedDateText);
 
-        // 수업 개수
-        String courseCountText = "총 " + timetable.getCourseCount() + "개 수업";
+        // [수정됨] 수업 개수 (getCourseCount() 대신 schedules.size() 사용)
+        int count = 0;
+        if (timetable.getSchedules() != null) {
+            count = timetable.getSchedules().size();
+        }
+        String courseCountText = "총 " + count + "개 수업";
         holder.tvCourseCount.setText(courseCountText);
+        // [수정 완료]
 
         // 활성화 상태 표시
-        boolean isActive = timetable.getId().equals(activeTimetableId);
+        // [수정됨] timetable.getId()가 null일 경우를 대비
+        boolean isActive = timetable.getId() != null && timetable.getId().equals(activeTimetableId);
         if (isActive) {
             holder.layoutActiveBadge.setVisibility(View.VISIBLE);
             holder.btnActivate.setEnabled(false);

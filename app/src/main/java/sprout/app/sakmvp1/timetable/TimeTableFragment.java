@@ -24,10 +24,19 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
+
+// Firestore 및 FirebaseAuth 임포트
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,9 +45,12 @@ import java.util.Map;
 import java.util.Random;
 
 import sprout.app.sakmvp1.R;
+import sprout.app.sakmvp1.SavedTimetable;
+import sprout.app.sakmvp1.ScheduleItem;
+import sprout.app.sakmvp1.TimetableLocalStorage; // '활성 ID' 관리를 위해 유지
 
 /**
- * 시간표 Fragment
+ * 시간표 Fragment (자동 저장 방식, Nested Collection)
  */
 public class TimeTableFragment extends Fragment {
 
@@ -52,14 +64,18 @@ public class TimeTableFragment extends Fragment {
     private static final int START_TIME_HOUR = 9;
     private static final int END_TIME_HOUR = 24;
 
-    private sprout.app.sakmvp1.CurrentTimetableStorage currentStorage;
+    private sprout.app.sakmvp1.TimetableLocalStorage localStorage;
+    private String activeTimetableId;
+
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     private final ArrayList<ScheduleData> scheduleList = new ArrayList<>();
     private final Map<String, View> scheduleViewMap = new HashMap<>();
 
+    // (ScheduleData 내부 클래스는 동일)
     public static class ScheduleData {
         public String documentId;
-
         public int dayIndex;
         public int startHour;
         public int startMinute;
@@ -68,9 +84,7 @@ public class TimeTableFragment extends Fragment {
         public String subjectName;
         public String professorName;
         public String location;
-
         public ScheduleData() {}
-
         public ScheduleData(int dayIndex, int startHour, int startMinute, int endHour, int endMinute, String subjectName, String professorName, String location) {
             this.dayIndex = dayIndex;
             this.startHour = startHour;
@@ -81,10 +95,10 @@ public class TimeTableFragment extends Fragment {
             this.professorName = professorName;
             this.location = location;
         }
-
         public int getStartTotalMinutes() { return startHour * 60 + startMinute; }
         public int getEndTotalMinutes() { return endHour * 60 + endMinute; }
     }
+
 
     @Nullable
     @Override
@@ -106,18 +120,15 @@ public class TimeTableFragment extends Fragment {
         btnTimetableMenu = view.findViewById(R.id.btnTimetableMenu);
         fabAddSchedule = view.findViewById(R.id.fab_add_schedule);
 
-        // 로컬 저장소 초기화
-        currentStorage = new sprout.app.sakmvp1.CurrentTimetableStorage(requireContext());
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
+        localStorage = new sprout.app.sakmvp1.TimetableLocalStorage(requireContext());
 
         drawTimetableBase();
 
-        // 연필 모양 메뉴 버튼 클릭 - PopupMenu 표시
         btnTimetableMenu.setOnClickListener(v -> showTimetableMenu(v));
-
-        // 수업 추가 FAB 클릭 - BottomSheet 표시
         fabAddSchedule.setOnClickListener(v -> showAddScheduleBottomSheet());
 
-        // 이전 시간표 조회 버튼 클릭
         view.findViewById(R.id.btnPreviousTimetable).setOnClickListener(v -> {
             android.content.Intent intent = new android.content.Intent(requireContext(), sprout.app.sakmvp1.SavedTimetablesActivity.class);
             startActivity(intent);
@@ -127,50 +138,50 @@ public class TimeTableFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        loadSchedulesFromLocal();
+        loadActiveTimetableFromFirestore();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        // 로컬 저장소에 현재 상태 저장
-        currentStorage.saveCurrentTimetable(scheduleList);
+    }
+
+    private String getCurrentUserId() {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null) {
+            return user.getUid();
+        } else {
+            Toast.makeText(requireContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return null;
+        }
     }
 
     private void drawTimetableBase() {
         int hourHeight_dp = 50;
-
         int totalHours = END_TIME_HOUR - START_TIME_HOUR + 1;
         timetableLayout.setMinimumHeight(dpToPx(totalHours * hourHeight_dp));
-
         for (int i = START_TIME_HOUR; i <= END_TIME_HOUR; i++) {
             TextView timeLabel = new TextView(requireContext());
             timeLabel.setText(String.format("%02d", i));
             timeLabel.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
-                    dpToPx(40),
-                    dpToPx(hourHeight_dp)
-            );
+            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(dpToPx(40), dpToPx(hourHeight_dp));
             params.topMargin = dpToPx((i - START_TIME_HOUR) * hourHeight_dp);
             timetableLayout.addView(timeLabel, params);
         }
-
         for (int i = START_TIME_HOUR; i <= END_TIME_HOUR; i++) {
             View line = new View(requireContext());
             line.setBackgroundColor(Color.LTGRAY);
-            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
-                    RelativeLayout.LayoutParams.MATCH_PARENT,
-                    1
-            );
+            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, 1);
             params.topMargin = dpToPx((i - START_TIME_HOUR) * hourHeight_dp);
             timetableLayout.addView(line, params);
         }
     }
 
-    private int dpToPx(float dp) {
-        return (int) (dp * getResources().getDisplayMetrics().density);
-    }
+    private int dpToPx(float dp) { return (int) (dp * getResources().getDisplayMetrics().density); }
 
+    /**
+     * [수정됨] findViewById가 추가된 버전
+     */
     private void showAddScheduleBottomSheet() {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
         View bottomSheetView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_add_schedule, null);
@@ -190,7 +201,6 @@ public class TimeTableFragment extends Fragment {
         spinnerDayOfWeek.setAdapter(adapter);
 
         textTime.setOnClickListener(v -> showTimePickerDialog(textTime));
-
         buttonCancel.setOnClickListener(v -> bottomSheetDialog.dismiss());
 
         buttonAdd.setOnClickListener(v -> {
@@ -203,15 +213,13 @@ public class TimeTableFragment extends Fragment {
                 Toast.makeText(requireContext(), "수업명을 입력하세요.", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             ScheduleData newSchedule = new ScheduleData(dayIndex, startHour, startMinute, endHour, endMinute, subjectName, professorName, location);
-
             if (checkOverlap(newSchedule)) {
                 Toast.makeText(requireContext(), "⚠️ 기존 수업과 시간이 겹칩니다!", Toast.LENGTH_LONG).show();
                 return;
             }
 
-            saveScheduleToLocal(newSchedule);
+            saveScheduleToFirestore(newSchedule);
             bottomSheetDialog.dismiss();
         });
 
@@ -223,19 +231,16 @@ public class TimeTableFragment extends Fragment {
         LayoutInflater inflater = LayoutInflater.from(requireContext());
         View dialogView = inflater.inflate(R.layout.dialog_time_picker, null);
         builder.setView(dialogView);
-
         final NumberPicker startHourPicker = dialogView.findViewById(R.id.picker_start_hour);
         final NumberPicker startMinutePicker = dialogView.findViewById(R.id.picker_start_minute);
         final NumberPicker endHourPicker = dialogView.findViewById(R.id.picker_end_hour);
         final NumberPicker endMinutePicker = dialogView.findViewById(R.id.picker_end_minute);
         final MaterialButton dialogCancelButton = dialogView.findViewById(R.id.button_dialog_cancel);
         final MaterialButton dialogCompleteButton = dialogView.findViewById(R.id.button_dialog_complete);
-
         startHourPicker.setMinValue(START_TIME_HOUR);
         startHourPicker.setMaxValue(END_TIME_HOUR - 1);
         endHourPicker.setMinValue(START_TIME_HOUR);
         endHourPicker.setMaxValue(END_TIME_HOUR - 1);
-
         final String[] minuteValues = {"00", "30"};
         startMinutePicker.setDisplayedValues(minuteValues);
         startMinutePicker.setMinValue(0);
@@ -243,37 +248,30 @@ public class TimeTableFragment extends Fragment {
         endMinutePicker.setDisplayedValues(minuteValues);
         endMinutePicker.setMinValue(0);
         endMinutePicker.setMaxValue(minuteValues.length - 1);
-
         startHourPicker.setValue(startHour);
         startMinutePicker.setValue(startMinute == 30 ? 1 : 0);
         endHourPicker.setValue(endHour);
         endMinutePicker.setValue(endMinute == 30 ? 1 : 0);
-
         final AlertDialog dialog = builder.create();
-
         dialogCancelButton.setOnClickListener(v -> dialog.dismiss());
         dialogCompleteButton.setOnClickListener(v -> {
             startHour = startHourPicker.getValue();
             startMinute = Integer.parseInt(minuteValues[startMinutePicker.getValue()]);
             endHour = endHourPicker.getValue();
             endMinute = Integer.parseInt(minuteValues[endMinutePicker.getValue()]);
-
             if (startHour > endHour || (startHour == endHour && startMinute >= endMinute)) {
                 Toast.makeText(requireContext(), "종료 시간은 시작 시간보다 늦어야 합니다.", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             textTime.setText(String.format("%02d:%02d - %02d:%02d", startHour, startMinute, endHour, endMinute));
             dialog.dismiss();
         });
-
         dialog.show();
     }
 
     private boolean checkOverlap(ScheduleData newSchedule) {
         int newStartTotalMinutes = newSchedule.getStartTotalMinutes();
         int newEndTotalMinutes = newSchedule.getEndTotalMinutes();
-
         for (ScheduleData existingSchedule : scheduleList) {
             if (existingSchedule.dayIndex == newSchedule.dayIndex) {
                 if (newStartTotalMinutes < existingSchedule.getEndTotalMinutes() && newEndTotalMinutes > existingSchedule.getStartTotalMinutes()) {
@@ -283,6 +281,7 @@ public class TimeTableFragment extends Fragment {
         }
         return false;
     }
+
 
     private void addScheduleBlockToView(ScheduleData scheduleData) {
         if (scheduleData.documentId == null || scheduleViewMap.containsKey(scheduleData.documentId)) return;
@@ -309,7 +308,7 @@ public class TimeTableFragment extends Fragment {
                     .setTitle("'" + scheduleData.subjectName + "' 수업 삭제")
                     .setMessage("이 수업을 시간표에서 삭제하시겠습니까?")
                     .setPositiveButton("삭제", (dialog, which) -> {
-                        deleteScheduleFromLocal(scheduleData);
+                        deleteScheduleFromFirestore(scheduleData);
                     })
                     .setNegativeButton("취소", null)
                     .show();
@@ -320,70 +319,127 @@ public class TimeTableFragment extends Fragment {
     private RelativeLayout.LayoutParams calculateBlockParams(ScheduleData schedule) {
         int left_margin_dp = 40;
         int dayWidth = (getResources().getDisplayMetrics().widthPixels - dpToPx(left_margin_dp)) / 5;
-
         int left = dpToPx(left_margin_dp) + dayWidth * schedule.dayIndex;
-
         float minuteHeight_dp = 50.0f / 60.0f;
-
         float top_dp = (schedule.startHour - START_TIME_HOUR) * 60 * minuteHeight_dp + schedule.startMinute * minuteHeight_dp;
         float height_dp = (schedule.getEndTotalMinutes() - schedule.getStartTotalMinutes()) * minuteHeight_dp;
-
         int top = dpToPx(top_dp);
         int height = dpToPx(height_dp);
         if(height < 0) height = 0;
-
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(dayWidth, height);
         params.leftMargin = left;
         params.topMargin = top;
-
         return params;
     }
 
     /**
-     * 수업을 로컬 저장소에 추가
+     * [수정됨] Firestore 경로 변경 (수업 추가)
      */
-    private void saveScheduleToLocal(ScheduleData scheduleData) {
-        // documentId 생성
-        scheduleData.documentId = String.valueOf(System.currentTimeMillis());
+    private void saveScheduleToFirestore(ScheduleData newSchedule) {
+        String userId = getCurrentUserId();
+        if (userId == null || activeTimetableId == null) {
+            Toast.makeText(requireContext(), "저장할 활성 시간표가 없습니다.", Toast.LENGTH_LONG).show();
+            return;
+        }
 
-        scheduleList.add(scheduleData);
-        addScheduleBlockToView(scheduleData);
-        currentStorage.saveCurrentTimetable(scheduleList);
+        sprout.app.sakmvp1.ScheduleItem scheduleItem = new sprout.app.sakmvp1.ScheduleItem(
+                newSchedule.dayIndex, newSchedule.startHour, newSchedule.startMinute,
+                newSchedule.endHour, newSchedule.endMinute, newSchedule.subjectName,
+                newSchedule.professorName, newSchedule.location
+        );
 
-        Toast.makeText(requireContext(), "수업이 추가되었습니다.", Toast.LENGTH_SHORT).show();
+        // [수정됨] 경로 변경 (timetables -> userId -> user_timetables -> docId)
+        db.collection("timetables").document(userId)
+                .collection("user_timetables").document(activeTimetableId)
+                .update("schedules", FieldValue.arrayUnion(scheduleItem))
+                .addOnSuccessListener(aVoid -> {
+                    newSchedule.documentId = String.valueOf(System.currentTimeMillis());
+                    scheduleList.add(newSchedule);
+                    addScheduleBlockToView(newSchedule);
+                    Toast.makeText(requireContext(), "수업이 추가되었습니다.", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Log.w("TimeTableFragment", "Error adding schedule", e);
+                    Toast.makeText(requireContext(), "수업 추가에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                });
     }
 
+
     /**
-     * 로컬 저장소에서 시간표 불러오기
+     * [수정됨] Firestore 경로 변경 (활성 시간표 로드)
      */
-    private void loadSchedulesFromLocal() {
+    private void loadActiveTimetableFromFirestore() {
         clearTimetableViews();
+        activeTimetableId = localStorage.getActiveTimetableId();
+        String userId = getCurrentUserId();
 
-        List<ScheduleData> loadedSchedules = currentStorage.loadCurrentTimetable();
-        scheduleList.addAll(loadedSchedules);
-
-        for (ScheduleData data : scheduleList) {
-            addScheduleBlockToView(data);
+        if (userId == null || activeTimetableId == null) {
+            Log.d("TimeTableFragment", "No active user or timetable set.");
+            return;
         }
+
+        // [수정됨] 경로 변경
+        db.collection("timetables").document(userId)
+                .collection("user_timetables").document(activeTimetableId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        SavedTimetable activeTimetable = documentSnapshot.toObject(SavedTimetable.class);
+                        if (activeTimetable != null && activeTimetable.getSchedules() != null) {
+                            for (sprout.app.sakmvp1.ScheduleItem item : activeTimetable.getSchedules()) {
+                                ScheduleData data = new ScheduleData(
+                                        item.getDayIndex(), item.getStartHour(), item.getStartMinute(),
+                                        item.getEndHour(), item.getEndMinute(), item.getSubjectName(),
+                                        item.getProfessorName(), item.getLocation()
+                                );
+                                data.documentId = String.valueOf(System.currentTimeMillis() + scheduleList.size());
+                                scheduleList.add(data);
+                                addScheduleBlockToView(data);
+                            }
+                        }
+                    } else {
+                        Toast.makeText(requireContext(), "활성 시간표를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
+                        localStorage.setActiveTimetableId(null);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("TimeTableFragment", "Error loading active timetable", e);
+                });
     }
 
+
     /**
-     * 수업 삭제
+     * [수정됨] Firestore 경로 변경 (수업 삭제)
      */
-    private void deleteScheduleFromLocal(ScheduleData scheduleData) {
-        // UI에서 제거
-        View viewToRemove = scheduleViewMap.remove(scheduleData.documentId);
-        if (viewToRemove != null) {
-            timetableLayout.removeView(viewToRemove);
+    private void deleteScheduleFromFirestore(ScheduleData scheduleData) {
+        String userId = getCurrentUserId();
+        if (userId == null || activeTimetableId == null) {
+            Toast.makeText(requireContext(), "오류: 활성 시간표 ID가 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        // 리스트에서 제거
-        scheduleList.removeIf(schedule -> schedule.documentId != null && schedule.documentId.equals(scheduleData.documentId));
+        sprout.app.sakmvp1.ScheduleItem scheduleItemToRemove = new sprout.app.sakmvp1.ScheduleItem(
+                scheduleData.dayIndex, scheduleData.startHour, scheduleData.startMinute,
+                scheduleData.endHour, scheduleData.endMinute, scheduleData.subjectName,
+                scheduleData.professorName, scheduleData.location
+        );
 
-        // 로컬 저장소 업데이트
-        currentStorage.saveCurrentTimetable(scheduleList);
-
-        Toast.makeText(requireContext(), "수업이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+        // [수정됨] 경로 변경
+        db.collection("timetables").document(userId)
+                .collection("user_timetables").document(activeTimetableId)
+                .update("schedules", FieldValue.arrayRemove(scheduleItemToRemove))
+                .addOnSuccessListener(aVoid -> {
+                    View viewToRemove = scheduleViewMap.remove(scheduleData.documentId);
+                    if (viewToRemove != null) {
+                        timetableLayout.removeView(viewToRemove);
+                    }
+                    scheduleList.removeIf(schedule -> schedule.documentId != null && schedule.documentId.equals(scheduleData.documentId));
+                    Toast.makeText(requireContext(), "수업이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Log.w("TimeTableFragment", "Error deleting schedule", e);
+                    Toast.makeText(requireContext(), "수업 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void clearTimetableViews() {
@@ -395,95 +451,18 @@ public class TimeTableFragment extends Fragment {
     }
 
     /**
-     * 현재 시간표 저장 다이얼로그 표시
-     */
-    private void showSaveTimetableDialog() {
-        if (scheduleList.isEmpty()) {
-            Toast.makeText(requireContext(), "저장할 시간표가 없습니다", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_save_timetable, null);
-        builder.setView(dialogView);
-
-        TextInputEditText editTimetableName = dialogView.findViewById(R.id.edit_timetable_name);
-        MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
-        MaterialButton btnSave = dialogView.findViewById(R.id.btn_save);
-
-        // 기본 이름 제안
-        String defaultName = new java.text.SimpleDateFormat("yyyy-M학기 시간표", java.util.Locale.KOREA)
-                .format(new java.util.Date());
-        editTimetableName.setText(defaultName);
-
-        AlertDialog dialog = builder.create();
-
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-
-        btnSave.setOnClickListener(v -> {
-            String timetableName = editTimetableName.getText() != null
-                    ? editTimetableName.getText().toString().trim()
-                    : "";
-
-            if (timetableName.isEmpty()) {
-                Toast.makeText(requireContext(), "시간표 이름을 입력하세요", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            saveTimetableToFirestore(timetableName);
-            dialog.dismiss();
-        });
-
-        dialog.show();
-    }
-
-    /**
-     * 시간표를 로컬 저장소에 저장
-     */
-    private void saveTimetableToFirestore(String timetableName) {
-        // ScheduleData를 ScheduleItem으로 변환
-        java.util.List<sprout.app.sakmvp1.ScheduleItem> scheduleItems = new java.util.ArrayList<>();
-        for (ScheduleData data : scheduleList) {
-            sprout.app.sakmvp1.ScheduleItem item = new sprout.app.sakmvp1.ScheduleItem(
-                    data.dayIndex,
-                    data.startHour,
-                    data.startMinute,
-                    data.endHour,
-                    data.endMinute,
-                    data.subjectName,
-                    data.professorName,
-                    data.location
-            );
-            scheduleItems.add(item);
-        }
-
-        sprout.app.sakmvp1.SavedTimetable savedTimetable = new sprout.app.sakmvp1.SavedTimetable(
-                timetableName,
-                "",  // userId는 로컬 저장에서 필요없음
-                System.currentTimeMillis(),
-                scheduleItems
-        );
-
-        sprout.app.sakmvp1.TimetableLocalStorage localStorage =
-                new sprout.app.sakmvp1.TimetableLocalStorage(requireContext());
-        localStorage.saveTimetable(savedTimetable);
-
-        Toast.makeText(requireContext(), "'" + timetableName + "'이(가) 저장되었습니다", Toast.LENGTH_SHORT).show();
-    }
-
-    /**
-     * 시간표 메뉴 표시 (PopupMenu)
+     * [수정됨] "시간표 저장" 메뉴 숨기기
      */
     private void showTimetableMenu(View anchor) {
         PopupMenu popup = new PopupMenu(requireContext(), anchor);
         popup.getMenuInflater().inflate(R.menu.menu_timetable, popup.getMenu());
-
+        MenuItem saveItem = popup.getMenu().findItem(R.id.action_save_timetable);
+        if (saveItem != null) {
+            saveItem.setVisible(false);
+        }
         popup.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
-            if (itemId == R.id.action_save_timetable) {
-                showSaveTimetableDialog();
-                return true;
-            } else if (itemId == R.id.action_new_timetable) {
+            if (itemId == R.id.action_new_timetable) {
                 showCreateNewTimetableDialog();
                 return true;
             } else if (itemId == R.id.action_edit_timetable) {
@@ -492,26 +471,21 @@ public class TimeTableFragment extends Fragment {
             }
             return false;
         });
-
         popup.show();
     }
 
     /**
-     * 새 시간표 만들기 다이얼로그
+     * [수정됨] Firestore 경로 변경 (새 시간표 생성)
      */
     private void showCreateNewTimetableDialog() {
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
         android.view.View dialogView = android.view.LayoutInflater.from(requireContext()).inflate(R.layout.dialog_save_timetable, null);
         builder.setView(dialogView);
-
         com.google.android.material.textfield.TextInputEditText editTimetableName = dialogView.findViewById(R.id.edit_timetable_name);
         com.google.android.material.button.MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
         com.google.android.material.button.MaterialButton btnSave = dialogView.findViewById(R.id.btn_save);
-
         btnSave.setText("만들기");
-
         androidx.appcompat.app.AlertDialog dialog = builder.create();
-
         btnCancel.setOnClickListener(v -> dialog.dismiss());
 
         btnSave.setOnClickListener(v -> {
@@ -519,69 +493,65 @@ public class TimeTableFragment extends Fragment {
                     ? editTimetableName.getText().toString().trim()
                     : "";
 
+            String userId = getCurrentUserId();
+            if (userId == null) {
+                dialog.dismiss();
+                return;
+            }
+
             if (timetableName.isEmpty()) {
                 Toast.makeText(requireContext(), "시간표 이름을 입력하세요", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // 새 시간표 생성
             sprout.app.sakmvp1.SavedTimetable newTimetable = new sprout.app.sakmvp1.SavedTimetable();
             newTimetable.setName(timetableName);
             newTimetable.setSavedDate(System.currentTimeMillis());
             newTimetable.setSchedules(new java.util.ArrayList<>());
+            // [삭제] setUserId() 호출 제거
 
-            sprout.app.sakmvp1.TimetableLocalStorage localStorage =
-                    new sprout.app.sakmvp1.TimetableLocalStorage(requireContext());
-            localStorage.saveTimetable(newTimetable);
-
-            // 생성한 시간표를 활성화
-            localStorage.setActiveTimetableId(newTimetable.getId());
-
-            // 현재 시간표를 빈 시간표로 초기화
-            scheduleList.clear();
-            clearTimetableViews();
-            currentStorage.saveCurrentTimetable(scheduleList);
-
-            Toast.makeText(requireContext(), "'" + timetableName + "'이(가) 생성되고 활성화되었습니다", Toast.LENGTH_SHORT).show();
-            dialog.dismiss();
+            // [수정됨] 경로 변경
+            db.collection("timetables").document(userId)
+                    .collection("user_timetables")
+                    .add(newTimetable)
+                    .addOnSuccessListener(documentReference -> {
+                        String newTimetableId = documentReference.getId();
+                        localStorage.setActiveTimetableId(newTimetableId);
+                        activeTimetableId = newTimetableId;
+                        clearTimetableViews();
+                        Toast.makeText(requireContext(), "'" + timetableName + "'이(가) 생성되고 활성화되었습니다", Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.w("TimeTableFragment", "Error creating new timetable", e);
+                        Toast.makeText(requireContext(), "생성에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    });
         });
 
         dialog.show();
     }
 
     /**
-     * 현재 활성화된 시간표 이름 수정 다이얼로그
+     * [수정됨] Firestore 경로 변경 (시간표 이름 수정)
      */
     private void showEditActiveTimetableDialog() {
-        sprout.app.sakmvp1.TimetableLocalStorage localStorage =
-                new sprout.app.sakmvp1.TimetableLocalStorage(requireContext());
-        String activeTimetableId = localStorage.getActiveTimetableId();
+        String currentActiveId = localStorage.getActiveTimetableId();
+        String userId = getCurrentUserId();
 
-        if (activeTimetableId == null) {
+        if (userId == null || currentActiveId == null || currentActiveId.isEmpty()) {
             Toast.makeText(requireContext(), "활성화된 시간표가 없습니다", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        sprout.app.sakmvp1.SavedTimetable activeTimetable = localStorage.getTimetable(activeTimetableId);
-        if (activeTimetable == null) {
-            Toast.makeText(requireContext(), "시간표를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
             return;
         }
 
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
         android.view.View dialogView = android.view.LayoutInflater.from(requireContext()).inflate(R.layout.dialog_save_timetable, null);
         builder.setView(dialogView);
-
         com.google.android.material.textfield.TextInputEditText editTimetableName = dialogView.findViewById(R.id.edit_timetable_name);
         com.google.android.material.button.MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
         com.google.android.material.button.MaterialButton btnSave = dialogView.findViewById(R.id.btn_save);
-
-        editTimetableName.setText(activeTimetable.getName());
-        editTimetableName.setSelection(activeTimetable.getName().length());
+        editTimetableName.setHint("새 시간표 이름 입력");
         btnSave.setText("수정");
-
         androidx.appcompat.app.AlertDialog dialog = builder.create();
-
         btnCancel.setOnClickListener(v -> dialog.dismiss());
 
         btnSave.setOnClickListener(v -> {
@@ -594,18 +564,18 @@ public class TimeTableFragment extends Fragment {
                 return;
             }
 
-            if (newName.equals(activeTimetable.getName())) {
-                dialog.dismiss();
-                return;
-            }
-
-            boolean success = localStorage.updateTimetableName(activeTimetableId, newName);
-            if (success) {
-                Toast.makeText(requireContext(), "시간표 이름이 수정되었습니다", Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
-            } else {
-                Toast.makeText(requireContext(), "수정에 실패했습니다", Toast.LENGTH_SHORT).show();
-            }
+            // [수정됨] 경로 변경
+            db.collection("timetables").document(userId)
+                    .collection("user_timetables").document(currentActiveId)
+                    .update("name", newName)
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(requireContext(), "시간표 이름이 수정되었습니다", Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.w("TimeTableFragment", "Error updating timetable name", e);
+                        Toast.makeText(requireContext(), "수정에 실패했습니다", Toast.LENGTH_SHORT).show();
+                    });
         });
 
         dialog.show();
