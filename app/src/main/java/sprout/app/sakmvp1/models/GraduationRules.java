@@ -76,20 +76,29 @@ public class GraduationRules {
         // 2. 각 카테고리 분석
         Map<String, CategoryAnalysisResult> categoryResults = new HashMap<>();
         for (RequirementCategory category : categories) {
+            Log.d(TAG, "Analyzing category: " + category.getName() + " (id=" + category.getId() +
+                  ", type=" + category.getType() + ", required=" + category.getRequired() + ")");
+
             CategoryAnalysisResult categoryResult = category.analyze(adjustedCourses);
             categoryResults.put(category.getId(), categoryResult);
             result.addCategoryResult(categoryResult);
 
             Log.d(TAG, "Category analyzed: " + category.getName() + " -> " +
                   categoryResult.getEarnedCredits() + "/" + categoryResult.getRequiredCredits() +
-                  " (" + (categoryResult.isCompleted() ? "✓" : "✗") + ")");
+                  " (" + (categoryResult.isCompleted() ? "✓" : "✗") + ")" +
+                  " [completed: " + categoryResult.getCompletedCourses().size() +
+                  ", missing: " + categoryResult.getMissingCourses().size() + "]");
         }
 
         // 3. 총 학점 계산
         int totalEarnedCredits = 0;
+        Log.d(TAG, "Calculating total earned credits:");
         for (CategoryAnalysisResult categoryResult : categoryResults.values()) {
-            totalEarnedCredits += categoryResult.getEarnedCredits();
+            int credits = categoryResult.getEarnedCredits();
+            totalEarnedCredits += credits;
+            Log.d(TAG, "  + " + categoryResult.getCategoryName() + ": " + credits + "학점");
         }
+        Log.d(TAG, "Total earned credits (before overflow): " + totalEarnedCredits);
         result.setTotalEarnedCredits(totalEarnedCredits);
 
         // totalCredits 필드 우선 사용 (Firestore 문서의 totalCredits)

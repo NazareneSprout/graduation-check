@@ -74,12 +74,4 @@
         android:minHeight="48dp"
         android:layout_marginBottom="16dp"/>
 
-    <CheckBox
-        android:id="@+id/cb_copy_credit_requirements"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="학점요건도 함께 복사"
-        android:checked="true"
-        android:textSize="14sp"/>
-
 </LinearLayout>

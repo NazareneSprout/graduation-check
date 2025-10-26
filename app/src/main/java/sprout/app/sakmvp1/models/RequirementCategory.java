@@ -64,6 +64,8 @@ public class RequirementCategory {
                 return analyzeGroup(takenCourses);
             case "competency":
                 return analyzeCompetency(takenCourses);
+            case "elective":
+                return analyzeElective(takenCourses);
             default:
                 Log.w(TAG, "Unknown category type: " + type + " for " + name);
                 return new CategoryAnalysisResult(id, name);
@@ -110,10 +112,14 @@ public class RequirementCategory {
                 earnedCourses++;
                 result.addCompletedCourse(req.getName());
                 Log.d(TAG, "  ✓ Completed: " + req.getName() + " (" + req.getCredits() + "학점)");
-            } else if (req.isMandatory()) {
-                // 필수인데 수강 안 함
+            } else {
+                // 수강 안 함 - 세부 탭 표시를 위해 모든 미이수 과목 추가
                 result.addMissingCourse(req.getName());
-                Log.d(TAG, "  ✗ Missing (mandatory): " + req.getName());
+                if (req.isMandatory()) {
+                    Log.d(TAG, "  ✗ Missing (mandatory): " + req.getName());
+                } else {
+                    Log.d(TAG, "  - Missing (optional): " + req.getName());
+                }
             }
         }
 
@@ -248,6 +254,48 @@ public class RequirementCategory {
         result.setCompleted(allSubgroupsCompleted && totalEarnedCredits >= required);
 
         Log.d(TAG, "  Group result: " + totalEarnedCredits + "/" + required + " credits, completed=" + result.isCompleted());
+
+        return result;
+    }
+
+    /**
+     * elective 타입 분석: 교양선택, 소양, 자율선택 등
+     * 과목 목록이 없고, 사용자가 해당 카테고리로 입력한 모든 과목의 학점을 합산
+     */
+    private CategoryAnalysisResult analyzeElective(List<CourseInputActivity.Course> takenCourses) {
+        CategoryAnalysisResult result = new CategoryAnalysisResult(id, name);
+        result.setRequiredCredits(required);
+
+        Log.d(TAG, "  Analyzing elective-type category: " + name);
+        Log.d(TAG, "  Required credits: " + required);
+        Log.d(TAG, "  Total taken courses to check: " + takenCourses.size());
+
+        int earnedCredits = 0;
+        int earnedCourses = 0;
+        int checkedCourses = 0;
+
+        // 사용자가 이 카테고리로 입력한 모든 과목의 학점 합산
+        for (CourseInputActivity.Course course : takenCourses) {
+            checkedCourses++;
+            Log.d(TAG, "    Checking course #" + checkedCourses + ": [" + course.getCategory() +
+                  "] " + course.getName() + " (" + course.getCredits() + "학점)" +
+                  " - matches '" + name + "'? " + name.equals(course.getCategory()));
+
+            if (name.equals(course.getCategory())) {
+                earnedCredits += course.getCredits();
+                earnedCourses++;
+                result.addCompletedCourse(course.getName());
+                result.addCourseCredit(course.getName(), course.getCredits());
+                Log.d(TAG, "  ✓ COUNTED: " + course.getName() + " (" + course.getCredits() + "학점)");
+            }
+        }
+
+        result.setEarnedCredits(earnedCredits);
+        result.setEarnedCourses(earnedCourses);
+        result.setCompleted(earnedCredits >= required);
+
+        Log.d(TAG, "  Result: " + earnedCredits + "/" + required + " credits, " +
+              earnedCourses + " courses, completed=" + result.isCompleted());
 
         return result;
     }

@@ -122,25 +122,93 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- 이전 연도에서 복사 옵션 -->
-                    <com.google.android.material.checkbox.MaterialCheckBox
-                        android:id="@+id/cb_copy_from_previous"
+                    <!-- 생성 방법 선택 -->
+                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="이전 연도 졸업요건에서 복사"
+                        android:text="생성 방법"
                         android:textSize="14sp"
+                        android:textColor="#616161"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="8dp"/>
 
+                    <RadioGroup
+                        android:id="@+id/radio_group_creation_mode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <RadioButton
+                            android:id="@+id/radio_copy_from_previous"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="이전 졸업요건에서 가져오기"
+                            android:textSize="14sp"
+                            android:checked="true"/>
+
+                        <RadioButton
+                            android:id="@+id/radio_create_new"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="새롭게 만들기"
+                            android:textSize="14sp"/>
+
+                    </RadioGroup>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 이전 졸업요건에서 가져오기 카드 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_copy_from_previous"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#E3F2FD"
+                android:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
                     <TextView
-                        android:id="@+id/tv_copy_info"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="이전 연도의 졸업요건을 불러와 새 연도로 복사합니다"
-                        android:textSize="12sp"
-                        android:textColor="#757575"
-                        android:visibility="gone"
-                        android:layout_marginBottom="12dp"/>
+                        android:text="📋 이전 졸업요건 선택"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#1976D2"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="복사할 졸업요건 선택"
+                        android:textSize="14sp"
+                        android:textColor="#616161"
+                        android:layout_marginBottom="8dp"/>
+
+                    <Spinner
+                        android:id="@+id/spinner_graduation_requirement"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:padding="12dp"
+                        android:background="@android:drawable/btn_dropdown"
+                        android:minHeight="48dp"/>
+
+                    <com.google.android.material.checkbox.MaterialCheckBox
+                        android:id="@+id/cb_copy_credits"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="학점까지 가져오기"
+                        android:textSize="14sp"
+                        android:checked="true"/>
 
                 </LinearLayout>
 
@@ -154,7 +222,8 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="#FFF3E0">
+                app:cardBackgroundColor="#FFF3E0"
+                android:visibility="gone">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -209,7 +278,8 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="#E8F5E9">
+                app:cardBackgroundColor="#E8F5E9"
+                android:visibility="gone">
 
                 <LinearLayout
                     android:layout_width="match_parent"

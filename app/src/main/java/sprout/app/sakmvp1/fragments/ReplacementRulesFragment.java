@@ -98,6 +98,8 @@ public class ReplacementRulesFragment extends Fragment {
             GraduationRules rules = ((GraduationRequirementEditActivity) getActivity()).getGraduationRules();
             android.util.Log.d(TAG, "Activity로부터 데이터 가져옴: " + (rules != null ? "존재" : "null"));
             if (rules != null) {
+                android.util.Log.d(TAG, "대체과목 규칙: " +
+                    (rules.getReplacementRules() != null ? rules.getReplacementRules().size() + "개" : "없음"));
                 bindData(rules);
             }
         }

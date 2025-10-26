@@ -168,8 +168,8 @@ public class MajorDocumentManageActivity extends AppCompatActivity {
                 for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                     String docId = document.getId();
 
-                    // 교양 문서는 제외
-                    if (docId.startsWith("교양_")) {
+                    // 교양 문서와 졸업요건 문서는 제외 (전공 문서만 표시)
+                    if (docId.startsWith("교양_") || docId.startsWith("졸업요건_")) {
                         continue;
                     }
 
@@ -326,16 +326,37 @@ public class MajorDocumentManageActivity extends AppCompatActivity {
     }
 
     /**
-     * 저장 다이얼로그 - 새 학번으로 저장
+     * 저장 다이얼로그 - 새 문서 만들기 or 기존 문서 수정하기 선택
      */
     private void showSaveDialog() {
+        // 먼저 "새 문서 만들기" vs "기존 문서 수정하기" 선택
+        String[] options = {"새 전공문서 만들기", "기존 전공문서 수정하기"};
+
+        new MaterialAlertDialogBuilder(this)
+            .setTitle("저장 방식 선택")
+            .setItems(options, (dialog, which) -> {
+                if (which == 0) {
+                    // 새 문서 만들기
+                    showCreateNewDocumentDialog();
+                } else {
+                    // 기존 문서 수정하기
+                    showUpdateExistingDocumentDialog();
+                }
+            })
+            .setNegativeButton("취소", null)
+            .show();
+    }
+
+    /**
+     * 새 전공 문서 만들기 다이얼로그
+     */
+    private void showCreateNewDocumentDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_new_major_document, null);
 
         Spinner spinnerDepartment = dialogView.findViewById(R.id.spinner_department);
         Spinner spinnerTrack = dialogView.findViewById(R.id.spinner_track);
         EditText etCohort = dialogView.findViewById(R.id.et_cohort);
         Spinner spinnerCategoryType = dialogView.findViewById(R.id.spinner_category_type);
-        android.widget.CheckBox cbCopyCreditRequirements = dialogView.findViewById(R.id.cb_copy_credit_requirements);
 
         Log.d(TAG, "showSaveDialog - documentIds 크기: " + documentIds.size());
 
@@ -440,10 +461,10 @@ public class MajorDocumentManageActivity extends AppCompatActivity {
         }
 
         new MaterialAlertDialogBuilder(this)
-            .setTitle("새 학번으로 저장")
-            .setMessage("현재 과목 목록을 새로운 문서로 저장합니다")
+            .setTitle("새 전공문서 만들기")
+            .setMessage("현재 과목 목록을 새로운 전공 문서로 저장합니다")
             .setView(dialogView)
-            .setPositiveButton("저장", (dialog, which) -> {
+            .setPositiveButton("생성", (dialog, which) -> {
                 String department = (String) spinnerDepartment.getSelectedItem();
                 String track = (String) spinnerTrack.getSelectedItem();
                 String cohortStr = etCohort.getText().toString().trim();
@@ -469,11 +490,30 @@ public class MajorDocumentManageActivity extends AppCompatActivity {
                 String newDocId = department + "_" + track + "_" + cohort;
                 deptCommonCategoryName = categoryType;
 
-                // 학점요건 복사 여부 확인
-                boolean copyCreditRequirements = cbCopyCreditRequirements.isChecked();
-                Log.d(TAG, "체크박스 상태: " + copyCreditRequirements + ", 현재 학점요건: " + (currentCreditRequirements != null ? "있음" : "없음"));
+                // 학점요건 복사는 전공 문서에서는 사용하지 않음 (v3 구조)
+                Log.d(TAG, "새 전공 문서 생성: " + newDocId);
 
-                saveDocumentWithId(newDocId, copyCreditRequirements);
+                saveDocumentWithId(newDocId, false); // v3 구조에서는 학점요건 복사 안함
+            })
+            .setNegativeButton("취소", null)
+            .show();
+    }
+
+    /**
+     * 기존 전공 문서 수정하기
+     */
+    private void showUpdateExistingDocumentDialog() {
+        if (currentDocumentId == null || currentDocumentId.isEmpty()) {
+            Toast.makeText(this, "수정할 문서가 선택되지 않았습니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+            .setTitle("기존 문서 수정")
+            .setMessage("'" + currentDocumentId + "' 문서를 수정하시겠습니까?")
+            .setPositiveButton("수정", (dialog, which) -> {
+                Log.d(TAG, "기존 전공 문서 수정: " + currentDocumentId);
+                saveDocumentWithId(currentDocumentId, false);
             })
             .setNegativeButton("취소", null)
             .show();
@@ -553,76 +593,105 @@ public class MajorDocumentManageActivity extends AppCompatActivity {
     }
 
     /**
-     * 문서 저장
+     * 문서 저장 - 마이그레이션 후 구조 (v3)
+     * 전공 문서는 과목 목록만 포함, 학점 정보는 제거
      */
     private void saveDocumentWithId(String docId, boolean copyCreditRequirements) {
         showLoading(true);
 
-        // categories 데이터 생성
-        List<Map<String, Object>> categories = new ArrayList<>();
-
-        // 전공필수
-        Map<String, Object> majorRequiredCategory = new HashMap<>();
-        majorRequiredCategory.put("name", "전공필수");
-        majorRequiredCategory.put("courses", convertCoursesToMap(adapterMajorRequired.getCourses()));
-        categories.add(majorRequiredCategory);
-
-        // 전공선택
-        Map<String, Object> majorElectiveCategory = new HashMap<>();
-        majorElectiveCategory.put("name", "전공선택");
-        majorElectiveCategory.put("courses", convertCoursesToMap(adapterMajorElective.getCourses()));
-        categories.add(majorElectiveCategory);
-
-        // 학부공통 또는 전공심화
-        Map<String, Object> deptCommonCategory = new HashMap<>();
-        deptCommonCategory.put("name", deptCommonCategoryName);
-        deptCommonCategory.put("courses", convertCoursesToMap(adapterDeptCommon.getCourses()));
-        categories.add(deptCommonCategory);
-
-        // Firestore 문서 데이터
-        Map<String, Object> documentData = new HashMap<>();
-        documentData.put("categories", categories);
-        documentData.put("majorCategoryType", deptCommonCategoryName);
-
-        // 학점요건 복사 - 한글 필드명들을 문서 최상위 레벨에 직접 저장
-        if (copyCreditRequirements && currentCreditRequirements != null) {
-            // 한글 필드명들을 그대로 복사
-            documentData.putAll(currentCreditRequirements);
-
-            // 총이수 필드가 없으면 자동으로 계산해서 추가
-            if (!currentCreditRequirements.containsKey("총이수")) {
-                int total = 0;
-                String[] creditFields = {"전공필수", "전공선택", "교양필수", "교양선택", "소양", "학부공통", "일반선택", "전공심화", "잔여학점"};
-                for (String field : creditFields) {
-                    Object value = currentCreditRequirements.get(field);
-                    if (value instanceof Number) {
-                        total += ((Number) value).intValue();
-                    }
-                }
-                if (total > 0) {
-                    documentData.put("총이수", total);
-                    Log.d(TAG, "총이수 필드 자동 계산 추가: " + total);
-                }
+        // 문서 ID에서 department, track, cohort 추출
+        String[] parts = docId.split("_");
+        String department = parts.length >= 1 ? parts[0] : "";
+        String track = parts.length >= 2 ? parts[1] : "";
+        int cohort = 0;
+        if (parts.length >= 3) {
+            try {
+                cohort = Integer.parseInt(parts[2]);
+            } catch (NumberFormatException e) {
+                Log.e(TAG, "학번 파싱 실패: " + parts[2]);
             }
-
-            Log.d(TAG, "학점요건 복사함: " + currentCreditRequirements);
-        } else {
-            Log.d(TAG, "학점요건 복사하지 않음");
         }
+
+        // v3 구조: rules 필드에 학기별 과목 저장
+        Map<String, Object> rules = new HashMap<>();
+
+        // 학기별로 과목을 분류할 맵 (빈 학기 포함)
+        String[] semesters = {
+            "1학년1학기", "1학년2학기",
+            "2학년1학기", "2학년2학기",
+            "3학년1학기", "3학년2학기",
+            "4학년1학기", "4학년2학기"
+        };
+
+        for (String semester : semesters) {
+            Map<String, Object> semesterData = new HashMap<>();
+            semesterData.put("전공필수", new ArrayList<Map<String, Object>>());
+            semesterData.put("전공선택", new ArrayList<Map<String, Object>>());
+            semesterData.put(deptCommonCategoryName, new ArrayList<Map<String, Object>>());
+            rules.put(semester, semesterData);
+        }
+
+        // 현재는 학기 정보가 없으므로 모든 과목을 1학년1학기에 임시 배치
+        // (실제로는 과목에 학기 정보가 있어야 함)
+        @SuppressWarnings("unchecked")
+        Map<String, Object> firstSemester = (Map<String, Object>) rules.get("1학년1학기");
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> majorRequiredList = (List<Map<String, Object>>) firstSemester.get("전공필수");
+        for (CourseRequirement course : adapterMajorRequired.getCourses()) {
+            Map<String, Object> courseMap = new HashMap<>();
+            courseMap.put("과목명", course.getName());
+            courseMap.put("학점", course.getCredits());
+            majorRequiredList.add(courseMap);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> majorElectiveList = (List<Map<String, Object>>) firstSemester.get("전공선택");
+        for (CourseRequirement course : adapterMajorElective.getCourses()) {
+            Map<String, Object> courseMap = new HashMap<>();
+            courseMap.put("과목명", course.getName());
+            courseMap.put("학점", course.getCredits());
+            majorElectiveList.add(courseMap);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> deptCommonList = (List<Map<String, Object>>) firstSemester.get(deptCommonCategoryName);
+        for (CourseRequirement course : adapterDeptCommon.getCourses()) {
+            Map<String, Object> courseMap = new HashMap<>();
+            courseMap.put("과목명", course.getName());
+            courseMap.put("학점", course.getCredits());
+            deptCommonList.add(courseMap);
+        }
+
+        // ✅ v3 전공 문서 구조 (과목만 포함, 학점 정보 제거)
+        Map<String, Object> documentData = new HashMap<>();
+        documentData.put("docType", "major");
+        documentData.put("department", department);
+        documentData.put("track", track);
+        documentData.put("cohort", cohort);
+        documentData.put("version", "v3");
+        documentData.put("updatedAt", com.google.firebase.Timestamp.now());
+        documentData.put("rules", rules);
+
+        Log.d(TAG, "v3 전공 문서 생성: " + docId);
+        Log.d(TAG, "  - docType: major");
+        Log.d(TAG, "  - department: " + department + ", track: " + track + ", cohort: " + cohort);
+        Log.d(TAG, "  - rules 포함 (학기별 과목)");
+        Log.d(TAG, "  - ❌ 학점요건 제거 (졸업요건 문서에만 존재)");
 
         // Firestore에 저장
         db.collection("graduation_requirements")
             .document(docId)
-            .set(documentData, com.google.firebase.firestore.SetOptions.merge())
+            .set(documentData)
             .addOnSuccessListener(aVoid -> {
                 showLoading(false);
-                Log.d(TAG, "문서 저장 성공: " + docId);
-                Toast.makeText(this, "저장되었습니다: " + docId, Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "전공 문서 저장 성공 (v3): " + docId);
+                Toast.makeText(this, "전공 문서가 저장되었습니다: " + docId, Toast.LENGTH_SHORT).show();
                 finish();
             })
             .addOnFailureListener(e -> {
                 showLoading(false);
-                Log.e(TAG, "문서 저장 실패: " + docId, e);
+                Log.e(TAG, "전공 문서 저장 실패: " + docId, e);
                 Toast.makeText(this, "저장 실패: " + e.getMessage(),
                     Toast.LENGTH_SHORT).show();
             });

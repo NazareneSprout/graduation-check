@@ -12,7 +12,7 @@ public class CreditRequirements {
     private int 교양선택;
     private int 소양;
     private int 학부공통;
-    private int 일반선택;
+    private int 자율선택;
     private int 전공심화;
     private int 잔여학점;
 
@@ -77,12 +77,23 @@ public class CreditRequirements {
         this.학부공통 = 학부공통;
     }
 
-    public int get일반선택() {
-        return 일반선택;
+    public int get자율선택() {
+        return 자율선택;
     }
 
+    public void set자율선택(int 자율선택) {
+        this.자율선택 = 자율선택;
+    }
+
+    // 하위 호환성을 위한 메서드
+    @Deprecated
+    public int get일반선택() {
+        return 자율선택;
+    }
+
+    @Deprecated
     public void set일반선택(int 일반선택) {
-        this.일반선택 = 일반선택;
+        this.자율선택 = 일반선택;
     }
 
     public int get전공심화() {
@@ -124,8 +135,9 @@ public class CreditRequirements {
                 return 소양;
             case "학부공통":
                 return 학부공통;
-            case "일반선택":
-                return 일반선택;
+            case "일반선택":  // 하위 호환성
+            case "자율선택":
+                return 자율선택;
             case "전공심화":
                 return 전공심화;
             case "잔여학점":
@@ -164,8 +176,9 @@ public class CreditRequirements {
             case "학부공통":
                 학부공통 = credits;
                 break;
-            case "일반선택":
-                일반선택 = credits;
+            case "일반선택":  // 하위 호환성
+            case "자율선택":
+                자율선택 = credits;
                 break;
             case "전공심화":
                 전공심화 = credits;
@@ -186,7 +199,7 @@ public class CreditRequirements {
                 ", 교양선택=" + 교양선택 +
                 ", 소양=" + 소양 +
                 ", 학부공통=" + 학부공통 +
-                ", 일반선택=" + 일반선택 +
+                ", 자율선택=" + 자율선택 +
                 ", 전공심화=" + 전공심화 +
                 ", 잔여학점=" + 잔여학점 +
                 '}';

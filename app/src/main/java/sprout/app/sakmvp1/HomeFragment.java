@@ -142,9 +142,10 @@ public class HomeFragment extends Fragment {
         }
 
         if (btnFunction4 != null) {
-            btnFunction4.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "기능4 - 준비중", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction4.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), RequiredDocumentsActivity.class);
+                startActivity(intent);
+            });
         }
 
         if (btnFunction5 != null) {

@@ -32,22 +32,27 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
     private static final String TAG = "GradReqAdd";
 
     private MaterialToolbar toolbar;
-    private Spinner spinnerDepartment, spinnerTrack;
+    private Spinner spinnerDepartment, spinnerTrack, spinnerGraduationRequirement;
     private TextInputEditText etCohort;
-    private TextView tvMajorDoc, tvGeneralDoc, tvCopyInfo;
+    private TextView tvMajorDoc, tvGeneralDoc;
     private MaterialButton btnSelectMajorDoc, btnSelectGeneralDoc, btnSave;
     private ProgressBar progressBar;
-    private android.view.View cardMajorDoc, cardGeneralDoc;
-    private android.widget.CheckBox cbCopyFromPrevious;
+    private android.view.View cardMajorDoc, cardGeneralDoc, cardCopyFromPrevious;
+    private android.widget.RadioGroup radioGroupCreationMode;
+    private android.widget.RadioButton radioCopyFromPrevious, radioCreateNew;
+    private android.widget.CheckBox cbCopyCredits;
 
     private FirebaseFirestore db;
     private String selectedMajorDocId; // 선택된 전공 문서 ID
     private String selectedGeneralDocId; // 선택된 교양 문서 ID
-    private boolean copyFromPreviousMode = false; // 이전 연도에서 복사 모드
 
     // 스피너 어댑터
     private ArrayAdapter<String> departmentAdapter;
     private ArrayAdapter<String> trackAdapter;
+    private ArrayAdapter<String> graduationRequirementAdapter;
+
+    // 졸업요건 문서 목록
+    private List<String> graduationRequirementList = new ArrayList<>();
 
     // 학과별 트랙 매핑
     private Map<String, Set<String>> departmentTrackMap = new HashMap<>();
@@ -66,23 +71,28 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
 
         // Firestore에서 데이터 로드하여 스피너 채우기
         loadDataForSpinners();
+        loadGraduationRequirements();
     }
 
     private void initViews() {
         toolbar = findViewById(R.id.toolbar);
         spinnerDepartment = findViewById(R.id.spinner_department);
         spinnerTrack = findViewById(R.id.spinner_track);
+        spinnerGraduationRequirement = findViewById(R.id.spinner_graduation_requirement);
         cardMajorDoc = findViewById(R.id.card_major_doc);
         cardGeneralDoc = findViewById(R.id.card_general_doc);
+        cardCopyFromPrevious = findViewById(R.id.card_copy_from_previous);
         etCohort = findViewById(R.id.et_cohort);
         tvMajorDoc = findViewById(R.id.tv_major_doc);
         tvGeneralDoc = findViewById(R.id.tv_general_doc);
-        tvCopyInfo = findViewById(R.id.tv_copy_info);
         btnSelectMajorDoc = findViewById(R.id.btn_select_major_doc);
         btnSelectGeneralDoc = findViewById(R.id.btn_select_general_doc);
         btnSave = findViewById(R.id.btn_save);
         progressBar = findViewById(R.id.progress_bar);
-        cbCopyFromPrevious = findViewById(R.id.cb_copy_from_previous);
+        radioGroupCreationMode = findViewById(R.id.radio_group_creation_mode);
+        radioCopyFromPrevious = findViewById(R.id.radio_copy_from_previous);
+        radioCreateNew = findViewById(R.id.radio_create_new);
+        cbCopyCredits = findViewById(R.id.cb_copy_credits);
     }
 
     private void setupSpinners() {
@@ -94,6 +104,10 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
         trackAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, new ArrayList<>());
         trackAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerTrack.setAdapter(trackAdapter);
+
+        graduationRequirementAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, graduationRequirementList);
+        graduationRequirementAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerGraduationRequirement.setAdapter(graduationRequirementAdapter);
     }
 
     private void setupToolbar() {
@@ -126,29 +140,18 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
 
         btnSelectMajorDoc.setOnClickListener(v -> showMajorDocumentSelector());
         btnSelectGeneralDoc.setOnClickListener(v -> showGeneralDocumentSelector());
-        btnSave.setOnClickListener(v -> validateAndSave());
+        btnSave.setOnClickListener(v -> handleSave());
 
-        // 이전 연도에서 복사 체크박스
-        cbCopyFromPrevious.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            copyFromPreviousMode = isChecked;
-            tvCopyInfo.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-
-            if (isChecked) {
-                // 복사 모드 활성화 시 문서 선택 카드 숨김
+        // 라디오버튼 리스너
+        radioGroupCreationMode.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.radio_copy_from_previous) {
+                // 이전 졸업요건에서 가져오기 모드
+                cardCopyFromPrevious.setVisibility(View.VISIBLE);
                 cardMajorDoc.setVisibility(View.GONE);
                 cardGeneralDoc.setVisibility(View.GONE);
-                tvMajorDoc.setText("복사 모드: 이전 연도 데이터에서 자동 설정");
-                tvGeneralDoc.setText("복사 모드: 이전 연도 데이터에서 자동 설정");
-                tvCopyInfo.setText("이전 연도의 졸업요건을 불러와 새 연도로 복사합니다");
-            } else {
-                // 복사 모드 비활성화 시 문서 선택 카드 표시
-                cardMajorDoc.setVisibility(View.VISIBLE);
-                cardGeneralDoc.setVisibility(View.VISIBLE);
-                tvMajorDoc.setText("현재: 새로 생성");
-                tvGeneralDoc.setText("현재: 새로 생성");
-                tvCopyInfo.setText("이전 연도의 졸업요건을 불러와 새 연도로 복사합니다");
-                selectedMajorDocId = null;
-                selectedGeneralDocId = null;
+            } else if (checkedId == R.id.radio_create_new) {
+                // 새롭게 만들기 모드 - 경고 다이얼로그 표시
+                showCreateNewWarningDialog();
             }
         });
     }
@@ -321,6 +324,254 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * 새로 만들기 모드 경고 다이얼로그
+     */
+    private void showCreateNewWarningDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("⚠️ 주의")
+                .setMessage("새로 만들기는 학점 요건을 직접 입력해야 합니다.\n\n" +
+                        "졸업요건 생성 후, 졸업요건 편집 화면의 '학점 요건' 카드에서:\n" +
+                        "• 전공필수\n" +
+                        "• 전공선택\n" +
+                        "• 교양필수\n" +
+                        "• 교양선택\n" +
+                        "• 소양\n" +
+                        "• 학부공통/전공심화\n" +
+                        "• 자율선택\n" +
+                        "모든 학점을 하나씩 직접 입력해야 합니다.\n\n" +
+                        "학점까지 복사하려면 '이전 졸업요건에서 가져오기'를 사용하세요.")
+                .setPositiveButton("이해했습니다", (dialog, which) -> {
+                    // 확인 버튼을 누르면 카드 표시
+                    cardCopyFromPrevious.setVisibility(View.GONE);
+                    cardMajorDoc.setVisibility(View.VISIBLE);
+                    cardGeneralDoc.setVisibility(View.VISIBLE);
+                })
+                .setNegativeButton("취소", (dialog, which) -> {
+                    // 취소하면 이전 졸업요건에서 가져오기로 되돌림
+                    radioCopyFromPrevious.setChecked(true);
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    /**
+     * Firestore에서 졸업요건 목록 로드
+     */
+    private void loadGraduationRequirements() {
+        db.collection("graduation_requirements")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    graduationRequirementList.clear();
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String docId = doc.getId();
+                        if (docId.startsWith("졸업요건_")) {
+                            graduationRequirementList.add(docId);
+                        }
+                    }
+                    graduationRequirementAdapter.notifyDataSetChanged();
+                    Log.d(TAG, "졸업요건 목록 로드 완료: " + graduationRequirementList.size() + "개");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "졸업요건 목록 로드 실패", e);
+                    Toast.makeText(this, "졸업요건 목록 로드 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * 저장 버튼 클릭 처리
+     */
+    private void handleSave() {
+        int checkedId = radioGroupCreationMode.getCheckedRadioButtonId();
+
+        if (checkedId == R.id.radio_copy_from_previous) {
+            // 이전 졸업요건에서 가져오기
+            if (spinnerGraduationRequirement.getSelectedItem() == null) {
+                Toast.makeText(this, "복사할 졸업요건을 선택하세요", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String selectedGradReqDocId = spinnerGraduationRequirement.getSelectedItem().toString();
+            boolean copyCredits = cbCopyCredits.isChecked();
+            copyFromGraduationRequirement(selectedGradReqDocId, copyCredits);
+        } else if (checkedId == R.id.radio_create_new) {
+            // 새롭게 만들기
+            validateAndSave();
+        }
+    }
+
+    /**
+     * 선택한 졸업요건 문서에서 데이터를 복사하여 새 문서 생성
+     * @param sourceDocId 복사할 원본 졸업요건 문서 ID
+     * @param copyCredits 학점 정보도 복사할지 여부
+     */
+    private void copyFromGraduationRequirement(String sourceDocId, boolean copyCredits) {
+        progressBar.setVisibility(View.VISIBLE);
+
+        db.collection("graduation_requirements")
+                .document(sourceDocId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(this, "선택한 졸업요건 문서를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // 학점 정보 복사
+                    Map<String, Object> sourceData = documentSnapshot.getData();
+                    if (sourceData == null) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(this, "졸업요건 데이터를 읽을 수 없습니다.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Log.d(TAG, "학점 복사 원본 문서: " + sourceDocId);
+
+                    // 현재 입력된 정보로 새 문서 생성
+                    String department = spinnerDepartment.getSelectedItem() != null ?
+                            spinnerDepartment.getSelectedItem().toString().trim() : "";
+                    String track = spinnerTrack.getSelectedItem() != null ?
+                            spinnerTrack.getSelectedItem().toString().trim() : "";
+                    String cohortStr = etCohort.getText() != null ? etCohort.getText().toString().trim() : "";
+
+                    // 유효성 검사
+                    if (department.isEmpty()) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(this, "학부/학과를 선택하세요", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (track.isEmpty()) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(this, "트랙을 선택하세요", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (cohortStr.isEmpty()) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(this, "학번을 입력하세요", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    int cohortInput;
+                    try {
+                        cohortInput = Integer.parseInt(cohortStr);
+                    } catch (NumberFormatException e) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(this, "올바른 학번을 입력하세요", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // 2자리 학번을 4자리로 변환
+                    int cohort;
+                    if (cohortInput < 100) {
+                        cohort = 2000 + cohortInput;
+                    } else if (cohortInput >= 2000 && cohortInput <= 2099) {
+                        cohort = cohortInput;
+                    } else {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(this, "올바른 학번을 입력하세요", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    String newDocId = "졸업요건_" + department + "_" + track + "_" + cohort;
+
+                    // 새 문서 데이터 생성
+                    Map<String, Object> newRequirement = new HashMap<>();
+                    newRequirement.put("docType", "graduation");
+                    newRequirement.put("department", department);
+                    newRequirement.put("track", track);
+                    newRequirement.put("cohort", cohort);
+                    newRequirement.put("version", "v3");
+                    newRequirement.put("updatedAt", com.google.firebase.Timestamp.now());
+
+                    // 학점 정보 복사 (선택적)
+                    if (copyCredits) {
+                        Log.d(TAG, "학점 복사 시작");
+
+                        // 모든 학점 관련 필드 복사
+                        String[] creditFields = {"전공필수", "전공선택", "교양필수", "교양선택", "소양",
+                                "학부공통", "전공심화", "자율선택", "totalCredits"};
+
+                        for (String field : creditFields) {
+                            Object value = sourceData.get(field);
+                            if (value instanceof Number) {
+                                newRequirement.put(field, value);
+                                Log.d(TAG, "✅ " + field + " 복사: " + value);
+                            }
+                        }
+
+                        // totalCredits가 없으면 대체 필드 확인
+                        if (!newRequirement.containsKey("totalCredits")) {
+                            Object totalIsuObj = sourceData.get("총이수");
+                            Object totalHakjeomObj = sourceData.get("총학점");
+                            if (totalIsuObj instanceof Number) {
+                                newRequirement.put("totalCredits", totalIsuObj);
+                                Log.d(TAG, "✅ totalCredits 복사 (총이수): " + totalIsuObj);
+                            } else if (totalHakjeomObj instanceof Number) {
+                                newRequirement.put("totalCredits", totalHakjeomObj);
+                                Log.d(TAG, "✅ totalCredits 복사 (총학점): " + totalHakjeomObj);
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "학점 복사 건너뜀");
+                    }
+
+                    // ✅ 전공/교양 문서 참조는 원본 졸업요건이 참조하는 문서를 그대로 복사
+                    String sourceMajorDocRef = (String) sourceData.get("majorDocRef");
+                    String sourceGeneralDocRef = (String) sourceData.get("generalDocRef");
+
+                    if (sourceMajorDocRef != null && !sourceMajorDocRef.isEmpty()) {
+                        newRequirement.put("majorDocRef", sourceMajorDocRef);
+                        Log.d(TAG, "✅ 전공 문서 참조 복사: " + sourceMajorDocRef);
+                    } else {
+                        // 원본에 참조가 없으면 기본값 생성
+                        String defaultMajorDocId = department + "_" + track + "_" + cohort;
+                        newRequirement.put("majorDocRef", defaultMajorDocId);
+                        Log.d(TAG, "✅ 전공 문서 참조 (기본값): " + defaultMajorDocId);
+                    }
+
+                    if (sourceGeneralDocRef != null && !sourceGeneralDocRef.isEmpty()) {
+                        newRequirement.put("generalDocRef", sourceGeneralDocRef);
+                        Log.d(TAG, "✅ 교양 문서 참조 복사: " + sourceGeneralDocRef);
+                    } else {
+                        // 원본에 참조가 없으면 기본값 생성
+                        String defaultGeneralDocId = "교양_" + department + "_" + cohort;
+                        newRequirement.put("generalDocRef", defaultGeneralDocId);
+                        Log.d(TAG, "✅ 교양 문서 참조 (기본값): " + defaultGeneralDocId);
+                    }
+
+                    // ✅ 대체과목 규칙도 원본에서 복사
+                    Object replacementRulesObj = sourceData.get("replacementRules");
+                    if (replacementRulesObj instanceof List) {
+                        newRequirement.put("replacementRules", replacementRulesObj);
+                        List<?> rules = (List<?>) replacementRulesObj;
+                        Log.d(TAG, "✅ 대체과목 규칙 복사: " + rules.size() + "개");
+                    } else {
+                        newRequirement.put("replacementRules", new ArrayList<>());
+                        Log.d(TAG, "대체과목 규칙 없음 (빈 리스트 생성)");
+                    }
+
+                    // Firestore에 저장
+                    db.collection("graduation_requirements")
+                            .document(newDocId)
+                            .set(newRequirement)
+                            .addOnSuccessListener(aVoid -> {
+                                progressBar.setVisibility(View.GONE);
+                                Toast.makeText(this, "졸업요건이 생성되었습니다 (학점 복사 완료)", Toast.LENGTH_SHORT).show();
+                                Log.d(TAG, "✅ 졸업요건 생성 완료: " + newDocId);
+                                finish();
+                            })
+                            .addOnFailureListener(e -> {
+                                progressBar.setVisibility(View.GONE);
+                                Toast.makeText(this, "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                Log.e(TAG, "❌ 저장 실패", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(this, "원본 문서 로드 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
     private void validateAndSave() {
         // 스피너와 입력 필드에서 값 가져오기
         String department = spinnerDepartment.getSelectedItem() != null ?
@@ -413,29 +664,34 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
 
         Map<String, Object> newRequirement = new HashMap<>();
 
-        // 기본 정보 설정
+        // ✅ v3 졸업요건 문서 기본 정보 설정
+        newRequirement.put("docType", "graduation");
         newRequirement.put("department", department);
         newRequirement.put("track", track);
         newRequirement.put("cohort", cohort);
-        newRequirement.put("version", "v2");
+        newRequirement.put("version", "v3");
         newRequirement.put("updatedAt", com.google.firebase.Timestamp.now());
 
-        // 복사 모드인 경우 이전 연도 졸업요건에서 복사
-        if (copyFromPreviousMode) {
-            copyFromPreviousYear(newDocId, newRequirement, department, track, cohort);
-            return;
-        }
-
-        // 전공 문서 참조 설정
+        // ✅ 전공 문서 참조 설정
         if (selectedMajorDocId != null && !selectedMajorDocId.isEmpty()) {
             newRequirement.put("majorDocRef", selectedMajorDocId);
             Log.d(TAG, "전공 문서 참조: " + selectedMajorDocId);
+        } else {
+            // 참조가 없으면 기본 문서 ID 생성
+            String defaultMajorDocId = department + "_" + track + "_" + cohort;
+            newRequirement.put("majorDocRef", defaultMajorDocId);
+            Log.d(TAG, "전공 문서 참조 (기본값): " + defaultMajorDocId);
         }
 
-        // 교양 문서 참조 설정
+        // ✅ 교양 문서 참조 설정
         if (selectedGeneralDocId != null && !selectedGeneralDocId.isEmpty()) {
             newRequirement.put("generalDocRef", selectedGeneralDocId);
             Log.d(TAG, "교양 문서 참조: " + selectedGeneralDocId);
+        } else {
+            // 참조가 없으면 기본 문서 ID 생성
+            String defaultGeneralDocId = "교양_공통_" + cohort;
+            newRequirement.put("generalDocRef", defaultGeneralDocId);
+            Log.d(TAG, "교양 문서 참조 (기본값): " + defaultGeneralDocId);
         }
 
         // 선택된 문서가 있는 경우 해당 문서들에서 학점 정보만 복사
@@ -460,7 +716,15 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
             newRequirement.put("자율선택", 0);
             newRequirement.put("totalCredits", 130);
 
-            Log.d(TAG, "새 졸업요건 문서 기본 구조 생성 완료 (학점 정보만)");
+            // ✅ 빈 대체과목 규칙 초기화
+            newRequirement.put("replacementRules", new ArrayList<>());
+
+            Log.d(TAG, "v3 졸업요건 문서 기본 구조 생성 완료");
+            Log.d(TAG, "  - docType: graduation");
+            Log.d(TAG, "  - majorDocRef: " + newRequirement.get("majorDocRef"));
+            Log.d(TAG, "  - generalDocRef: " + newRequirement.get("generalDocRef"));
+            Log.d(TAG, "  - 학점 정보 포함");
+            Log.d(TAG, "  - replacementRules: []");
 
             saveToFirestore(newDocId, newRequirement);
         }
@@ -468,7 +732,9 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
 
 
     // 졸업요건 문서: 참조 문서들에서 학점 정보만 복사
+    // v3 구조: 전공/교양 문서에는 학점 정보가 없음 (하위 호환성 유지)
     private void loadAndCopyCreditRequirements(String newDocId, Map<String, Object> newRequirement, String department, String track, int cohort) {
+        Log.d(TAG, "학점 복사 시도 - v3 구조에서는 전공/교양 문서에 학점 없음");
         Map<String, Object> creditRequirements = new HashMap<>();
         final int[] documentsToLoad = {0};
         final int[] documentsLoaded = {0};
@@ -476,6 +742,12 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
         // 로드할 문서 개수 계산
         if (selectedMajorDocId != null) documentsToLoad[0]++;
         if (selectedGeneralDocId != null) documentsToLoad[0]++;
+
+        if (documentsToLoad[0] == 0) {
+            Log.d(TAG, "선택된 참조 문서 없음 - 기본값 사용");
+            saveToFirestore(newDocId, newRequirement);
+            return;
+        }
 
         // 전공 문서에서 학점 복사
         if (selectedMajorDocId != null) {
@@ -670,16 +942,13 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
     }
 
     /**
-     * 이전 연도 문서에서 데이터 복사
+     * 이전 연도 문서에서 데이터 복사 - v3 구조
      */
     private void copyDataFromDocument(String newDocId, Map<String, Object> newRequirement,
                                       com.google.firebase.firestore.DocumentSnapshot sourceDoc, int targetCohort) {
         // 복사한 원본 문서 ID 표시
         String sourceDocId = sourceDoc.getId();
-        runOnUiThread(() -> {
-            tvCopyInfo.setText("이전 연도 졸업요건에서 복사: " + sourceDocId);
-        });
-        Log.d(TAG, "이전 연도 졸업요건에서 데이터 복사: " + sourceDocId);
+        Log.d(TAG, "이전 연도 졸업요건에서 데이터 복사 (v3): " + sourceDocId);
 
         // 학점 요건 복사
         String[] creditFields = {"전공필수", "전공선택", "교양필수", "교양선택", "소양",
@@ -693,7 +962,7 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
             }
         }
 
-        // 참조 문서 ID도 복사 (학번만 변경)
+        // ✅ 참조 문서 ID도 복사 (학번만 변경)
         String sourceMajorDocRef = sourceDoc.getString("majorDocRef");
         String sourceGeneralDocRef = sourceDoc.getString("generalDocRef");
 
@@ -709,20 +978,54 @@ public class GraduationRequirementAddActivity extends AppCompatActivity {
                 newRequirement.put("majorDocRef", sourceMajorDocRef);
                 Log.d(TAG, "전공 문서 참조 복사 (변경 없음): " + sourceMajorDocRef);
             }
+        } else {
+            // 참조가 없으면 기본 생성
+            String department = newRequirement.get("department").toString();
+            String track = newRequirement.get("track").toString();
+            String defaultMajorDocRef = department + "_" + track + "_" + targetCohort;
+            newRequirement.put("majorDocRef", defaultMajorDocRef);
+            Log.d(TAG, "전공 문서 참조 기본 생성: " + defaultMajorDocRef);
         }
 
         if (sourceGeneralDocRef != null && !sourceGeneralDocRef.isEmpty()) {
             // 참조 문서의 학번을 현재 학번으로 변경
             String[] parts = sourceGeneralDocRef.split("_");
-            if (parts.length >= 3) {
-                String newGeneralDocRef = parts[0] + "_" + parts[1] + "_" + targetCohort;
-                newRequirement.put("generalDocRef", newGeneralDocRef);
-                Log.d(TAG, "교양 문서 참조 복사 및 학번 변경: " + sourceGeneralDocRef + " → " + newGeneralDocRef);
+            if (parts.length >= 2) {
+                // "교양_공통_2024" → "교양_공통_2025" 또는 "교양_2024" → "교양_2025"
+                if (parts.length >= 3) {
+                    String newGeneralDocRef = parts[0] + "_" + parts[1] + "_" + targetCohort;
+                    newRequirement.put("generalDocRef", newGeneralDocRef);
+                    Log.d(TAG, "교양 문서 참조 복사 및 학번 변경: " + sourceGeneralDocRef + " → " + newGeneralDocRef);
+                } else {
+                    String newGeneralDocRef = parts[0] + "_" + targetCohort;
+                    newRequirement.put("generalDocRef", newGeneralDocRef);
+                    Log.d(TAG, "교양 문서 참조 복사 및 학번 변경: " + sourceGeneralDocRef + " → " + newGeneralDocRef);
+                }
             } else {
                 newRequirement.put("generalDocRef", sourceGeneralDocRef);
                 Log.d(TAG, "교양 문서 참조 복사 (변경 없음): " + sourceGeneralDocRef);
             }
+        } else {
+            // 참조가 없으면 기본 생성
+            String defaultGeneralDocRef = "교양_공통_" + targetCohort;
+            newRequirement.put("generalDocRef", defaultGeneralDocRef);
+            Log.d(TAG, "교양 문서 참조 기본 생성: " + defaultGeneralDocRef);
         }
+
+        // ✅ 대체과목 규칙 복사
+        Object replacementRulesObj = sourceDoc.get("replacementRules");
+        if (replacementRulesObj instanceof List) {
+            newRequirement.put("replacementRules", replacementRulesObj);
+            List<?> rules = (List<?>) replacementRulesObj;
+            Log.d(TAG, "대체과목 규칙 복사: " + rules.size() + "개");
+        } else {
+            newRequirement.put("replacementRules", new ArrayList<>());
+            Log.d(TAG, "대체과목 규칙 없음 (빈 리스트 생성)");
+        }
+
+        Log.d(TAG, "v3 졸업요건 문서 복사 완료");
+        Log.d(TAG, "  - majorDocRef: " + newRequirement.get("majorDocRef"));
+        Log.d(TAG, "  - generalDocRef: " + newRequirement.get("generalDocRef"));
 
         // Firestore에 저장
         saveToFirestore(newDocId, newRequirement);

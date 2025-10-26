@@ -181,7 +181,7 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
     }
 
     /**
-     * 졸업요건 문서의 참조 문서들을 로드하여 병합
+     * 졸업요건 문서의 참조 문서들을 로드하여 병합 (하위 호환 로직 포함)
      */
     private void loadReferencedDocuments(com.google.firebase.firestore.DocumentSnapshot gradReqDoc, String majorDocRef, String generalDocRef) {
         // 참조 문서 ID 저장 (Fragment에서 자동 로드하도록)
@@ -208,8 +208,10 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
         final java.util.Map<String, Object> mergedData = new java.util.HashMap<>();
         final java.util.Map<String, Object> mergedRules = new java.util.HashMap<>();
 
-        // 졸업요건 문서의 학점 정보 먼저 복사
+        // ✅ 졸업요건 문서의 데이터 먼저 복사 (학점 요구사항 + 대체과목 규칙 우선)
         mergedData.putAll(gradReqDoc.getData());
+
+        Log.d(TAG, "졸업요건 문서 기본 데이터 로드: " + gradReqDoc.getData().keySet());
 
         // 전공 문서 로드
         if (majorDocRef != null && !majorDocRef.isEmpty()) {
@@ -217,6 +219,7 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                     .get()
                     .addOnSuccessListener(majorDoc -> {
                         if (majorDoc.exists()) {
+                            // ✅ 전공 과목 목록 (rules) 로드
                             Object rulesObj = majorDoc.get("rules");
                             if (rulesObj instanceof java.util.Map) {
                                 java.util.Map<String, Object> rules = (java.util.Map<String, Object>) rulesObj;
@@ -227,9 +230,34 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                                 Log.d(TAG, "전공 문서 rules 병합: " + mergedRules.size() + "개 키");
                             }
 
-                            // replacementCourses도 복사
-                            if (majorDoc.contains("replacementCourses")) {
+                            // ✅ 하위 호환: 전공 학점 요구사항이 졸업요건 문서에 없으면 전공 문서에서 가져오기
+                            if (!mergedData.containsKey("전공필수") && majorDoc.contains("전공필수")) {
+                                mergedData.put("전공필수", majorDoc.get("전공필수"));
+                                Log.d(TAG, "하위 호환: 전공필수 학점을 전공 문서에서 로드");
+                            }
+                            if (!mergedData.containsKey("전공선택") && majorDoc.contains("전공선택")) {
+                                mergedData.put("전공선택", majorDoc.get("전공선택"));
+                                Log.d(TAG, "하위 호환: 전공선택 학점을 전공 문서에서 로드");
+                            }
+                            if (!mergedData.containsKey("학부공통") && majorDoc.contains("학부공통")) {
+                                mergedData.put("학부공통", majorDoc.get("학부공통"));
+                                Log.d(TAG, "하위 호환: 학부공통 학점을 전공 문서에서 로드");
+                            }
+                            if (!mergedData.containsKey("전공심화") && majorDoc.contains("전공심화")) {
+                                mergedData.put("전공심화", majorDoc.get("전공심화"));
+                                Log.d(TAG, "하위 호환: 전공심화 학점을 전공 문서에서 로드");
+                            }
+
+                            // ✅ replacementCourses 복사 (구버전 호환)
+                            if (majorDoc.contains("replacementCourses") && !mergedData.containsKey("replacementCourses")) {
                                 mergedData.put("replacementCourses", majorDoc.get("replacementCourses"));
+                                Log.d(TAG, "하위 호환: replacementCourses를 전공 문서에서 로드");
+                            }
+
+                            // ✅ replacementRules 복사 (하위 호환: 졸업요건 문서에 없으면 전공 문서에서)
+                            if (majorDoc.contains("replacementRules") && !mergedData.containsKey("replacementRules")) {
+                                mergedData.put("replacementRules", majorDoc.get("replacementRules"));
+                                Log.d(TAG, "하위 호환: replacementRules를 전공 문서에서 로드");
                             }
                         }
 
@@ -253,6 +281,7 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                     .get()
                     .addOnSuccessListener(generalDoc -> {
                         if (generalDoc.exists()) {
+                            // ✅ 교양 과목 목록 (rules) 로드
                             Object rulesObj = generalDoc.get("rules");
                             if (rulesObj instanceof java.util.Map) {
                                 java.util.Map<String, Object> rules = (java.util.Map<String, Object>) rulesObj;
@@ -261,6 +290,26 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
                                 // 교양 문서의 rules 전체를 병합 (기존 전공 rules와 합침)
                                 mergedRules.putAll(rules);
                                 Log.d(TAG, "교양 문서 rules 병합: " + mergedRules.size() + "개 키");
+                            }
+
+                            // ✅ 하위 호환: 교양 학점 요구사항이 졸업요건 문서에 없으면 교양 문서에서 가져오기
+                            if (!mergedData.containsKey("교양필수") && generalDoc.contains("교양필수")) {
+                                mergedData.put("교양필수", generalDoc.get("교양필수"));
+                                Log.d(TAG, "하위 호환: 교양필수 학점을 교양 문서에서 로드");
+                            }
+                            if (!mergedData.containsKey("교양선택") && generalDoc.contains("교양선택")) {
+                                mergedData.put("교양선택", generalDoc.get("교양선택"));
+                                Log.d(TAG, "하위 호환: 교양선택 학점을 교양 문서에서 로드");
+                            }
+                            if (!mergedData.containsKey("소양") && generalDoc.contains("소양")) {
+                                mergedData.put("소양", generalDoc.get("소양"));
+                                Log.d(TAG, "하위 호환: 소양 학점을 교양 문서에서 로드");
+                            }
+
+                            // ✅ 교양 대체과목 규칙 (있는 경우, 하위 호환)
+                            if (generalDoc.contains("replacementRules") && !mergedData.containsKey("replacementRules")) {
+                                mergedData.put("replacementRules", generalDoc.get("replacementRules"));
+                                Log.d(TAG, "하위 호환: replacementRules를 교양 문서에서 로드");
                             }
                         }
 
@@ -391,13 +440,25 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
             }
         }
 
-        // replacementCourses 처리
-        Object replacementObj = data.get("replacementCourses");
-        if (replacementObj instanceof java.util.Map) {
-            // replacementCourses를 ReplacementRule 리스트로 변환
+        // ✅ replacementRules 처리 (우선순위 높음 - 신형식)
+        Object replacementRulesObj = data.get("replacementRules");
+        if (replacementRulesObj instanceof java.util.List) {
             java.util.List<sprout.app.sakmvp1.models.ReplacementRule> replacementRules =
-                parseReplacementCoursesMap((java.util.Map<String, Object>) replacementObj);
+                parseReplacementRules((java.util.List<?>) replacementRulesObj);
             rules.setReplacementRules(replacementRules);
+            Log.d(TAG, "convertMapToGraduationRules: replacementRules 파싱 완료 - " + replacementRules.size() + "개");
+        } else {
+            // ❌ replacementCourses 처리 (구형식, fallback)
+            Object replacementObj = data.get("replacementCourses");
+            if (replacementObj instanceof java.util.Map) {
+                // replacementCourses를 ReplacementRule 리스트로 변환
+                java.util.List<sprout.app.sakmvp1.models.ReplacementRule> replacementRules =
+                    parseReplacementCoursesMap((java.util.Map<String, Object>) replacementObj);
+                rules.setReplacementRules(replacementRules);
+                Log.d(TAG, "convertMapToGraduationRules: replacementCourses(구형식) 파싱 완료");
+            } else {
+                Log.d(TAG, "convertMapToGraduationRules: 대체과목 규칙 없음");
+            }
         }
 
         return rules;
@@ -753,6 +814,12 @@ public class GraduationRequirementEditActivity extends AppCompatActivity {
             }
             if (replacementFragment != null) {
                 replacementFragment.bindData(graduationRules);
+                Log.d(TAG, "대체과목 데이터 바인딩 완료: " +
+                    (graduationRules.getReplacementRules() != null ?
+                        graduationRules.getReplacementRules().size() + "개" : "없음"));
+            } else {
+                // Fragment가 아직 생성되지 않았을 경우
+                Log.d(TAG, "대체과목 Fragment 아직 생성 안됨");
             }
 
             // 데이터 로딩이 완료되면 편집 가능 상태로 간주 (변경 가능성이 있음)

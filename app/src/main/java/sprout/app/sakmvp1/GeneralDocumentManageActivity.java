@@ -311,9 +311,31 @@ public class GeneralDocumentManageActivity extends AppCompatActivity {
     }
 
     /**
-     * 저장 다이얼로그 - 새 학번으로 저장
+     * 저장 다이얼로그 - 새 문서 만들기 or 기존 문서 수정하기 선택
      */
     private void showSaveDialog() {
+        // 먼저 "새 문서 만들기" vs "기존 문서 수정하기" 선택
+        String[] options = {"새 교양문서 만들기", "기존 교양문서 수정하기"};
+
+        new MaterialAlertDialogBuilder(this)
+            .setTitle("저장 방식 선택")
+            .setItems(options, (dialog, which) -> {
+                if (which == 0) {
+                    // 새 문서 만들기
+                    showCreateNewDocumentDialog();
+                } else {
+                    // 기존 문서 수정하기
+                    showUpdateExistingDocumentDialog();
+                }
+            })
+            .setNegativeButton("취소", null)
+            .show();
+    }
+
+    /**
+     * 새 교양 문서 만들기 다이얼로그
+     */
+    private void showCreateNewDocumentDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_new_general_document, null);
 
         EditText etCohort = dialogView.findViewById(R.id.et_cohort);
@@ -321,7 +343,14 @@ public class GeneralDocumentManageActivity extends AppCompatActivity {
         // 현재 문서 정보로 초기값 설정
         if (currentDocumentId != null) {
             String[] parts = currentDocumentId.split("_");
-            if (parts.length >= 2) {
+            if (parts.length >= 3) {
+                // "교양_공통_2020" 형식
+                String cohortStr = parts[2];
+                if (cohortStr.length() == 4) {
+                    etCohort.setText(cohortStr.substring(2)); // 2026 -> 26
+                }
+            } else if (parts.length >= 2) {
+                // "교양_2020" 형식
                 String cohortStr = parts[1];
                 if (cohortStr.length() == 4) {
                     etCohort.setText(cohortStr.substring(2)); // 2026 -> 26
@@ -330,10 +359,10 @@ public class GeneralDocumentManageActivity extends AppCompatActivity {
         }
 
         new MaterialAlertDialogBuilder(this)
-            .setTitle("새 학번으로 저장")
+            .setTitle("새 교양문서 만들기")
             .setMessage("현재 과목 목록을 새로운 교양 문서로 저장합니다")
             .setView(dialogView)
-            .setPositiveButton("저장", (dialog, which) -> {
+            .setPositiveButton("생성", (dialog, which) -> {
                 String cohortStr = etCohort.getText().toString().trim();
 
                 if (cohortStr.isEmpty()) {
@@ -352,10 +381,31 @@ public class GeneralDocumentManageActivity extends AppCompatActivity {
                     return;
                 }
 
-                // 문서 ID 생성: "교양_2026" 형식
-                String newDocId = "교양_" + cohort;
+                // 문서 ID 생성: "교양_공통_2026" 형식
+                String newDocId = "교양_공통_" + cohort;
 
+                Log.d(TAG, "새 교양 문서 생성: " + newDocId);
                 saveDocumentWithId(newDocId);
+            })
+            .setNegativeButton("취소", null)
+            .show();
+    }
+
+    /**
+     * 기존 교양 문서 수정하기
+     */
+    private void showUpdateExistingDocumentDialog() {
+        if (currentDocumentId == null || currentDocumentId.isEmpty()) {
+            Toast.makeText(this, "수정할 문서가 선택되지 않았습니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+            .setTitle("기존 문서 수정")
+            .setMessage("'" + currentDocumentId + "' 문서를 수정하시겠습니까?")
+            .setPositiveButton("수정", (dialog, which) -> {
+                Log.d(TAG, "기존 교양 문서 수정: " + currentDocumentId);
+                saveDocumentWithId(currentDocumentId);
             })
             .setNegativeButton("취소", null)
             .show();
@@ -454,10 +504,33 @@ public class GeneralDocumentManageActivity extends AppCompatActivity {
     }
 
     /**
-     * 문서 저장
+     * 문서 저장 - 마이그레이션 후 구조 (v3)
+     * 교양 문서는 과목 목록만 포함, 학점 정보는 제거
      */
     private void saveDocumentWithId(String docId) {
         showLoading(true);
+
+        // 문서 ID에서 cohort 추출: "교양_공통_2020" 또는 "교양_2020"
+        String[] parts = docId.split("_");
+        String department = "공통"; // 교양은 기본적으로 "공통"
+        int cohort = 0;
+
+        if (parts.length >= 3) {
+            // "교양_공통_2020" 형식
+            department = parts[1];
+            try {
+                cohort = Integer.parseInt(parts[2]);
+            } catch (NumberFormatException e) {
+                Log.e(TAG, "학번 파싱 실패: " + parts[2]);
+            }
+        } else if (parts.length >= 2) {
+            // "교양_2020" 형식
+            try {
+                cohort = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException e) {
+                Log.e(TAG, "학번 파싱 실패: " + parts[1]);
+            }
+        }
 
         // rules.requirements 데이터 생성
         List<Map<String, Object>> requirements = new ArrayList<>();
@@ -491,23 +564,34 @@ public class GeneralDocumentManageActivity extends AppCompatActivity {
         Map<String, Object> rules = new HashMap<>();
         rules.put("requirements", requirements);
 
-        // Firestore 문서 데이터
+        // ✅ v3 교양 문서 구조 (과목만 포함, 학점 정보 제거)
         Map<String, Object> documentData = new HashMap<>();
+        documentData.put("docType", "general");
+        documentData.put("department", department);
+        documentData.put("cohort", cohort);
+        documentData.put("version", "v3");
+        documentData.put("updatedAt", com.google.firebase.Timestamp.now());
         documentData.put("rules", rules);
+
+        Log.d(TAG, "v3 교양 문서 생성: " + docId);
+        Log.d(TAG, "  - docType: general");
+        Log.d(TAG, "  - department: " + department + ", cohort: " + cohort);
+        Log.d(TAG, "  - rules 포함 (requirements)");
+        Log.d(TAG, "  - ❌ 학점요건 제거 (졸업요건 문서에만 존재)");
 
         // Firestore에 저장
         db.collection("graduation_requirements")
             .document(docId)
-            .set(documentData, com.google.firebase.firestore.SetOptions.merge())
+            .set(documentData)
             .addOnSuccessListener(aVoid -> {
                 showLoading(false);
-                Log.d(TAG, "문서 저장 성공: " + docId);
-                Toast.makeText(this, "저장되었습니다: " + docId, Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "교양 문서 저장 성공 (v3): " + docId);
+                Toast.makeText(this, "교양 문서가 저장되었습니다: " + docId, Toast.LENGTH_SHORT).show();
                 finish();
             })
             .addOnFailureListener(e -> {
                 showLoading(false);
-                Log.e(TAG, "문서 저장 실패: " + docId, e);
+                Log.e(TAG, "교양 문서 저장 실패: " + docId, e);
                 Toast.makeText(this, "저장 실패: " + e.getMessage(),
                     Toast.LENGTH_SHORT).show();
             });

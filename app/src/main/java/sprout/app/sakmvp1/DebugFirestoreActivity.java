@@ -59,6 +59,9 @@ public class DebugFirestoreActivity extends AppCompatActivity {
         setContentView(mainLayout);
 
         db = FirebaseFirestore.getInstance();
+
+        // 자동으로 문서 구조 로그 출력
+        checkGraduationRequirementsStructure();
     }
 
     private void checkV2Collection() {
@@ -393,6 +396,149 @@ public class DebugFirestoreActivity extends AppCompatActivity {
                 tvOutput.setText("❌ 오류: " + e.getMessage());
                 Log.e(TAG, "문서 로드 실패", e);
             });
+    }
+
+    /**
+     * graduation_requirements 컬렉션 전체 구조 확인
+     */
+    private void checkGraduationRequirementsStructure() {
+        Log.d(TAG, "=".repeat(60));
+        Log.d(TAG, "graduation_requirements 컬렉션 구조 분석 시작");
+        Log.d(TAG, "=".repeat(60));
+
+        db.collection("graduation_requirements")
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                Log.d(TAG, "총 문서 수: " + querySnapshot.size());
+
+                // 문서 타입별로 분류
+                List<QueryDocumentSnapshot> gradDocs = new ArrayList<>();  // 졸업요건_ 문서
+                List<QueryDocumentSnapshot> majorDocs = new ArrayList<>(); // 전공 문서
+                List<QueryDocumentSnapshot> generalDocs = new ArrayList<>(); // 교양 문서
+
+                for (QueryDocumentSnapshot doc : querySnapshot) {
+                    String docId = doc.getId();
+                    if (docId.startsWith("졸업요건_")) {
+                        gradDocs.add(doc);
+                    } else if (docId.startsWith("교양_")) {
+                        generalDocs.add(doc);
+                    } else {
+                        majorDocs.add(doc);
+                    }
+                }
+
+                Log.d(TAG, "\n[문서 타입별 개수]");
+                Log.d(TAG, "- 졸업요건 문서: " + gradDocs.size() + "개");
+                Log.d(TAG, "- 전공 문서: " + majorDocs.size() + "개");
+                Log.d(TAG, "- 교양 문서: " + generalDocs.size() + "개");
+
+                // 졸업요건 문서 샘플 확인
+                if (!gradDocs.isEmpty()) {
+                    Log.d(TAG, "\n" + "=".repeat(60));
+                    Log.d(TAG, "[졸업요건 문서 샘플]");
+                    Log.d(TAG, "=".repeat(60));
+                    QueryDocumentSnapshot sample = gradDocs.get(0);
+                    logDocumentStructure(sample);
+                }
+
+                // 전공 문서 샘플 확인
+                if (!majorDocs.isEmpty()) {
+                    Log.d(TAG, "\n" + "=".repeat(60));
+                    Log.d(TAG, "[전공 문서 샘플]");
+                    Log.d(TAG, "=".repeat(60));
+                    QueryDocumentSnapshot sample = majorDocs.get(0);
+                    logDocumentStructure(sample);
+                }
+
+                // 교양 문서 샘플 확인
+                if (!generalDocs.isEmpty()) {
+                    Log.d(TAG, "\n" + "=".repeat(60));
+                    Log.d(TAG, "[교양 문서 샘플]");
+                    Log.d(TAG, "=".repeat(60));
+                    QueryDocumentSnapshot sample = generalDocs.get(0);
+                    logDocumentStructure(sample);
+                }
+
+                Log.d(TAG, "\n" + "=".repeat(60));
+                Log.d(TAG, "구조 분석 완료");
+                Log.d(TAG, "=".repeat(60));
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "구조 분석 실패", e);
+            });
+    }
+
+    /**
+     * 문서 구조를 로그로 출력
+     */
+    private void logDocumentStructure(QueryDocumentSnapshot doc) {
+        String docId = doc.getId();
+        Map<String, Object> data = doc.getData();
+
+        Log.d(TAG, "\n문서 ID: " + docId);
+        Log.d(TAG, "\n[최상위 필드]");
+
+        for (String key : data.keySet()) {
+            Object value = data.get(key);
+
+            if (value instanceof Map) {
+                Map<?, ?> map = (Map<?, ?>) value;
+                Log.d(TAG, "  " + key + ": Map (" + map.size() + "개 키)");
+
+                // rules 필드는 더 자세히 분석
+                if ("rules".equals(key)) {
+                    logRulesStructure(map);
+                }
+            } else if (value instanceof List) {
+                List<?> list = (List<?>) value;
+                Log.d(TAG, "  " + key + ": List (" + list.size() + "개 항목)");
+            } else {
+                Log.d(TAG, "  " + key + ": " + value);
+            }
+        }
+    }
+
+    /**
+     * rules 구조 자세히 로그
+     */
+    private void logRulesStructure(Map<?, ?> rules) {
+        Log.d(TAG, "\n  [rules 구조 상세]");
+
+        for (Object keyObj : rules.keySet()) {
+            String key = keyObj.toString();
+            Object value = rules.get(key);
+
+            if (value instanceof Map) {
+                Map<?, ?> map = (Map<?, ?>) value;
+                Log.d(TAG, "    " + key + ": Map");
+
+                // 학기 데이터인 경우 (예: "1학년 1학기")
+                for (Object subKeyObj : map.keySet()) {
+                    String subKey = subKeyObj.toString();
+                    Object subValue = map.get(subKey);
+
+                    if (subValue instanceof List) {
+                        List<?> list = (List<?>) subValue;
+                        Log.d(TAG, "      " + subKey + ": List (" + list.size() + "개 과목)");
+
+                        // 첫 번째 과목 샘플 출력
+                        if (!list.isEmpty() && list.get(0) instanceof Map) {
+                            Map<?, ?> course = (Map<?, ?>) list.get(0);
+                            Log.d(TAG, "        샘플: " + course.keySet());
+                        }
+                    }
+                }
+            } else if (value instanceof List) {
+                List<?> list = (List<?>) value;
+                Log.d(TAG, "    " + key + ": List (" + list.size() + "개 항목)");
+
+                // 첫 번째 항목 샘플 출력
+                if (!list.isEmpty() && list.get(0) instanceof Map) {
+                    Map<?, ?> item = (Map<?, ?>) list.get(0);
+                    Log.d(TAG, "      샘플: " + item.keySet());
+                }
+            }
+        }
     }
 
     /**

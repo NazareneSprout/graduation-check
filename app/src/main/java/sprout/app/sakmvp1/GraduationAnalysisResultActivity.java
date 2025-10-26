@@ -563,6 +563,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     break;
                 case "일반선택":
                 case "잔여학점":
+                case "자율선택":
                     creditRequirements.freeElective = required;
                     break;
             }
@@ -604,6 +605,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     graduationProgress.majorAdvanced = progress;
                     break;
                 case "일반선택":
+                case "자율선택":
                     graduationProgress.generalSelection = progress;
                     break;
                 case "잔여학점":
@@ -679,6 +681,14 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             // 완료된 과목 + 미이수 과목 = 모든 과목
             allCoursesInCategory.addAll(categoryResult.getCompletedCourses());
             allCoursesInCategory.addAll(categoryResult.getMissingCourses());
+
+            // 모든 카테고리의 학점 정보를 courseCreditsMap에 추가
+            if (categoryResult.getCourseCreditsMap() != null) {
+                for (Map.Entry<String, Integer> entry : categoryResult.getCourseCreditsMap().entrySet()) {
+                    courseCreditsMap.put(entry.getKey(), entry.getValue());
+                    Log.d(TAG, categoryName + " 과목 학점 정보 추가: " + entry.getKey() + " = " + entry.getValue() + "학점");
+                }
+            }
 
             switch (categoryName) {
                 case "전공필수":
@@ -2223,7 +2233,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 // 미이수 과목들 추가
                 for (String course : allCourses) {
                     if (!isCourseCompleted(course, takenCourses)) {
-                        addMissingCourseItem(contentLayout, course, 3); // 대부분 3학점
+                        int credits = getCourseCreditsFromFirebase(course);
+                        addMissingCourseItem(contentLayout, course, credits);
                     }
                 }
 
@@ -2414,7 +2425,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                         boolean hasUncompletedCourses = false;
                         for (String course : allCourses) {
                             if (!isCourseCompleted(course, takenCourses)) {
-                                addMissingCourseItem(contentLayout, course, 3);
+                                int credits = getCourseCreditsFromFirebase(course);
+                                addMissingCourseItem(contentLayout, course, credits);
                                 hasUncompletedCourses = true;
                             }
                         }

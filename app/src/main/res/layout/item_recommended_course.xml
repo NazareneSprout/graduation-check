@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="?attr/colorOutline">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- 상단: 과목명과 카테고리 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_course_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="컴퓨터프로그래밍"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="?android:textColorPrimary" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_category"
+                style="@style/Widget.Material3.Chip.Assist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="전공필수"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <!-- 중간: 학점과 우선순위 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_credits"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="3학점"
+                android:textSize="14sp"
+                android:textColor="?android:textColorSecondary" />
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="12dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="?android:textColorSecondary" />
+
+            <TextView
+                android:id="@+id/tv_priority"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="★ 1순위"
+                android:textSize="14sp"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <!-- 하단: 추천 이유 -->
+        <TextView
+            android:id="@+id/tv_reason"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="필수 교양과목 · 부족 12학점"
+            android:textSize="13sp"
+            android:textColor="?android:textColorSecondary" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>
