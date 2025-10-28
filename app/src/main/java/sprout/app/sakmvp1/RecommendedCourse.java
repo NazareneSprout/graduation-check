@@ -1,5 +1,8 @@
 package sprout.app.sakmvp1;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 추천 과목 데이터 모델
  */
@@ -10,8 +13,10 @@ public class RecommendedCourse {
     private int priority;             // 추천 우선순위 (1~6)
     private String reason;            // 추천 이유
     private String semester;          // 개설 학기 (1학기, 2학기, 연중 등)
+    private List<String> alternativeCourses;  // 대체 가능한 과목 리스트 (oneOf 그룹)
 
     public RecommendedCourse() {
+        this.alternativeCourses = new ArrayList<>();
     }
 
     public RecommendedCourse(String courseName, String category, int credits, int priority, String reason) {
@@ -20,6 +25,7 @@ public class RecommendedCourse {
         this.credits = credits;
         this.priority = priority;
         this.reason = reason;
+        this.alternativeCourses = new ArrayList<>();
     }
 
     // Getters and Setters
@@ -69,6 +75,21 @@ public class RecommendedCourse {
 
     public void setSemester(String semester) {
         this.semester = semester;
+    }
+
+    public List<String> getAlternativeCourses() {
+        return alternativeCourses;
+    }
+
+    public void setAlternativeCourses(List<String> alternativeCourses) {
+        this.alternativeCourses = alternativeCourses;
+    }
+
+    /**
+     * 대체 가능한 과목이 있는지 확인
+     */
+    public boolean hasAlternatives() {
+        return alternativeCourses != null && !alternativeCourses.isEmpty();
     }
 
     /**

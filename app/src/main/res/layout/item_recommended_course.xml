@@ -42,49 +42,60 @@
 
         </LinearLayout>
 
-        <!-- 중간: 학점과 우선순위 -->
+        <!-- 중간: 학점 -->
+        <TextView
+            android:id="@+id/tv_credits"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="3학점"
+            android:textSize="14sp"
+            android:textColor="?android:textColorSecondary" />
+
+        <!-- 아코디언 헤더 (대체 과목이 있을 때만 표시) -->
         <LinearLayout
+            android:id="@+id/layout_accordion_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp"
-            android:gravity="center_vertical">
+            android:layout_marginTop="12dp"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:visibility="gone">
 
             <TextView
-                android:id="@+id/tv_credits"
-                android:layout_width="wrap_content"
+                android:id="@+id/tv_alternatives_label"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="3학점"
-                android:textSize="14sp"
-                android:textColor="?android:textColorSecondary" />
+                android:layout_weight="1"
+                android:text="📋 대체 가능 과목"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorPrimary" />
 
-            <View
-                android:layout_width="1dp"
-                android:layout_height="12dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:background="?android:textColorSecondary" />
-
-            <TextView
-                android:id="@+id/tv_priority"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="★ 1순위"
-                android:textSize="14sp"
-                android:textColor="?attr/colorPrimary"
-                android:textStyle="bold" />
+            <ImageView
+                android:id="@+id/iv_expand_icon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@android:drawable/arrow_down_float"
+                android:tint="?attr/colorPrimary" />
 
         </LinearLayout>
 
-        <!-- 하단: 추천 이유 -->
-        <TextView
-            android:id="@+id/tv_reason"
+        <!-- 아코디언 내용 (대체 가능 과목 리스트) -->
+        <LinearLayout
+            android:id="@+id/layout_alternatives_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="필수 교양과목 · 부족 12학점"
-            android:textSize="13sp"
-            android:textColor="?android:textColorSecondary" />
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:background="?attr/colorSurfaceVariant"
+            android:visibility="gone">
+
+            <!-- 대체 과목들이 동적으로 추가됩니다 -->
+
+        </LinearLayout>
 
     </LinearLayout>
 

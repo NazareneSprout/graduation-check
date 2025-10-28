@@ -1,8 +1,11 @@
 package sprout.app.sakmvp1;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -12,6 +15,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.chip.Chip;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -26,8 +31,10 @@ import java.util.Map;
 import java.util.Set;
 
 import sprout.app.sakmvp1.models.CategoryAnalysisResult;
+import sprout.app.sakmvp1.models.CourseRequirement;
 import sprout.app.sakmvp1.models.GraduationAnalysisResult;
 import sprout.app.sakmvp1.models.GraduationRules;
+import sprout.app.sakmvp1.models.RequirementCategory;
 
 /**
  * 수강과목 추천 결과 화면 (V2 통합)
@@ -41,6 +48,8 @@ public class RecommendationResultActivity extends AppCompatActivity {
 
     private MaterialToolbar toolbar;
     private TextView tvRecommendationOptions;
+    private MaterialCardView cardPrioritySummary;
+    private LinearLayout layoutPrioritySummary;
     private RecyclerView recyclerViewRecommendations;
     private ProgressBar progressBar;
     private TextView tvEmptyMessage;
@@ -57,6 +66,7 @@ public class RecommendationResultActivity extends AppCompatActivity {
     private String userTrack;
     private boolean considerTimetable;
     private int difficultyLevel;
+    private String currentSemester;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +94,8 @@ public class RecommendationResultActivity extends AppCompatActivity {
 
         // Views
         tvRecommendationOptions = findViewById(R.id.tvRecommendationOptions);
+        cardPrioritySummary = findViewById(R.id.cardPrioritySummary);
+        layoutPrioritySummary = findViewById(R.id.layoutPrioritySummary);
         recyclerViewRecommendations = findViewById(R.id.recyclerViewRecommendations);
         progressBar = findViewById(R.id.progressBar);
         tvEmptyMessage = findViewById(R.id.tvEmptyMessage);
@@ -104,12 +116,14 @@ public class RecommendationResultActivity extends AppCompatActivity {
         userYear = getIntent().getStringExtra("userYear");
         userDepartment = getIntent().getStringExtra("userDepartment");
         userTrack = getIntent().getStringExtra("userTrack");
+        currentSemester = getIntent().getStringExtra("currentSemester");
 
         // 추천 옵션 표시
         String timetableText = considerTimetable ? "고려함" : "안함";
         String difficultyText = difficultyLevel == 1 ? "😊 쉬움" :
                                difficultyLevel == 2 ? "📚 보통" : "🔥 어려움";
-        tvRecommendationOptions.setText("시간표 고려: " + timetableText + " | 학기 난이도: " + difficultyText);
+        String semesterText = currentSemester != null ? currentSemester + " 이하" : "전체";
+        tvRecommendationOptions.setText("시간표 고려: " + timetableText + " | 학기 난이도: " + difficultyText + " | 학기: " + semesterText);
 
         // 추천 과목 생성
         generateRecommendations();
@@ -251,6 +265,50 @@ public class RecommendationResultActivity extends AppCompatActivity {
             Log.d(TAG, "카테고리: " + categoryName +
                   " (" + earnedCredits + "/" + requiredCredits + ", 부족: " + remainingCredits + ")");
 
+            // oneOf 그룹 과목 추출 (이 중 하나만 선택하는 그룹)
+            Set<String> oneOfGroupCourses = new HashSet<>();
+            Map<String, String> oneOfGroupRepresentative = new HashMap<>(); // 그룹 -> 대표 과목
+            Map<String, List<String>> oneOfGroupMembers = new HashMap<>(); // 그룹 -> 모든 과목 리스트
+
+            // SubgroupResults에서 oneOf 그룹 확인
+            Log.d(TAG, "  >>> SubgroupResults 확인 시작");
+            if (categoryResult.getSubgroupResults() != null) {
+                Log.d(TAG, "      SubgroupResults 개수: " + categoryResult.getSubgroupResults().size());
+                int subgroupIndex = 0;
+                for (CategoryAnalysisResult.SubgroupResult subgroup : categoryResult.getSubgroupResults()) {
+                    subgroupIndex++;
+                    Log.d(TAG, "      [" + subgroupIndex + "] groupId: " + subgroup.getGroupId() + ", name: " + subgroup.getGroupName());
+                    List<String> availableCourses = subgroup.getAvailableCourses();
+                    if (availableCourses != null) {
+                        Log.d(TAG, "          availableCourses: " + availableCourses.size() + "개");
+                        for (String course : availableCourses) {
+                            Log.d(TAG, "            - " + course);
+                        }
+                        if (availableCourses.size() > 1) {
+                            // oneOf 그룹으로 추정 (여러 선택지가 있는 경우)
+                            String groupId = subgroup.getGroupId();
+
+                            // 이 그룹의 모든 과목을 Set에 추가
+                            oneOfGroupCourses.addAll(availableCourses);
+
+                            // 그룹의 모든 과목 리스트 저장
+                            oneOfGroupMembers.put(groupId, new ArrayList<>(availableCourses));
+
+                            // 첫 번째 과목을 대표로 선정
+                            if (!oneOfGroupRepresentative.containsKey(groupId)) {
+                                oneOfGroupRepresentative.put(groupId, availableCourses.get(0));
+                                Log.d(TAG, "          ✓ oneOf 그룹 발견: " + groupId + ", 대표 과목: " + availableCourses.get(0) +
+                                      " (총 " + availableCourses.size() + "개 선택지)");
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "          availableCourses: NULL");
+                    }
+                }
+            } else {
+                Log.d(TAG, "      SubgroupResults가 NULL입니다");
+            }
+
             // 미이수 과목 리스트
             List<String> missingCourses = categoryResult.getMissingCourses();
             Map<String, Integer> courseCreditsMap = categoryResult.getCourseCreditsMap();
@@ -259,6 +317,28 @@ public class RecommendationResultActivity extends AppCompatActivity {
                 Log.d(TAG, "  미이수 과목 " + missingCourses.size() + "개 발견");
 
                 for (String courseName : missingCourses) {
+                    // oneOf 그룹 처리: 대표 과목이 아니면 건너뜀
+                    if (oneOfGroupCourses.contains(courseName)) {
+                        boolean isRepresentative = false;
+                        for (String representative : oneOfGroupRepresentative.values()) {
+                            if (representative.equals(courseName)) {
+                                isRepresentative = true;
+                                break;
+                            }
+                        }
+                        if (!isRepresentative) {
+                            Log.d(TAG, "    ⊘ " + courseName + " (oneOf 그룹 중복 제외)");
+                            continue;
+                        }
+                    }
+
+                    // 학기 정보 확인 및 필터링
+                    String courseSemester = getCourseSemester(courseName, rules);
+                    if (!isSemesterEligible(courseSemester, currentSemester, categoryName)) {
+                        Log.d(TAG, "    ✗ " + courseName + " (학기 필터링: " + courseSemester + " | 현재: " + currentSemester + " | 카테고리: " + categoryName + ")");
+                        continue; // 학기 조건에 맞지 않는 과목은 건너뜀
+                    }
+
                     // 학점 정보 가져오기
                     int credits = 3; // 기본값
                     if (courseCreditsMap != null && courseCreditsMap.containsKey(courseName)) {
@@ -272,9 +352,33 @@ public class RecommendationResultActivity extends AppCompatActivity {
                     RecommendedCourse course = new RecommendedCourse(
                         courseName, categoryName, credits, priority, reason
                     );
+
+                    // oneOf 그룹의 대표 과목인 경우, 대체 가능한 과목 리스트 설정
+                    if (oneOfGroupCourses.contains(courseName)) {
+                        // 이 과목이 속한 그룹 찾기
+                        for (Map.Entry<String, String> entry : oneOfGroupRepresentative.entrySet()) {
+                            if (entry.getValue().equals(courseName)) {
+                                String groupId = entry.getKey();
+                                List<String> groupMembers = oneOfGroupMembers.get(groupId);
+                                if (groupMembers != null && groupMembers.size() > 1) {
+                                    // 자신을 제외한 나머지 과목들을 대체 과목으로 설정
+                                    List<String> alternatives = new ArrayList<>();
+                                    for (String member : groupMembers) {
+                                        if (!member.equals(courseName)) {
+                                            alternatives.add(member);
+                                        }
+                                    }
+                                    course.setAlternativeCourses(alternatives);
+                                    Log.d(TAG, "    ✓ " + courseName + " (oneOf 대체 과목 " + alternatives.size() + "개 설정)");
+                                }
+                                break;
+                            }
+                        }
+                    }
+
                     allRecommendations.add(course);
 
-                    Log.d(TAG, "    - " + courseName + " (우선순위: " + priority + ")");
+                    Log.d(TAG, "    ✓ " + courseName + " (우선순위: " + priority + ", 학기: " + (courseSemester != null ? courseSemester : "미지정") + ")");
                 }
             }
         }
@@ -390,9 +494,13 @@ public class RecommendationResultActivity extends AppCompatActivity {
             tvEmptyMessage.setVisibility(View.VISIBLE);
             tvEmptyMessage.setText("🎉 축하합니다!\n\n모든 필수 과목을 이수했습니다.\n선택 과목을 자유롭게 수강하세요.");
             recyclerViewRecommendations.setVisibility(View.GONE);
+            cardPrioritySummary.setVisibility(View.GONE);
         } else {
             tvEmptyMessage.setVisibility(View.GONE);
             recyclerViewRecommendations.setVisibility(View.VISIBLE);
+
+            // 우선순위 요약 생성 및 표시
+            displayPrioritySummary(allCourses);
 
             String message = "📚 " + allCourses.size() + "개의 과목을 추천합니다";
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
@@ -407,10 +515,151 @@ public class RecommendationResultActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 카테고리별 과목군 요약 표시
+     */
+    private void displayPrioritySummary(List<RecommendedCourse> courses) {
+        layoutPrioritySummary.removeAllViews();
+
+        // 카테고리별 그룹화
+        Map<String, List<RecommendedCourse>> categoryGroups = new HashMap<>();
+        for (RecommendedCourse course : courses) {
+            String category = course.getCategory();
+            if (!categoryGroups.containsKey(category)) {
+                categoryGroups.put(category, new ArrayList<>());
+            }
+            categoryGroups.get(category).add(course);
+        }
+
+        // 카테고리 표시 순서 정의 (우선순위 기반)
+        String[] categoryOrder = {
+            "교양필수", "전공필수", "학부공통", "전공심화",
+            "전공선택", "교양선택", "소양", "자율선택", "일반선택", "잔여학점"
+        };
+
+        boolean hasAnyCategory = false;
+        for (String category : categoryOrder) {
+            List<RecommendedCourse> categoryCourses = categoryGroups.get(category);
+            if (categoryCourses != null && !categoryCourses.isEmpty()) {
+                hasAnyCategory = true;
+                addCategoryView(category, categoryCourses);
+            }
+        }
+
+        // 정의되지 않은 카테고리도 추가
+        for (Map.Entry<String, List<RecommendedCourse>> entry : categoryGroups.entrySet()) {
+            String category = entry.getKey();
+            boolean isInOrder = false;
+            for (String orderedCategory : categoryOrder) {
+                if (orderedCategory.equals(category)) {
+                    isInOrder = true;
+                    break;
+                }
+            }
+            if (!isInOrder && !entry.getValue().isEmpty()) {
+                hasAnyCategory = true;
+                addCategoryView(category, entry.getValue());
+            }
+        }
+
+        cardPrioritySummary.setVisibility(hasAnyCategory ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * 카테고리별 뷰 추가
+     */
+    private void addCategoryView(String category, List<RecommendedCourse> courses) {
+        View categoryView = getLayoutInflater().inflate(R.layout.item_priority_level, layoutPrioritySummary, false);
+
+        Chip chipCategoryName = categoryView.findViewById(R.id.chipCategoryName);
+        TextView tvCourseCount = categoryView.findViewById(R.id.tvCourseCount);
+        TextView tvCategoryDescription = categoryView.findViewById(R.id.tvCategoryDescription);
+
+        // 카테고리명과 과목 수 표시
+        chipCategoryName.setText(category);
+        tvCourseCount.setText(" · " + courses.size() + "과목");
+
+        // 카테고리별 색상 적용
+        int color = getCategoryColor(category);
+        chipCategoryName.setChipBackgroundColor(ColorStateList.valueOf(color));
+        // 텍스트 색상은 배경색의 밝기에 따라 자동 결정
+        chipCategoryName.setTextColor(getContrastColor(color));
+
+        // 카테고리별 설명 설정
+        String description = getCategoryDescription(category);
+        tvCategoryDescription.setText(description);
+
+        layoutPrioritySummary.addView(categoryView);
+    }
+
+    /**
+     * 카테고리별 추천 설명 반환
+     */
+    private String getCategoryDescription(String category) {
+        switch (category) {
+            case "교양필수":
+                return "💡 최대한 저학년일 때 듣는 것이 좋습니다";
+            case "학부공통":
+            case "전공심화":
+                return "📅 학년에 맞춰서 다 듣는 것을 추천합니다";
+            case "전공필수":
+                return "✅ 웬만하면 듣는 것을 추천합니다";
+            case "전공선택":
+                return "🎯 학점 여유에 맞춰 듣는 것을 추천합니다";
+            case "교양선택":
+            case "소양":
+                return "⭐ 듣고 싶은 과목의 자리를 얻었다면 그때 들으세요";
+            case "자율선택":
+            case "일반선택":
+            case "잔여학점":
+                return "📝 자유롭게 수강할 수 있는 학점입니다";
+            default:
+                return "📚 추천되는 과목입니다";
+        }
+    }
+
+    /**
+     * 카테고리별 색상 반환
+     */
+    public static int getCategoryColor(String category) {
+        switch (category) {
+            case "교양필수":
+                return Color.parseColor("#FFB74D"); // 주황색
+            case "전공필수":
+                return Color.parseColor("#EF5350"); // 빨간색
+            case "학부공통":
+                return Color.parseColor("#42A5F5"); // 파란색
+            case "전공심화":
+                return Color.parseColor("#AB47BC"); // 보라색
+            case "전공선택":
+                return Color.parseColor("#66BB6A"); // 초록색
+            case "교양선택":
+                return Color.parseColor("#FFA726"); // 밝은 주황색
+            case "소양":
+                return Color.parseColor("#26C6DA"); // 청록색
+            case "자율선택":
+            case "일반선택":
+            case "잔여학점":
+                return Color.parseColor("#9E9E9E"); // 회색
+            default:
+                return Color.parseColor("#78909C"); // 청회색
+        }
+    }
+
+    /**
+     * 배경색에 대비되는 텍스트 색상 반환 (밝기 기반)
+     */
+    private int getContrastColor(int color) {
+        // 색상의 밝기 계산
+        double darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
+        return darkness < 0.5 ? Color.BLACK : Color.WHITE;
+    }
+
     private void showError(String message) {
         tvEmptyMessage.setVisibility(View.VISIBLE);
         tvEmptyMessage.setText("❌ 오류\n\n" + message);
         recyclerViewRecommendations.setVisibility(View.GONE);
+        cardPrioritySummary.setVisibility(View.GONE);
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
@@ -418,5 +667,124 @@ public class RecommendationResultActivity extends AppCompatActivity {
     public boolean onSupportNavigateUp() {
         finish();
         return true;
+    }
+
+    /**
+     * 학기 비교 헬퍼 메서드 (전공 과목용 - 홀짝 학기 매칭)
+     * @param courseSemester 과목의 학기 (예: "1-1", "2-2")
+     * @param currentSemester 현재 학기 (예: "2-1")
+     * @param categoryName 카테고리 이름 (전공/교양 구분용)
+     * @return 과목이 추천 가능하면 true, 아니면 false
+     */
+    private boolean isSemesterEligible(String courseSemester, String currentSemester, String categoryName) {
+        if (courseSemester == null || courseSemester.isEmpty()) {
+            // 학기 정보가 없는 과목은 항상 추천 (선택과목 등)
+            return true;
+        }
+        if (currentSemester == null || currentSemester.isEmpty()) {
+            // 현재 학기 필터가 없으면 모든 과목 추천
+            return true;
+        }
+
+        try {
+            // "X-Y" 형식 파싱
+            String[] courseParts = courseSemester.split("-");
+            String[] currentParts = currentSemester.split("-");
+
+            if (courseParts.length != 2 || currentParts.length != 2) {
+                // 파싱 실패 시 추천 (안전한 기본값)
+                return true;
+            }
+
+            int courseGrade = Integer.parseInt(courseParts[0]);
+            int courseSem = Integer.parseInt(courseParts[1]);
+            int currentGrade = Integer.parseInt(currentParts[0]);
+            int currentSem = Integer.parseInt(currentParts[1]);
+
+            // 교양 과목은 학기 상관없이 현재 학년 이하만 체크
+            boolean isGeneralEducation = categoryName != null &&
+                (categoryName.contains("교양") || categoryName.contains("소양"));
+
+            if (isGeneralEducation) {
+                // 교양: 학년만 체크 (학기 무관)
+                return courseGrade <= currentGrade;
+            }
+
+            // 전공 과목: 학년 체크 + 같은 홀짝 학기만
+            // 미래 학년 과목은 제외
+            if (courseGrade > currentGrade) {
+                return false;
+            }
+
+            // 현재 학년 이하이고, 같은 홀짝 학기인지 확인
+            // 예: 현재 3학년 2학기(짝수) → 1-2, 2-2, 3-2만 추천
+            if (courseSem == currentSem) {
+                // 같은 학기 번호 (1학기끼리 또는 2학기끼리)
+                return true;
+            }
+
+            // 다른 학기 번호는 제외
+            return false;
+
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "학기 파싱 실패: " + courseSemester + ", " + currentSemester, e);
+            return true; // 파싱 실패 시 추천 (안전한 기본값)
+        }
+    }
+
+    /**
+     * GraduationRules에서 특정 과목의 학기 정보 찾기
+     * @param courseName 과목명
+     * @param rules 졸업요건 규칙
+     * @return 학기 정보 (없으면 null)
+     */
+    private String getCourseSemester(String courseName, GraduationRules rules) {
+        if (courseName == null || rules == null) {
+            return null;
+        }
+
+        // 모든 카테고리를 순회하며 과목 찾기
+        if (rules.getCategories() != null) {
+            for (RequirementCategory category : rules.getCategories()) {
+                String semester = searchCourseSemester(courseName, category);
+                if (semester != null) {
+                    return semester;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 카테고리 내에서 과목의 학기 정보 재귀 검색
+     * @param courseName 과목명
+     * @param category 카테고리
+     * @return 학기 정보 (없으면 null)
+     */
+    private String searchCourseSemester(String courseName, RequirementCategory category) {
+        if (category == null) {
+            return null;
+        }
+
+        // 현재 카테고리의 과목 목록 검색
+        if (category.getCourses() != null) {
+            for (CourseRequirement courseReq : category.getCourses()) {
+                if (courseName.equals(courseReq.getName())) {
+                    return courseReq.getSemester();
+                }
+            }
+        }
+
+        // 하위 그룹 재귀 검색
+        if (category.getSubgroups() != null) {
+            for (RequirementCategory subgroup : category.getSubgroups()) {
+                String semester = searchCourseSemester(courseName, subgroup);
+                if (semester != null) {
+                    return semester;
+                }
+            }
+        }
+
+        return null;
     }
 }
