@@ -67,6 +67,7 @@ public class RecommendationResultActivity extends AppCompatActivity {
     private boolean considerTimetable;
     private int difficultyLevel;
     private String currentSemester;
+    private List<CourseInputActivity.Course> takenCourses; // 수강한 과목 이력
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -186,6 +187,9 @@ public class RecommendationResultActivity extends AppCompatActivity {
                     }
 
                     Log.d(TAG, "수강한 과목 수: " + takenCourses.size());
+
+                    // 필드에 저장
+                    RecommendationResultActivity.this.takenCourses = takenCourses;
 
                     // 2. GraduationRules 로드 및 분석
                     loadGraduationRulesAndAnalyze(takenCourses);
@@ -332,7 +336,13 @@ public class RecommendationResultActivity extends AppCompatActivity {
                         }
                     }
 
-                    // 학기 정보 확인 및 필터링
+                    // 선행조건 체크 (Practical English, 나눔 시리즈)
+                    if (!checkPrerequisites(courseName)) {
+                        Log.d(TAG, "    ✗ " + courseName + " (선행조건 미충족)");
+                        continue;
+                    }
+
+                    // 학기 정보 확인 및 필터링 (모든 카테고리에 적용)
                     String courseSemester = getCourseSemester(courseName, rules);
                     if (!isSemesterEligible(courseSemester, currentSemester, categoryName)) {
                         Log.d(TAG, "    ✗ " + courseName + " (학기 필터링: " + courseSemester + " | 현재: " + currentSemester + " | 카테고리: " + categoryName + ")");
@@ -786,5 +796,67 @@ public class RecommendationResultActivity extends AppCompatActivity {
         }
 
         return null;
+    }
+
+    /**
+     * 선행조건 체크
+     * @param courseName 확인할 과목명
+     * @return 추천 가능하면 true, 선행조건 미충족 시 false
+     */
+    private boolean checkPrerequisites(String courseName) {
+        if (courseName == null) {
+            return true;
+        }
+
+        if (takenCourses == null) {
+            Log.d(TAG, "      ⚠ takenCourses가 null입니다");
+            return true; // 정보가 없으면 통과
+        }
+
+        Log.d(TAG, "      선행조건 체크: " + courseName + " (수강이력: " + takenCourses.size() + "개)");
+
+        // Practical English2는 Practical English1을 선수강해야 추천 (공백 없는 버전)
+        if (courseName.contains("Practical English2") || courseName.contains("Practical English 2")) {
+            boolean hasPracticalEnglish1 = false;
+            for (CourseInputActivity.Course course : takenCourses) {
+                String takenCourseName = course.getName();
+                if (takenCourseName != null &&
+                    (takenCourseName.contains("Practical English1") ||
+                     takenCourseName.contains("Practical English 1"))) {
+                    hasPracticalEnglish1 = true;
+                    Log.d(TAG, "        ✓ Practical English1 수강 확인됨: " + takenCourseName);
+                    break;
+                }
+            }
+            if (!hasPracticalEnglish1) {
+                Log.d(TAG, "      ✗ Practical English2는 Practical English1 선수강 필요 - 필터링");
+                return false;
+            } else {
+                Log.d(TAG, "      ✓ Practical English2 선행조건 충족");
+            }
+        }
+
+        // 나눔실천은 나눔리더십을 선수강해야 추천
+        if (courseName.contains("나눔실천")) {
+            boolean hasNanumLeadership = false;
+            for (CourseInputActivity.Course course : takenCourses) {
+                String takenCourseName = course.getName();
+                if (takenCourseName != null &&
+                    (takenCourseName.contains("나눔리더십") ||
+                     takenCourseName.contains("나눔 리더십"))) {
+                    hasNanumLeadership = true;
+                    Log.d(TAG, "        ✓ 나눔리더십 수강 확인됨: " + takenCourseName);
+                    break;
+                }
+            }
+            if (!hasNanumLeadership) {
+                Log.d(TAG, "      ✗ 나눔실천은 나눔리더십 선수강 필요 - 필터링");
+                return false;
+            } else {
+                Log.d(TAG, "      ✓ 나눔실천 선행조건 충족");
+            }
+        }
+
+        return true;
     }
 }
