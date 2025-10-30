@@ -342,18 +342,11 @@ public class RecommendationResultActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    // 학기 정보 확인 및 필터링
-                    // 학부공통, 전공심화, 전공필수는 학기 필터링 적용 안함
+                    // 학기 정보 확인 및 필터링 (모든 카테고리에 적용)
                     String courseSemester = getCourseSemester(courseName, rules);
-                    boolean shouldFilterSemester = !categoryName.equals("학부공통") &&
-                                                   !categoryName.equals("전공심화") &&
-                                                   !categoryName.equals("전공필수");
-
-                    if (shouldFilterSemester) {
-                        if (!isSemesterEligible(courseSemester, currentSemester, categoryName)) {
-                            Log.d(TAG, "    ✗ " + courseName + " (학기 필터링: " + courseSemester + " | 현재: " + currentSemester + " | 카테고리: " + categoryName + ")");
-                            continue; // 학기 조건에 맞지 않는 과목은 건너뜀
-                        }
+                    if (!isSemesterEligible(courseSemester, currentSemester, categoryName)) {
+                        Log.d(TAG, "    ✗ " + courseName + " (학기 필터링: " + courseSemester + " | 현재: " + currentSemester + " | 카테고리: " + categoryName + ")");
+                        continue; // 학기 조건에 맞지 않는 과목은 건너뜀
                     }
 
                     // 학점 정보 가져오기
