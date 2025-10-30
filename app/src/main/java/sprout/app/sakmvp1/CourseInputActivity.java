@@ -142,6 +142,7 @@ public class CourseInputActivity extends AppCompatActivity {
 
         getIntentData();      // 인텐트 데이터 파싱
         initViews();          // 뷰 바인딩/매니저 초기화
+        loadSavedDataIfNeeded(); // 저장된 데이터 로드 (courseList 초기화 후)
         setupSystemUI();      // 안전영역 패딩
         setupToolbar();       // 툴바/뒤로가기
         setupListeners();     // 버튼/탭 리스너
@@ -190,6 +191,70 @@ public class CourseInputActivity extends AppCompatActivity {
             Log.d(TAG, "추가 졸업 요건 수신: " + additionalRequirements);
         } else {
             Log.w(TAG, "추가 졸업 요건 데이터를 받지 못했습니다.");
+        }
+    }
+
+    /** 저장된 데이터가 있으면 로드 (initViews 이후 호출) */
+    private void loadSavedDataIfNeeded() {
+        Intent intent = getIntent();
+        boolean isLoadingSavedData = intent.getBooleanExtra("isLoadingSavedData", false);
+        if (!isLoadingSavedData) {
+            return;
+        }
+
+        Log.d(TAG, "저장된 데이터 불러오기 모드");
+
+        // 저장된 과목 데이터 로드
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            java.util.ArrayList<CourseInputActivity.Course> savedCourses =
+                intent.getParcelableArrayListExtra("savedCourses", CourseInputActivity.Course.class);
+            if (savedCourses != null && !savedCourses.isEmpty()) {
+                courseList.addAll(savedCourses);
+                Log.d(TAG, "저장된 과목 " + savedCourses.size() + "개 로드 완료");
+                // 과목 상세 로그
+                for (Course c : savedCourses) {
+                    Log.d(TAG, "  - " + c.getName() + " (" + c.getCategory() + ", " + c.getCredits() + "학점)");
+                }
+            }
+        } else {
+            java.util.ArrayList<CourseInputActivity.Course> savedCourses =
+                intent.getParcelableArrayListExtra("savedCourses");
+            if (savedCourses != null && !savedCourses.isEmpty()) {
+                courseList.addAll(savedCourses);
+                Log.d(TAG, "저장된 과목 " + savedCourses.size() + "개 로드 완료");
+                // 과목 상세 로그
+                for (Course c : savedCourses) {
+                    Log.d(TAG, "  - " + c.getName() + " (" + c.getCategory() + ", " + c.getCredits() + "학점)");
+                }
+            }
+        }
+
+        // 저장된 추가 요건이 있으면 덮어쓰기
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            AdditionalRequirementsActivity.AdditionalRequirements savedReqs =
+                intent.getParcelableExtra("savedAdditionalRequirements", AdditionalRequirementsActivity.AdditionalRequirements.class);
+            if (savedReqs != null) {
+                additionalRequirements = savedReqs;
+                Log.d(TAG, "저장된 추가 요건 로드 완료");
+            }
+        } else {
+            AdditionalRequirementsActivity.AdditionalRequirements savedReqs =
+                intent.getParcelableExtra("savedAdditionalRequirements");
+            if (savedReqs != null) {
+                additionalRequirements = savedReqs;
+                Log.d(TAG, "저장된 추가 요건 로드 완료");
+            }
+        }
+
+        // UI 업데이트: 불러온 과목들을 화면에 표시
+        Log.d(TAG, "courseList.size() = " + courseList.size() + ", isEmpty() = " + courseList.isEmpty());
+        if (!courseList.isEmpty()) {
+            Log.d(TAG, "UI 업데이트 시작 - 현재 탭: " + currentSelectedTab);
+            updateCourseDisplay();  // 현재 탭의 과목들 표시
+            updateAnalyzeButtonState();  // 분석 버튼 상태 업데이트
+            Toast.makeText(this, "저장된 데이터를 불러왔습니다 (" + courseList.size() + "개 과목)", Toast.LENGTH_SHORT).show();
+        } else {
+            Log.w(TAG, "courseList가 비어있어 UI를 업데이트하지 않습니다");
         }
     }
 
@@ -852,12 +917,19 @@ public class CourseInputActivity extends AppCompatActivity {
 
     /** 선택된 탭 카테고리만 표시 */
     private void updateCourseDisplay() {
+        Log.d(TAG, "updateCourseDisplay() 호출 - 현재 탭: " + currentSelectedTab + ", 전체 과목 수: " + courseList.size());
         layoutSelectedCategoryCourses.removeAllViews();
 
         List<Course> filtered = new ArrayList<>();
         for (Course c : courseList) {
-            if (c.getCategory().equals(currentSelectedTab)) filtered.add(c);
+            Log.d(TAG, "  과목 확인: " + c.getName() + " (" + c.getCategory() + ") vs 현재탭(" + currentSelectedTab + ")");
+            if (c.getCategory().equals(currentSelectedTab)) {
+                filtered.add(c);
+                Log.d(TAG, "    -> 매칭됨!");
+            }
         }
+
+        Log.d(TAG, "필터링된 과목 수: " + filtered.size());
 
         if (filtered.isEmpty()) {
             // 빈 상태 메시지를 안전하게 부착
@@ -869,10 +941,13 @@ public class CourseInputActivity extends AppCompatActivity {
             }
             textEmptyCourses.setText("선택된 카테고리에 표시할 강의가 없습니다.");
             textEmptyCourses.setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
+            Log.d(TAG, "필터링된 과목이 없어 빈 메시지 표시");
         } else {
             for (Course c : filtered) {
+                Log.d(TAG, "과목 카드 생성: " + c.getName());
                 createCourseItemView(c);
             }
+            Log.d(TAG, "총 " + filtered.size() + "개 과목 카드 생성 완료");
         }
     }
 

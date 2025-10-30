@@ -143,6 +143,12 @@ public class RequirementCategory {
      * oneOf 타입 분석: 목록 중 하나만 수강하면 충족
      */
     private CategoryAnalysisResult analyzeOneOf(List<CourseInputActivity.Course> takenCourses) {
+        Log.d(TAG, "  >>> analyzeOneOf 시작: " + name + " (id: " + id + ")");
+        Log.d(TAG, "      oneOf 그룹 내 과목 수: " + courses.size());
+        for (CourseRequirement req : courses) {
+            Log.d(TAG, "        - " + req.getName() + " (" + req.getCredits() + "학점)");
+        }
+
         CategoryAnalysisResult result = new CategoryAnalysisResult(id, name);
         result.setRequiredCredits(required);
 
@@ -205,6 +211,12 @@ public class RequirementCategory {
         }
         subResult.setAvailableCourses(availableCourseNames);
 
+        Log.d(TAG, "      availableCourses 설정: " + availableCourseNames.size() + "개 과목");
+        for (String courseName : availableCourseNames) {
+            Log.d(TAG, "        * " + courseName);
+        }
+        Log.d(TAG, "      SubgroupResult에 추가 (groupId: " + id + ", name: " + name + ")");
+
         result.addSubgroupResult(subResult);
 
         return result;
@@ -214,6 +226,8 @@ public class RequirementCategory {
      * group 타입 분석: 하위 서브그룹들을 재귀적으로 분석
      */
     private CategoryAnalysisResult analyzeGroup(List<CourseInputActivity.Course> takenCourses) {
+        Log.d(TAG, "  >>> analyzeGroup 시작: " + name + " (id: " + id + ")");
+
         CategoryAnalysisResult result = new CategoryAnalysisResult(id, name);
         result.setRequiredCredits(required);
 
@@ -221,10 +235,11 @@ public class RequirementCategory {
         int totalEarnedCourses = 0;
         boolean allSubgroupsCompleted = true;
 
-        Log.d(TAG, "  Analyzing " + subgroups.size() + " subgroups...");
+        Log.d(TAG, "      서브그룹 개수: " + subgroups.size());
 
         // 각 서브그룹 재귀 분석
         for (RequirementCategory subgroup : subgroups) {
+            Log.d(TAG, "      → 서브그룹 분석: " + subgroup.getName() + " (type: " + subgroup.getType() + ")");
             CategoryAnalysisResult subResult = subgroup.analyze(takenCourses);
             result.addSubgroupResult(convertToSubgroupResult(subResult));
 
@@ -334,6 +349,8 @@ public class RequirementCategory {
      * CategoryAnalysisResult를 SubgroupResult로 변환
      */
     private CategoryAnalysisResult.SubgroupResult convertToSubgroupResult(CategoryAnalysisResult categoryResult) {
+        Log.d(TAG, "  >>> convertToSubgroupResult: " + categoryResult.getCategoryName() + " (id: " + categoryResult.getCategoryId() + ")");
+
         CategoryAnalysisResult.SubgroupResult subResult =
             new CategoryAnalysisResult.SubgroupResult(categoryResult.getCategoryId(), categoryResult.getCategoryName());
 
@@ -344,17 +361,25 @@ public class RequirementCategory {
 
         // oneOf 타입의 경우 availableCourses와 selectedCourse 정보 복사
         if (categoryResult.getSubgroupResults() != null && !categoryResult.getSubgroupResults().isEmpty()) {
+            Log.d(TAG, "      서브그룹 결과 개수: " + categoryResult.getSubgroupResults().size());
             // oneOf 타입은 첫 번째 서브그룹에 availableCourses와 selectedCourse가 저장되어 있음
             CategoryAnalysisResult.SubgroupResult firstSubgroup = categoryResult.getSubgroupResults().get(0);
             if (firstSubgroup.getAvailableCourses() != null) {
                 subResult.setAvailableCourses(firstSubgroup.getAvailableCourses());
-                Log.d(TAG, "  Converting subgroup: copying availableCourses (" +
-                      firstSubgroup.getAvailableCourses().size() + " courses) for " + categoryResult.getCategoryName());
+                Log.d(TAG, "      ✓ availableCourses 복사: " +
+                      firstSubgroup.getAvailableCourses().size() + " courses for " + categoryResult.getCategoryName());
+                for (String courseName : firstSubgroup.getAvailableCourses()) {
+                    Log.d(TAG, "          * " + courseName);
+                }
+            } else {
+                Log.d(TAG, "      ✗ firstSubgroup.availableCourses is NULL");
             }
             if (firstSubgroup.getSelectedCourse() != null) {
                 subResult.setSelectedCourse(firstSubgroup.getSelectedCourse());
-                Log.d(TAG, "  Converting subgroup: copying selectedCourse = " + firstSubgroup.getSelectedCourse());
+                Log.d(TAG, "      ✓ selectedCourse 복사: " + firstSubgroup.getSelectedCourse());
             }
+        } else {
+            Log.d(TAG, "      서브그룹 결과 없음 (빈 리스트 또는 null)");
         }
 
         return subResult;

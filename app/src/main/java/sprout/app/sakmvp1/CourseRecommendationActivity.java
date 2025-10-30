@@ -4,7 +4,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,6 +42,8 @@ public class CourseRecommendationActivity extends AppCompatActivity {
     private static final String TAG = "CourseRecommendation";
 
     private MaterialToolbar toolbar;
+    private Spinner spinnerGrade;
+    private Spinner spinnerSemester;
     private MaterialCheckBox checkboxConsiderTimetable;
     private TextView tvTimetableExplanation;
     private Slider sliderDifficulty;
@@ -75,6 +79,26 @@ public class CourseRecommendationActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
+
+        // 학년/학기 스피너
+        spinnerGrade = findViewById(R.id.spinnerGrade);
+        spinnerSemester = findViewById(R.id.spinnerSemester);
+
+        // 학년 스피너 설정 (1~4학년)
+        String[] grades = {"1", "2", "3", "4"};
+        ArrayAdapter<String> gradeAdapter = new ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, grades);
+        gradeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerGrade.setAdapter(gradeAdapter);
+        spinnerGrade.setSelection(0); // 기본값: 1학년
+
+        // 학기 스피너 설정 (1학기, 2학기)
+        String[] semesters = {"1", "2"};
+        ArrayAdapter<String> semesterAdapter = new ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, semesters);
+        semesterAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSemester.setAdapter(semesterAdapter);
+        spinnerSemester.setSelection(0); // 기본값: 1학기
 
         // 옵션 체크박스 및 설명
         checkboxConsiderTimetable = findViewById(R.id.checkboxConsiderTimetable);
@@ -234,6 +258,11 @@ public class CourseRecommendationActivity extends AppCompatActivity {
         boolean considerTimetable = checkboxConsiderTimetable.isChecked();
         int difficultyLevel = (int) sliderDifficulty.getValue();
 
+        // 선택된 학년/학기 가져오기
+        String selectedGrade = spinnerGrade.getSelectedItem().toString();
+        String selectedSemester = spinnerSemester.getSelectedItem().toString();
+        String currentSemester = selectedGrade + "-" + selectedSemester; // "1-1", "2-2" 형식
+
         // 추천 결과 화면으로 이동
         Intent intent = new Intent(this, RecommendationResultActivity.class);
         intent.putExtra("considerTimetable", considerTimetable);
@@ -241,6 +270,7 @@ public class CourseRecommendationActivity extends AppCompatActivity {
         intent.putExtra("userYear", userYear);
         intent.putExtra("userDepartment", userDepartment);
         intent.putExtra("userTrack", userTrack);
+        intent.putExtra("currentSemester", currentSemester); // 현재 학년/학기 추가
         startActivity(intent);
     }
 

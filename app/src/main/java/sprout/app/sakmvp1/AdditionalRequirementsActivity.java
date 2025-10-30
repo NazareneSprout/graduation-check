@@ -119,6 +119,9 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
         // (5) 뷰 바인딩 및 매니저 초기화
         initViews();
 
+        // (5-1) 저장된 데이터가 있으면 UI에 적용
+        loadSavedRequirementsIfNeeded();
+
         // (4) 입력 UX 개선: 숫자 패드/범위 필터 적용
         applyNumericInputEnhancements();
 
@@ -180,6 +183,13 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
             Toast.makeText(this, "데이터를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
             finish();
         }
+
+        // 저장된 추가 요건 데이터가 있는지 확인
+        boolean hasLoadedData = intent.getBooleanExtra("hasLoadedData", false);
+        if (hasLoadedData) {
+            Log.d(TAG, "저장된 추가 요건 데이터 불러오기 모드");
+            // initViews 이후에 적용하기 위해 Intent에서 가져옴 (나중에 loadSavedRequirements에서 사용)
+        }
     }
 
     /**
@@ -213,6 +223,45 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
         InputFilter[] filters = new InputFilter[]{ new InputFilterMinMax(0, 6) };
         editTlcCount.setFilters(filters);
         editChapelCount.setFilters(filters);
+    }
+
+    /**
+     * 저장된 추가 요건 데이터를 UI에 적용
+     */
+    private void loadSavedRequirementsIfNeeded() {
+        Intent intent = getIntent();
+        boolean hasLoadedData = intent.getBooleanExtra("hasLoadedData", false);
+        if (!hasLoadedData) {
+            return;
+        }
+
+        Log.d(TAG, "저장된 추가 요건 UI에 적용");
+
+        // 저장된 AdditionalRequirements 객체 가져오기
+        AdditionalRequirements savedReqs = null;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            savedReqs = intent.getParcelableExtra(EXTRA_REQUIREMENTS, AdditionalRequirements.class);
+        } else {
+            savedReqs = intent.getParcelableExtra(EXTRA_REQUIREMENTS);
+        }
+
+        if (savedReqs != null) {
+            // TLC 횟수 설정
+            editTlcCount.setText(String.valueOf(savedReqs.getTlcCount()));
+
+            // 채플 횟수 설정
+            editChapelCount.setText(String.valueOf(savedReqs.getChapelCount()));
+
+            // 마일리지 체크박스 설정
+            checkboxMileageCompleted.setChecked(savedReqs.isMileageCompleted());
+
+            // 동적 추가 요건 체크박스는 아직 생성되지 않았을 수 있으므로 보관
+            // loadExtraGradRequirements()에서 나중에 적용됨
+            pendingExtraGradChecked = savedReqs.isExtraGradCompleted();
+
+            Toast.makeText(this, "저장된 추가 요건을 불러왔습니다", Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "저장된 요건 적용 완료: " + savedReqs.toString());
+        }
     }
 
     /**
@@ -434,6 +483,7 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
      * - 중복 클릭 방지(일시 비활성)
      * - AdditionalRequirements 수집/검증
      * - 유효 시 다음 화면으로 전송
+     * - 저장된 과목 데이터가 있으면 함께 전달
      */
     private void proceedToCourseInput() {
         btnNextToCourseInput.setEnabled(false); // 중복 클릭 방지
@@ -448,6 +498,30 @@ public class AdditionalRequirementsActivity extends AppCompatActivity {
             intent.putExtra(EXTRA_DEPARTMENT, selectedDepartment);
             intent.putExtra(EXTRA_TRACK, selectedTrack);
             intent.putExtra(EXTRA_REQUIREMENTS, requirements); // Parcelable
+
+            // 저장된 과목 데이터가 있으면 CourseInputActivity로 전달
+            Intent currentIntent = getIntent();
+            boolean hasLoadedData = currentIntent.getBooleanExtra("hasLoadedData", false);
+            if (hasLoadedData) {
+                // 저장된 과목 데이터 전달
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    java.util.ArrayList<CourseInputActivity.Course> savedCourses =
+                        currentIntent.getParcelableArrayListExtra("savedCourses", CourseInputActivity.Course.class);
+                    if (savedCourses != null) {
+                        intent.putParcelableArrayListExtra("savedCourses", savedCourses);
+                        intent.putExtra("isLoadingSavedData", true);
+                        Log.d(TAG, "저장된 과목 " + savedCourses.size() + "개를 CourseInputActivity로 전달");
+                    }
+                } else {
+                    java.util.ArrayList<CourseInputActivity.Course> savedCourses =
+                        currentIntent.getParcelableArrayListExtra("savedCourses");
+                    if (savedCourses != null) {
+                        intent.putParcelableArrayListExtra("savedCourses", savedCourses);
+                        intent.putExtra("isLoadingSavedData", true);
+                        Log.d(TAG, "저장된 과목 " + savedCourses.size() + "개를 CourseInputActivity로 전달");
+                    }
+                }
+            }
 
             startActivity(intent);
             Toast.makeText(this, "추가 요건이 저장되었습니다.", Toast.LENGTH_SHORT).show();

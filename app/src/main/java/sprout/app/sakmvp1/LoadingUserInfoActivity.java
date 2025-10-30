@@ -94,7 +94,18 @@ public class LoadingUserInfoActivity extends AppCompatActivity {
                         // 학적 정보 표시
                         showUserInfo(year, department, track);
 
-                        // 졸업 요건 확인
+                        // 저장된 졸업 분석 데이터가 있는지 확인
+                        if (documentSnapshot.contains("savedGraduationAnalysis")) {
+                            Map<String, Object> savedAnalysis = (Map<String, Object>) documentSnapshot.get("savedGraduationAnalysis");
+                            if (savedAnalysis != null && !savedAnalysis.isEmpty()) {
+                                Log.d(TAG, "저장된 졸업 분석 데이터 발견");
+                                // 사용자에게 선택하도록 다이얼로그 표시
+                                showLoadDataDialog(year, department, track, savedAnalysis);
+                                return;
+                            }
+                        }
+
+                        // 저장된 데이터가 없으면 일반 플로우로 진행
                         checkGraduationRequirements(year, department, track);
                     } else {
                         // 저장된 정보가 없음
@@ -175,6 +186,150 @@ public class LoadingUserInfoActivity extends AppCompatActivity {
         intent.putExtra("skipAutoLoad", true); // 자동 로딩 건너뛰기 플래그
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * 저장된 졸업 분석 데이터가 있을 때 사용자에게 선택하도록 다이얼로그 표시
+     */
+    private void showLoadDataDialog(String year, String department, String track, Map<String, Object> savedAnalysis) {
+        // 저장된 날짜 표시
+        String savedDateText = "";
+        if (savedAnalysis.containsKey("timestamp")) {
+            Object timestampObj = savedAnalysis.get("timestamp");
+            long timestamp = 0;
+            if (timestampObj instanceof Long) {
+                timestamp = (Long) timestampObj;
+            }
+            if (timestamp > 0) {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", java.util.Locale.KOREA);
+                savedDateText = "\n\n마지막 저장: " + sdf.format(new java.util.Date(timestamp));
+            }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("저장된 데이터 발견")
+                .setMessage("이전에 입력한 졸업 분석 데이터가 있습니다." + savedDateText + "\n\n어떻게 하시겠습니까?")
+                .setPositiveButton("기존 데이터 불러오기", (dialog, which) -> {
+                    Log.d(TAG, "기존 데이터 불러오기 선택");
+                    loadSavedData(year, department, track, savedAnalysis);
+                })
+                .setNegativeButton("새로 시작하기", (dialog, which) -> {
+                    Log.d(TAG, "새로 시작하기 선택");
+                    // 일반 플로우로 진행 (졸업 요건 확인)
+                    checkGraduationRequirements(year, department, track);
+                })
+                .setNeutralButton("취소", (dialog, which) -> {
+                    finish();
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    /**
+     * 저장된 졸업 분석 데이터를 로드해서 CourseInputActivity로 이동
+     */
+    private void loadSavedData(String year, String department, String track, Map<String, Object> savedAnalysis) {
+        tvLoadingTitle.setText("데이터 불러오는 중");
+        tvLoadingDescription.setText("저장된 졸업 분석 데이터를 불러오고 있습니다...");
+
+        try {
+            // courses 데이터 추출
+            java.util.ArrayList<CourseInputActivity.Course> courseList = new java.util.ArrayList<>();
+            if (savedAnalysis.containsKey("courses")) {
+                java.util.List<Map<String, Object>> coursesList = (java.util.List<Map<String, Object>>) savedAnalysis.get("courses");
+                if (coursesList != null) {
+                    for (Map<String, Object> courseMap : coursesList) {
+                        String name = (String) courseMap.get("name");
+                        String category = (String) courseMap.get("category");
+                        Object creditsObj = courseMap.get("credits");
+                        int credits = 0;
+                        if (creditsObj instanceof Long) {
+                            credits = ((Long) creditsObj).intValue();
+                        } else if (creditsObj instanceof Integer) {
+                            credits = (Integer) creditsObj;
+                        }
+
+                        // Course 생성자는 (category, name, credits) 순서임!
+                        CourseInputActivity.Course course = new CourseInputActivity.Course(category, name, credits);
+                        courseList.add(course);
+                    }
+                }
+            }
+
+            // additionalRequirements 데이터 추출
+            AdditionalRequirementsActivity.AdditionalRequirements additionalReqs = null;
+            if (savedAnalysis.containsKey("additionalRequirements")) {
+                Map<String, Object> reqsMap = (Map<String, Object>) savedAnalysis.get("additionalRequirements");
+                if (reqsMap != null) {
+                    int chapelCount = 0;
+                    int tlcCount = 0;
+                    boolean mileageCompleted = false;
+                    boolean extraGradCompleted = false;
+
+                    if (reqsMap.containsKey("chapelCount")) {
+                        Object chapelObj = reqsMap.get("chapelCount");
+                        if (chapelObj instanceof Long) {
+                            chapelCount = ((Long) chapelObj).intValue();
+                        } else if (chapelObj instanceof Integer) {
+                            chapelCount = (Integer) chapelObj;
+                        }
+                    }
+
+                    if (reqsMap.containsKey("tlcCount")) {
+                        Object tlcObj = reqsMap.get("tlcCount");
+                        if (tlcObj instanceof Long) {
+                            tlcCount = ((Long) tlcObj).intValue();
+                        } else if (tlcObj instanceof Integer) {
+                            tlcCount = (Integer) tlcObj;
+                        }
+                    }
+
+                    if (reqsMap.containsKey("mileageCompleted")) {
+                        Object mileageObj = reqsMap.get("mileageCompleted");
+                        if (mileageObj instanceof Boolean) {
+                            mileageCompleted = (Boolean) mileageObj;
+                        }
+                    }
+
+                    if (reqsMap.containsKey("extraGradCompleted")) {
+                        Object extraObj = reqsMap.get("extraGradCompleted");
+                        if (extraObj instanceof Boolean) {
+                            extraGradCompleted = (Boolean) extraObj;
+                        }
+                    }
+
+                    additionalReqs = new AdditionalRequirementsActivity.AdditionalRequirements(
+                            chapelCount, tlcCount, mileageCompleted, extraGradCompleted
+                    );
+                }
+            }
+
+            Log.d(TAG, "저장된 데이터 로드 완료: " + courseList.size() + "개 과목");
+
+            // AdditionalRequirementsActivity로 이동 (정상 플로우 따름)
+            Intent intent = new Intent(this, AdditionalRequirementsActivity.class);
+            intent.putExtra(AdditionalRequirementsActivity.EXTRA_YEAR, year);
+            intent.putExtra(AdditionalRequirementsActivity.EXTRA_DEPARTMENT, department);
+            intent.putExtra(AdditionalRequirementsActivity.EXTRA_TRACK, track);
+
+            // 저장된 추가 요건 데이터 전달
+            if (additionalReqs != null) {
+                intent.putExtra(AdditionalRequirementsActivity.EXTRA_REQUIREMENTS, additionalReqs);
+                intent.putExtra("hasLoadedData", true); // 저장된 데이터가 있음을 표시
+            }
+
+            // 저장된 과목 데이터도 함께 전달 (AdditionalRequirementsActivity가 CourseInputActivity로 전달)
+            intent.putParcelableArrayListExtra("savedCourses", courseList);
+
+            startActivity(intent);
+            finish();
+
+        } catch (Exception e) {
+            Log.e(TAG, "저장된 데이터 로드 중 오류", e);
+            Toast.makeText(this, "데이터를 불러오는 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+            // 오류 발생 시 일반 플로우로 진행
+            checkGraduationRequirements(year, department, track);
+        }
     }
 
     private void showUserInfoRequiredDialog() {

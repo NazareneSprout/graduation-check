@@ -398,19 +398,40 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         // 진행 중 메시지 표시
         Toast.makeText(this, "저장 중...", Toast.LENGTH_SHORT).show();
 
+        // 1. graduation_check_history 컬렉션에 이력 저장
         db.collection("users")
                 .document(userId)
                 .collection("graduation_check_history")
                 .add(graduationData)
                 .addOnSuccessListener(documentReference -> {
-                    Log.d(TAG, "졸업분석 결과 저장 성공: " + documentReference.getId());
+                    Log.d(TAG, "졸업분석 이력 저장 성공: " + documentReference.getId());
 
-                    // users 문서에도 lastGraduationCheckDate 업데이트
+                    // 2. users/{userId}/courses 서브컬렉션에 각 과목 저장
+                    saveCourseToSubcollection(userId, coursesData);
+
+                    // 3. users 문서에 savedGraduationAnalysis 필드와 lastGraduationCheckDate 업데이트
                     Map<String, Object> updateData = new HashMap<>();
                     updateData.put("lastGraduationCheckDate", currentTime);
+                    updateData.put("savedGraduationAnalysis", graduationData);
+                    updateData.put("updatedAt", currentTime);
+
+                    // 사용자 기본 정보도 함께 저장
+                    if (currentUser.getDisplayName() != null) {
+                        updateData.put("name", currentUser.getDisplayName());
+                    }
+                    if (currentUser.getEmail() != null) {
+                        updateData.put("email", currentUser.getEmail());
+                    }
+                    updateData.put("studentYear", selectedYear);
+                    updateData.put("department", selectedDepartment);
+                    updateData.put("track", selectedTrack);
+
                     db.collection("users")
                             .document(userId)
-                            .set(updateData, com.google.firebase.firestore.SetOptions.merge());
+                            .set(updateData, com.google.firebase.firestore.SetOptions.merge())
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "users 문서 업데이트 성공 (savedGraduationAnalysis, lastGraduationCheckDate, name, email)");
+                            });
 
                     // 저장 완료 후 홈으로 이동
                     Toast.makeText(this, "졸업요건 검사 결과가 저장되었습니다.", Toast.LENGTH_SHORT).show();
@@ -423,6 +444,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     Log.e(TAG, "졸업분석 결과 저장 실패", e);
                     Toast.makeText(this, "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
+
     }
 
     private void saveGraduationAnalysisResult() {
@@ -3664,4 +3686,48 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         }
         return null;
     }
+
+    /**
+     * users/{userId}/courses 서브컬렉션에 각 과목을 개별 문서로 저장
+     * 관리자가 학생 상세 정보를 조회할 때 사용
+     */
+    private void saveCourseToSubcollection(String userId, java.util.List<java.util.Map<String, Object>> coursesData) {
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        // 기존 courses 서브컬렉션 삭제 후 새로 저장
+        db.collection("users")
+                .document(userId)
+                .collection("courses")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    // 기존 문서 삭제
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : queryDocumentSnapshots) {
+                        doc.getReference().delete();
+                    }
+
+                    Log.d(TAG, "기존 courses 서브컬렉션 삭제 완료: " + queryDocumentSnapshots.size() + "개");
+
+                    // 새 과목 저장
+                    int savedCount = 0;
+                    for (java.util.Map<String, Object> courseData : coursesData) {
+                        db.collection("users")
+                                .document(userId)
+                                .collection("courses")
+                                .add(courseData)
+                                .addOnSuccessListener(documentReference -> {
+                                    Log.d(TAG, "과목 저장 성공: " + courseData.get("name"));
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "과목 저장 실패: " + courseData.get("name"), e);
+                                });
+                        savedCount++;
+                    }
+
+                    Log.d(TAG, "courses 서브컬렉션에 " + savedCount + "개 과목 저장 시작");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "기존 courses 서브컬렉션 조회 실패", e);
+                });
+    }
+
 }

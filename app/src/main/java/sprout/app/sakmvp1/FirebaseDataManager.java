@@ -2562,6 +2562,9 @@ public class FirebaseDataManager {
                 String semester = semesterEntry.getKey();
                 Object semesterDataObj = semesterEntry.getValue();
 
+                // 학기 형식 변환: "1학년1학기" 또는 "1학년 1학기" → "1-1"
+                String normalizedSemester = normalizeSemesterFormat(semester);
+
                 if (semesterDataObj instanceof Map) {
                     Map<String, Object> semesterData = (Map<String, Object>) semesterDataObj;
 
@@ -2597,6 +2600,7 @@ public class FirebaseDataManager {
                                 if (!isDuplicate) {
                                     sprout.app.sakmvp1.models.CourseRequirement courseReq =
                                         new sprout.app.sakmvp1.models.CourseRequirement(courseName, credits);
+                                    courseReq.setSemester(normalizedSemester);  // 학기 정보 설정
                                     existingCourses.add(courseReq);
                                 }
                             }
@@ -2626,26 +2630,51 @@ public class FirebaseDataManager {
         if (generalReqObj instanceof List) {
             List<Map<String, Object>> requirements = (List<Map<String, Object>>) generalReqObj;
 
-            // 교양필수, 교양선택, 소양 카테고리 생성
-            List<sprout.app.sakmvp1.models.CourseRequirement> generalRequiredCourses = new ArrayList<>();
+            // 단일 과목과 oneOf 그룹을 분리
+            List<sprout.app.sakmvp1.models.CourseRequirement> singleCourses = new ArrayList<>();
+            List<sprout.app.sakmvp1.models.RequirementCategory> oneOfSubgroups = new ArrayList<>();
 
+            int reqIndex = 0;
             for (Map<String, Object> req : requirements) {
                 String type = (String) req.get("type");
 
                 if ("oneOf".equals(type)) {
-                    // oneOf: 여러 과목 중 하나 선택
+                    // oneOf: 여러 과목 중 하나 선택 → 서브그룹으로 생성
                     Object optionsObj = req.get("options");
                     if (optionsObj instanceof List) {
                         List<Map<String, Object>> options = (List<Map<String, Object>>) optionsObj;
+
+                        // oneOf 서브그룹 생성
+                        String groupId = "교양필수_oneOf_" + reqIndex;
+                        String groupName = (String) req.get("name");
+                        if (groupName == null || groupName.isEmpty()) {
+                            groupName = "선택과목그룹" + (reqIndex + 1);
+                        }
+
+                        sprout.app.sakmvp1.models.RequirementCategory oneOfGroup =
+                            new sprout.app.sakmvp1.models.RequirementCategory(groupId, groupName, "oneOf");
+
+                        // 필요 학점 설정
+                        int reqCredits = getIntValue(req, "credit", 0);
+                        if (reqCredits == 0) reqCredits = getIntValue(req, "credits", 0);
+                        oneOfGroup.setRequired(reqCredits);
+                        oneOfGroup.setRequiredType("credits");
+
+                        // options를 과목 리스트로 추가
+                        List<sprout.app.sakmvp1.models.CourseRequirement> groupCourses = new ArrayList<>();
                         for (Map<String, Object> option : options) {
                             String courseName = (String) option.get("name");
-                            int credits = getIntValue(req, "credit", 3);
-                            if (credits == 0) credits = getIntValue(req, "credits", 3);
+                            int credits = getIntValue(option, "credit", 3);
+                            if (credits == 0) credits = getIntValue(option, "credits", 3);
 
                             sprout.app.sakmvp1.models.CourseRequirement courseReq =
                                 new sprout.app.sakmvp1.models.CourseRequirement(courseName, credits);
-                            generalRequiredCourses.add(courseReq);
+                            groupCourses.add(courseReq);
                         }
+                        oneOfGroup.setCourses(groupCourses);
+
+                        oneOfSubgroups.add(oneOfGroup);
+                        Log.d(TAG, "  ✓ oneOf 그룹 생성: " + groupName + " (" + groupCourses.size() + "개 선택지)");
                     }
                 } else {
                     // 단일 필수 과목
@@ -2656,19 +2685,45 @@ public class FirebaseDataManager {
 
                         sprout.app.sakmvp1.models.CourseRequirement courseReq =
                             new sprout.app.sakmvp1.models.CourseRequirement(courseName, credits);
-                        generalRequiredCourses.add(courseReq);
+                        singleCourses.add(courseReq);
                     }
                 }
+                reqIndex++;
             }
 
-            if (!generalRequiredCourses.isEmpty()) {
+            // 교양필수 카테고리 생성
+            if (!singleCourses.isEmpty() || !oneOfSubgroups.isEmpty()) {
                 int requiredCredits = creditReqs.getRequiredCredits("교양필수");
-                sprout.app.sakmvp1.models.RequirementCategory category =
-                    new sprout.app.sakmvp1.models.RequirementCategory(
-                        "교양필수", "교양필수", "list");
-                category.setRequired(requiredCredits);
-                category.setCourses(generalRequiredCourses);
-                categories.add(category);
+
+                if (oneOfSubgroups.isEmpty()) {
+                    // oneOf 그룹이 없으면 단순 list 카테고리
+                    sprout.app.sakmvp1.models.RequirementCategory category =
+                        new sprout.app.sakmvp1.models.RequirementCategory(
+                            "교양필수", "교양필수", "list");
+                    category.setRequired(requiredCredits);
+                    category.setCourses(singleCourses);
+                    categories.add(category);
+                    Log.d(TAG, "  ✓ 교양필수 카테고리 (list): " + singleCourses.size() + "개 과목");
+                } else {
+                    // oneOf 그룹이 있으면 group 카테고리
+                    sprout.app.sakmvp1.models.RequirementCategory category =
+                        new sprout.app.sakmvp1.models.RequirementCategory(
+                            "교양필수", "교양필수", "group");
+                    category.setRequired(requiredCredits);
+
+                    // 단일 과목들이 있으면 list 서브그룹으로 추가
+                    if (!singleCourses.isEmpty()) {
+                        sprout.app.sakmvp1.models.RequirementCategory singleGroup =
+                            new sprout.app.sakmvp1.models.RequirementCategory(
+                                "교양필수_single", "단일과목", "list");
+                        singleGroup.setCourses(singleCourses);
+                        oneOfSubgroups.add(0, singleGroup);  // 맨 앞에 추가
+                    }
+
+                    category.setSubgroups(oneOfSubgroups);
+                    categories.add(category);
+                    Log.d(TAG, "  ✓ 교양필수 카테고리 (group): " + oneOfSubgroups.size() + "개 서브그룹");
+                }
             }
         }
 
@@ -2943,6 +2998,9 @@ public class FirebaseDataManager {
                     continue;
                 }
 
+                // 학기 정보 정규화 ("1학년1학기" -> "1-1")
+                String normalizedSemester = normalizeSemesterFormat(semester);
+
                 if (semesterEntry.getValue() instanceof Map) {
                     Map<String, Object> semesterData = (Map<String, Object>) semesterEntry.getValue();
 
@@ -2973,6 +3031,7 @@ public class FirebaseDataManager {
                                     courseReq.setName(courseName);
                                     courseReq.setCredits(credits);
                                     courseReq.setMandatory(mandatory);
+                                    courseReq.setSemester(normalizedSemester);  // 학기 정보 설정
 
                                     coursesByCategory.get(category).add(courseReq);
                                 }
@@ -2995,9 +3054,10 @@ public class FirebaseDataManager {
                     for (Object reqObj : generalReqs) {
                         if (reqObj instanceof Map) {
                             Map<String, Object> reqMap = (Map<String, Object>) reqObj;
+                            String type = (String) reqMap.get("type");
 
                             // Case 1: 단일 과목 { name: "...", credit: N }
-                            if (reqMap.containsKey("name") && !reqMap.containsKey("options")) {
+                            if (reqMap.containsKey("name") && !"oneOf".equals(type)) {
                                 String courseName = (String) reqMap.get("name");
                                 int credits = getIntValue(reqMap, "credit", 2);
 
@@ -3010,7 +3070,7 @@ public class FirebaseDataManager {
                                 individualGeneralCourses.add(courseReq);
                             }
                             // Case 2: oneOf 그룹 { type: "oneOf", options: [...] }
-                            else if (reqMap.containsKey("options")) {
+                            else if ("oneOf".equals(type) && reqMap.containsKey("options")) {
                                 oneOfGroupCounter++;
                                 String groupId = "교양필수_oneOf_" + oneOfGroupCounter;
                                 List<sprout.app.sakmvp1.models.CourseRequirement> oneOfCourses = new ArrayList<>();
@@ -3250,6 +3310,43 @@ public class FirebaseDataManager {
         }
 
         return categories;
+    }
+
+    /**
+     * 학기 형식 정규화 유틸리티 메서드
+     * "1학년1학기", "1학년 1학기", "1-1" 등 다양한 형식을 "1-1" 형식으로 변환
+     *
+     * @param semester 원본 학기 문자열
+     * @return 정규화된 학기 문자열 ("1-1", "2-2" 등)
+     */
+    private String normalizeSemesterFormat(String semester) {
+        if (semester == null || semester.isEmpty()) {
+            return null;
+        }
+
+        // 이미 "X-Y" 형식이면 그대로 반환
+        if (semester.matches("\\d-\\d")) {
+            return semester;
+        }
+
+        // "X학년Y학기" 또는 "X학년 Y학기" 형식 처리
+        // 예: "1학년1학기", "1학년 1학기", "2학년2학기" 등
+        String normalized = semester
+            .replace("학년", "")
+            .replace("학기", "")
+            .replace(" ", "")
+            .trim();
+
+        // 숫자만 추출 (예: "11" -> "1-1", "22" -> "2-2")
+        if (normalized.matches("\\d\\d")) {
+            char grade = normalized.charAt(0);
+            char sem = normalized.charAt(1);
+            return grade + "-" + sem;
+        }
+
+        // 파싱 실패 시 원본 반환
+        Log.w(TAG, "학기 형식 변환 실패: " + semester + " → " + normalized);
+        return semester;
     }
 
     /**

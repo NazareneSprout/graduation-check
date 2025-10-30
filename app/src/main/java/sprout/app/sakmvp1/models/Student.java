@@ -1,9 +1,12 @@
 package sprout.app.sakmvp1.models;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 /**
  * 학생 데이터 모델
  */
-public class Student {
+public class Student implements Parcelable {
     private String userId;  // Firebase Auth UID
     private String name;    // 사용자 이름 (Firebase Auth에서 가져옴)
     private String email;   // 이메일
@@ -27,6 +30,58 @@ public class Student {
         this.department = department;
         this.track = track;
         this.updatedAt = updatedAt;
+    }
+
+    protected Student(Parcel in) {
+        userId = in.readString();
+        name = in.readString();
+        email = in.readString();
+        studentYear = in.readString();
+        department = in.readString();
+        track = in.readString();
+        updatedAt = in.readLong();
+        if (in.readByte() == 0) {
+            lastGraduationCheckDate = null;
+        } else {
+            lastGraduationCheckDate = in.readLong();
+        }
+        byte tmpHasGraduationCheckHistory = in.readByte();
+        hasGraduationCheckHistory = tmpHasGraduationCheckHistory == 0 ? null : tmpHasGraduationCheckHistory == 1;
+    }
+
+    public static final Creator<Student> CREATOR = new Creator<Student>() {
+        @Override
+        public Student createFromParcel(Parcel in) {
+            return new Student(in);
+        }
+
+        @Override
+        public Student[] newArray(int size) {
+            return new Student[size];
+        }
+    };
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(userId);
+        dest.writeString(name);
+        dest.writeString(email);
+        dest.writeString(studentYear);
+        dest.writeString(department);
+        dest.writeString(track);
+        dest.writeLong(updatedAt);
+        if (lastGraduationCheckDate == null) {
+            dest.writeByte((byte) 0);
+        } else {
+            dest.writeByte((byte) 1);
+            dest.writeLong(lastGraduationCheckDate);
+        }
+        dest.writeByte((byte) (hasGraduationCheckHistory == null ? 0 : hasGraduationCheckHistory ? 1 : 2));
     }
 
     // Getters and Setters

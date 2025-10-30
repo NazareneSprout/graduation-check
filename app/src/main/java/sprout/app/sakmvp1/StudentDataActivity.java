@@ -1,5 +1,6 @@
 package sprout.app.sakmvp1;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -101,9 +102,10 @@ public class StudentDataActivity extends AppCompatActivity {
         rvStudents.setAdapter(adapter);
 
         adapter.setOnItemClickListener(student -> {
-            // TODO: 학생 상세 정보 보기 (선택사항)
-            Toast.makeText(this, student.getName() + " (" + student.getEmail() + ")",
-                    Toast.LENGTH_SHORT).show();
+            // 학생 상세 정보 화면으로 이동
+            Intent intent = new Intent(this, StudentDetailActivity.class);
+            intent.putExtra(StudentDetailActivity.EXTRA_STUDENT, student);
+            startActivity(intent);
         });
     }
 
@@ -157,13 +159,25 @@ public class StudentDataActivity extends AppCompatActivity {
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         Student student = new Student();
                         student.setUserId(document.getId());
-                        student.setStudentYear(document.getString("studentYear"));
-                        student.setDepartment(document.getString("department"));
-                        student.setTrack(document.getString("track"));
 
-                        // Firestore에서 이름과 이메일 가져오기 (있는 경우)
+                        // Firestore 필드 값 로깅
+                        String studentYear = document.getString("studentYear");
+                        String department = document.getString("department");
+                        String track = document.getString("track");
                         String name = document.getString("name");
                         String email = document.getString("email");
+
+                        Log.d(TAG, "========== 사용자 데이터 로드 ==========");
+                        Log.d(TAG, "userId: " + document.getId());
+                        Log.d(TAG, "name: " + (name != null ? name : "NULL"));
+                        Log.d(TAG, "email: " + (email != null ? email : "NULL"));
+                        Log.d(TAG, "studentYear: " + (studentYear != null ? studentYear : "NULL"));
+                        Log.d(TAG, "department: " + (department != null ? department : "NULL"));
+                        Log.d(TAG, "track: " + (track != null ? track : "NULL"));
+
+                        student.setStudentYear(studentYear);
+                        student.setDepartment(department);
+                        student.setTrack(track);
                         student.setName(name != null ? name : document.getId());  // 이름이 없으면 UID 표시
                         student.setEmail(email);
 

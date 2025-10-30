@@ -54,6 +54,10 @@
         <activity android:name=".StudentDataActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
+        <activity android:name=".StudentDetailActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:parentActivityName=".StudentDataActivity"
+            android:exported="false" />
         <activity android:name=".GraduationRequirementsActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />

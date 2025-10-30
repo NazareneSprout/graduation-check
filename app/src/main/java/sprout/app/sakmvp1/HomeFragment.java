@@ -129,8 +129,7 @@ public class HomeFragment extends Fragment {
 
         if (btnFunction2 != null) {
             btnFunction2.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), UserInfoActivity.class);
-                startActivity(intent);
+                Toast.makeText(requireContext(), "기능2 - 준비중", Toast.LENGTH_SHORT).show();
             });
         }
 
