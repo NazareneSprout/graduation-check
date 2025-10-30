@@ -158,35 +158,45 @@ public class RecommendationResultActivity extends AppCompatActivity {
         Log.d(TAG, "학번: " + userYear + ", 학부: " + userDepartment + ", 트랙: " + userTrack);
         Log.d(TAG, "========================================");
 
-        // 1. 사용자 수강 이력 가져오기
+        // 1. 사용자 수강 이력 가져오기 (savedGraduationAnalysis에서 로드)
         db.collection("users").document(userId)
-                .collection("courses")
                 .get()
-                .addOnSuccessListener(coursesSnapshot -> {
+                .addOnSuccessListener(documentSnapshot -> {
                     // 수강한 과목 리스트 생성
                     List<CourseInputActivity.Course> takenCourses = new ArrayList<>();
 
-                    for (DocumentSnapshot doc : coursesSnapshot.getDocuments()) {
-                        String courseName = doc.getString("courseName");
-                        String category = doc.getString("category");
-                        Object creditsObj = doc.get("credits");
+                    if (documentSnapshot.exists() && documentSnapshot.contains("savedGraduationAnalysis")) {
+                        Map<String, Object> savedAnalysis = (Map<String, Object>) documentSnapshot.get("savedGraduationAnalysis");
+                        if (savedAnalysis != null && savedAnalysis.containsKey("courses")) {
+                            List<Map<String, Object>> coursesList = (List<Map<String, Object>>) savedAnalysis.get("courses");
+                            if (coursesList != null) {
+                                for (Map<String, Object> courseMap : coursesList) {
+                                    String name = (String) courseMap.get("name");
+                                    String category = (String) courseMap.get("category");
+                                    Object creditsObj = courseMap.get("credits");
 
-                        if (courseName != null && category != null) {
-                            int credits = 0;
-                            if (creditsObj instanceof Long) {
-                                credits = ((Long) creditsObj).intValue();
-                            } else if (creditsObj instanceof Integer) {
-                                credits = (Integer) creditsObj;
+                                    if (name != null && category != null) {
+                                        int credits = 0;
+                                        if (creditsObj instanceof Long) {
+                                            credits = ((Long) creditsObj).intValue();
+                                        } else if (creditsObj instanceof Integer) {
+                                            credits = (Integer) creditsObj;
+                                        }
+
+                                        CourseInputActivity.Course course = new CourseInputActivity.Course(
+                                            category, name, credits
+                                        );
+                                        takenCourses.add(course);
+                                    }
+                                }
                             }
-
-                            CourseInputActivity.Course course = new CourseInputActivity.Course(
-                                category, courseName, credits
-                            );
-                            takenCourses.add(course);
                         }
                     }
 
                     Log.d(TAG, "수강한 과목 수: " + takenCourses.size());
+                    for (CourseInputActivity.Course course : takenCourses) {
+                        Log.d(TAG, "  - " + course.getName() + " [" + course.getCategory() + "] " + course.getCredits() + "학점");
+                    }
 
                     // 필드에 저장
                     RecommendationResultActivity.this.takenCourses = takenCourses;
