@@ -67,6 +67,7 @@ public class RecommendationResultActivity extends AppCompatActivity {
     private boolean considerTimetable;
     private int difficultyLevel;
     private String currentSemester;
+    private List<CourseInputActivity.Course> takenCourses; // 수강한 과목 이력
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -186,6 +187,9 @@ public class RecommendationResultActivity extends AppCompatActivity {
                     }
 
                     Log.d(TAG, "수강한 과목 수: " + takenCourses.size());
+
+                    // 필드에 저장
+                    RecommendationResultActivity.this.takenCourses = takenCourses;
 
                     // 2. GraduationRules 로드 및 분석
                     loadGraduationRulesAndAnalyze(takenCourses);
@@ -332,11 +336,24 @@ public class RecommendationResultActivity extends AppCompatActivity {
                         }
                     }
 
+                    // 선행조건 체크 (Practical English, 나눔 시리즈)
+                    if (!checkPrerequisites(courseName)) {
+                        Log.d(TAG, "    ✗ " + courseName + " (선행조건 미충족)");
+                        continue;
+                    }
+
                     // 학기 정보 확인 및 필터링
+                    // 학부공통, 전공심화, 전공필수는 학기 필터링 적용 안함
                     String courseSemester = getCourseSemester(courseName, rules);
-                    if (!isSemesterEligible(courseSemester, currentSemester, categoryName)) {
-                        Log.d(TAG, "    ✗ " + courseName + " (학기 필터링: " + courseSemester + " | 현재: " + currentSemester + " | 카테고리: " + categoryName + ")");
-                        continue; // 학기 조건에 맞지 않는 과목은 건너뜀
+                    boolean shouldFilterSemester = !categoryName.equals("학부공통") &&
+                                                   !categoryName.equals("전공심화") &&
+                                                   !categoryName.equals("전공필수");
+
+                    if (shouldFilterSemester) {
+                        if (!isSemesterEligible(courseSemester, currentSemester, categoryName)) {
+                            Log.d(TAG, "    ✗ " + courseName + " (학기 필터링: " + courseSemester + " | 현재: " + currentSemester + " | 카테고리: " + categoryName + ")");
+                            continue; // 학기 조건에 맞지 않는 과목은 건너뜀
+                        }
                     }
 
                     // 학점 정보 가져오기
@@ -786,5 +803,48 @@ public class RecommendationResultActivity extends AppCompatActivity {
         }
 
         return null;
+    }
+
+    /**
+     * 선행조건 체크
+     * @param courseName 확인할 과목명
+     * @return 추천 가능하면 true, 선행조건 미충족 시 false
+     */
+    private boolean checkPrerequisites(String courseName) {
+        if (courseName == null || takenCourses == null) {
+            return true; // 정보가 없으면 통과
+        }
+
+        // Practical English 2는 Practical English 1을 선수강해야 추천
+        if (courseName.equals("Practical English 2")) {
+            boolean hasPracticalEnglish1 = false;
+            for (CourseInputActivity.Course course : takenCourses) {
+                if (course.getName().equals("Practical English 1")) {
+                    hasPracticalEnglish1 = true;
+                    break;
+                }
+            }
+            if (!hasPracticalEnglish1) {
+                Log.d(TAG, "      ⚠ Practical English 2는 Practical English 1 선수강 필요");
+                return false;
+            }
+        }
+
+        // 나눔실천은 나눔 리더십을 선수강해야 추천
+        if (courseName.equals("나눔실천")) {
+            boolean hasNanumLeadership = false;
+            for (CourseInputActivity.Course course : takenCourses) {
+                if (course.getName().equals("나눔 리더십")) {
+                    hasNanumLeadership = true;
+                    break;
+                }
+            }
+            if (!hasNanumLeadership) {
+                Log.d(TAG, "      ⚠ 나눔실천은 나눔 리더십 선수강 필요");
+                return false;
+            }
+        }
+
+        return true;
     }
 }
