@@ -815,38 +815,45 @@ public class RecommendationResultActivity extends AppCompatActivity {
 
         Log.d(TAG, "      선행조건 체크: " + courseName + " (수강이력: " + takenCourses.size() + "개)");
 
-        // Practical English 2는 Practical English 1을 선수강해야 추천
-        if (courseName.contains("Practical English 2")) {
+        // Practical English2는 Practical English1을 선수강해야 추천 (공백 없는 버전)
+        if (courseName.contains("Practical English2") || courseName.contains("Practical English 2")) {
             boolean hasPracticalEnglish1 = false;
             for (CourseInputActivity.Course course : takenCourses) {
                 String takenCourseName = course.getName();
-                Log.d(TAG, "        수강과목 확인: [" + takenCourseName + "]");
-                if (takenCourseName != null && takenCourseName.contains("Practical English 1")) {
+                if (takenCourseName != null &&
+                    (takenCourseName.contains("Practical English1") ||
+                     takenCourseName.contains("Practical English 1"))) {
                     hasPracticalEnglish1 = true;
-                    Log.d(TAG, "        ✓ Practical English 1 수강 확인됨");
+                    Log.d(TAG, "        ✓ Practical English1 수강 확인됨: " + takenCourseName);
                     break;
                 }
             }
             if (!hasPracticalEnglish1) {
-                Log.d(TAG, "      ✗ Practical English 2는 Practical English 1 선수강 필요 - 필터링");
+                Log.d(TAG, "      ✗ Practical English2는 Practical English1 선수강 필요 - 필터링");
                 return false;
+            } else {
+                Log.d(TAG, "      ✓ Practical English2 선행조건 충족");
             }
         }
 
-        // 나눔실천은 나눔 리더십을 선수강해야 추천
+        // 나눔실천은 나눔리더십을 선수강해야 추천
         if (courseName.contains("나눔실천")) {
             boolean hasNanumLeadership = false;
             for (CourseInputActivity.Course course : takenCourses) {
                 String takenCourseName = course.getName();
-                if (takenCourseName != null && takenCourseName.contains("나눔 리더십")) {
+                if (takenCourseName != null &&
+                    (takenCourseName.contains("나눔리더십") ||
+                     takenCourseName.contains("나눔 리더십"))) {
                     hasNanumLeadership = true;
-                    Log.d(TAG, "        ✓ 나눔 리더십 수강 확인됨");
+                    Log.d(TAG, "        ✓ 나눔리더십 수강 확인됨: " + takenCourseName);
                     break;
                 }
             }
             if (!hasNanumLeadership) {
-                Log.d(TAG, "      ✗ 나눔실천은 나눔 리더십 선수강 필요 - 필터링");
+                Log.d(TAG, "      ✗ 나눔실천은 나눔리더십 선수강 필요 - 필터링");
                 return false;
+            } else {
+                Log.d(TAG, "      ✓ 나눔실천 선행조건 충족");
             }
         }
 
