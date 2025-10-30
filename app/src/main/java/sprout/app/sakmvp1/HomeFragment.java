@@ -26,8 +26,6 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 
 public class HomeFragment extends Fragment {
@@ -129,7 +127,8 @@ public class HomeFragment extends Fragment {
 
         if (btnFunction2 != null) {
             btnFunction2.setOnClickListener(v -> {
-                Toast.makeText(requireContext(), "기능2 - 준비중", Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(requireContext(), CertificateBoardActivity.class);
+                startActivity(intent);
             });
         }
 

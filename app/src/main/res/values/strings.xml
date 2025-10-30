@@ -22,7 +22,7 @@
 
     <!-- 메인 화면 기능 버튼 -->
     <string name="function_1">졸업 요건 분석</string>
-    <string name="function_2">기능2</string>
+    <string name="function_2">자격증 모음</string>
     <string name="function_3">수강과목 추천</string>
     <string name="function_4">필요 서류 모아보기</string>
 
