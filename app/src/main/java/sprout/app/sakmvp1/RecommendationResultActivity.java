@@ -47,7 +47,6 @@ public class RecommendationResultActivity extends AppCompatActivity {
     private static final String TAG = "RecommendationResult";
 
     private MaterialToolbar toolbar;
-    private TextView tvRecommendationOptions;
     private MaterialCardView cardPrioritySummary;
     private LinearLayout layoutPrioritySummary;
     private RecyclerView recyclerViewRecommendations;
@@ -64,10 +63,9 @@ public class RecommendationResultActivity extends AppCompatActivity {
     private String userYear;
     private String userDepartment;
     private String userTrack;
-    private boolean considerTimetable;
-    private int difficultyLevel;
     private String currentSemester;
     private List<CourseInputActivity.Course> takenCourses; // 수강한 과목 이력
+    private GraduationAnalysisResult analysisResult; // 졸업요건 분석 결과
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,7 +92,6 @@ public class RecommendationResultActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
 
         // Views
-        tvRecommendationOptions = findViewById(R.id.tvRecommendationOptions);
         cardPrioritySummary = findViewById(R.id.cardPrioritySummary);
         layoutPrioritySummary = findViewById(R.id.layoutPrioritySummary);
         recyclerViewRecommendations = findViewById(R.id.recyclerViewRecommendations);
@@ -112,19 +109,10 @@ public class RecommendationResultActivity extends AppCompatActivity {
 
     private void loadData() {
         // Intent에서 정보 가져오기
-        considerTimetable = getIntent().getBooleanExtra("considerTimetable", false);
-        difficultyLevel = getIntent().getIntExtra("difficultyLevel", 2);
         userYear = getIntent().getStringExtra("userYear");
         userDepartment = getIntent().getStringExtra("userDepartment");
         userTrack = getIntent().getStringExtra("userTrack");
         currentSemester = getIntent().getStringExtra("currentSemester");
-
-        // 추천 옵션 표시
-        String timetableText = considerTimetable ? "고려함" : "안함";
-        String difficultyText = difficultyLevel == 1 ? "😊 쉬움" :
-                               difficultyLevel == 2 ? "📚 보통" : "🔥 어려움";
-        String semesterText = currentSemester != null ? currentSemester + " 이하" : "전체";
-        tvRecommendationOptions.setText("시간표 고려: " + timetableText + " | 학기 난이도: " + difficultyText + " | 학기: " + semesterText);
 
         // 추천 과목 생성
         generateRecommendations();
@@ -259,6 +247,9 @@ public class RecommendationResultActivity extends AppCompatActivity {
      * 분석 결과에서 추천 과목 생성
      */
     private void generateRecommendationsFromAnalysis(GraduationAnalysisResult analysisResult, GraduationRules rules) {
+        // 분석 결과 저장 (displayPrioritySummary에서 사용)
+        this.analysisResult = analysisResult;
+
         List<RecommendedCourse> allRecommendations = new ArrayList<>();
 
         Log.d(TAG, "========================================");
@@ -551,6 +542,39 @@ public class RecommendationResultActivity extends AppCompatActivity {
             categoryGroups.get(category).add(course);
         }
 
+        // 교양선택과 소양은 DB에 과목 데이터가 없으므로 분석 결과에서 직접 추가
+        Log.d(TAG, ">>> 교양선택/소양 추가 시작 (analysisResult null 여부: " + (analysisResult == null) + ")");
+        if (analysisResult != null) {
+            // 소양 표시 여부 확인: 2학년 1학기부터만 표시
+            boolean shouldShowSoyang = shouldShowSoyangCategory();
+            Log.d(TAG, "    소양 표시 여부: " + shouldShowSoyang + " (현재 학기: " + currentSemester + ")");
+
+            for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
+                String categoryName = categoryResult.getCategoryName();
+                if ("교양선택".equals(categoryName) || "소양".equals(categoryName)) {
+                    // 소양인 경우 2학년 1학기 미만이면 스킵
+                    if ("소양".equals(categoryName) && !shouldShowSoyang) {
+                        Log.d(TAG, "    >>> 소양 카테고리 스킵 (2학년 1학기 미만)");
+                        continue;
+                    }
+
+                    int earnedCredits = categoryResult.getEarnedCredits();
+                    int requiredCredits = categoryResult.getRequiredCredits();
+                    int remainingCredits = Math.max(0, requiredCredits - earnedCredits);
+
+                    Log.d(TAG, ">>> 카테고리: " + categoryName + " - 이수: " + earnedCredits + ", 요구: " + requiredCredits + ", 부족: " + remainingCredits);
+                    Log.d(TAG, "    categoryGroups에 이미 존재: " + categoryGroups.containsKey(categoryName));
+
+                    // 부족한 학점이 있고, 아직 그룹에 없으면 추가
+                    if (remainingCredits > 0 && !categoryGroups.containsKey(categoryName)) {
+                        // 빈 리스트로 추가 (과목 없이 카테고리만 표시)
+                        categoryGroups.put(categoryName, new ArrayList<>());
+                        Log.d(TAG, "    >>> " + categoryName + " 카테고리 추가됨 (빈 리스트)");
+                    }
+                }
+            }
+        }
+
         // 카테고리 표시 순서 정의 (우선순위 기반)
         String[] categoryOrder = {
             "교양필수", "전공필수", "학부공통", "전공심화",
@@ -558,13 +582,24 @@ public class RecommendationResultActivity extends AppCompatActivity {
         };
 
         boolean hasAnyCategory = false;
+        Log.d(TAG, ">>> 카테고리 표시 시작");
         for (String category : categoryOrder) {
             List<RecommendedCourse> categoryCourses = categoryGroups.get(category);
-            if (categoryCourses != null && !categoryCourses.isEmpty()) {
+            // 교양선택과 소양은 빈 리스트여도 표시 (과목 데이터가 없는 카테고리)
+            boolean isEmptyButShowable = ("교양선택".equals(category) || "소양".equals(category))
+                                        && categoryCourses != null;
+
+            if (categoryCourses != null) {
+                Log.d(TAG, "    " + category + ": 과목 수=" + categoryCourses.size() + ", isEmptyButShowable=" + isEmptyButShowable);
+            }
+
+            if (categoryCourses != null && (!categoryCourses.isEmpty() || isEmptyButShowable)) {
                 hasAnyCategory = true;
+                Log.d(TAG, "    >>> " + category + " 카테고리 표시됨");
                 addCategoryView(category, categoryCourses);
             }
         }
+        Log.d(TAG, ">>> 카테고리 표시 완료. hasAnyCategory=" + hasAnyCategory);
 
         // 정의되지 않은 카테고리도 추가
         for (Map.Entry<String, List<RecommendedCourse>> entry : categoryGroups.entrySet()) {
@@ -595,9 +630,41 @@ public class RecommendationResultActivity extends AppCompatActivity {
         TextView tvCourseCount = categoryView.findViewById(R.id.tvCourseCount);
         TextView tvCategoryDescription = categoryView.findViewById(R.id.tvCategoryDescription);
 
-        // 카테고리명과 과목 수 표시
+        // 카테고리명과 과목 수/부족 학점 표시
         chipCategoryName.setText(category);
-        tvCourseCount.setText(" · " + courses.size() + "과목");
+
+        // 교양선택과 소양은 과목 수 대신 부족 학점 표시
+        if (("교양선택".equals(category) || "소양".equals(category)) && analysisResult != null) {
+            // 분석 결과에서 부족한 학점 가져오기
+            for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
+                if (category.equals(categoryResult.getCategoryName())) {
+                    int earnedCredits = categoryResult.getEarnedCredits();
+                    int requiredCredits = categoryResult.getRequiredCredits();
+                    int remainingCredits = Math.max(0, requiredCredits - earnedCredits);
+
+                    // 교양선택의 경우 역량 종류도 표시
+                    if ("교양선택".equals(category)) {
+                        // SubgroupResults에서 이수한 역량 종류 계산
+                        int completedCompetencies = 0;
+                        List<CategoryAnalysisResult.SubgroupResult> subgroups = categoryResult.getSubgroupResults();
+                        if (subgroups != null) {
+                            for (CategoryAnalysisResult.SubgroupResult subgroup : subgroups) {
+                                if (subgroup.getEarnedCredits() > 0) {
+                                    completedCompetencies++;
+                                }
+                            }
+                        }
+                        tvCourseCount.setText(" · 부족 " + remainingCredits + "학점 · " + completedCompetencies + "/5 역량");
+                    } else {
+                        // 소양은 학점만 표시
+                        tvCourseCount.setText(" · 부족 " + remainingCredits + "학점");
+                    }
+                    break;
+                }
+            }
+        } else {
+            tvCourseCount.setText(" · " + courses.size() + "과목");
+        }
 
         // 카테고리별 색상 적용
         int color = getCategoryColor(category);
@@ -627,8 +694,9 @@ public class RecommendationResultActivity extends AppCompatActivity {
             case "전공선택":
                 return "🎯 학점 여유에 맞춰 듣는 것을 추천합니다";
             case "교양선택":
+                return "🌟 5개의 역량 중 최소 3종류 이상의 역량을 이수해야 합니다";
             case "소양":
-                return "⭐ 듣고 싶은 과목의 자리를 얻었다면 그때 들으세요";
+                return "⚠️ 3학점이 요구되므로 2학점짜리 과목을 주의하세요";
             case "자율선택":
             case "일반선택":
             case "잔여학점":
@@ -696,6 +764,38 @@ public class RecommendationResultActivity extends AppCompatActivity {
      * @param categoryName 카테고리 이름 (전공/교양 구분용)
      * @return 과목이 추천 가능하면 true, 아니면 false
      */
+    /**
+     * 소양 카테고리를 표시해야 하는지 확인 (2학년 1학기부터만 표시)
+     */
+    private boolean shouldShowSoyangCategory() {
+        if (currentSemester == null || currentSemester.isEmpty()) {
+            return true; // 학기 정보가 없으면 표시
+        }
+
+        try {
+            String[] parts = currentSemester.split("-");
+            if (parts.length != 2) {
+                return true; // 파싱 실패 시 표시
+            }
+
+            int currentGrade = Integer.parseInt(parts[0]);
+            int currentSem = Integer.parseInt(parts[1]);
+
+            // 2학년 1학기 미만이면 표시하지 않음
+            if (currentGrade < 2) {
+                return false;
+            }
+            if (currentGrade == 2 && currentSem < 1) {
+                return false;
+            }
+
+            return true; // 2학년 1학기 이상
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "소양 표시 여부 확인 - 학기 파싱 실패: " + currentSemester, e);
+            return true; // 파싱 실패 시 표시
+        }
+    }
+
     private boolean isSemesterEligible(String courseSemester, String currentSemester, String categoryName) {
         if (courseSemester == null || courseSemester.isEmpty()) {
             // 학기 정보가 없는 과목은 항상 추천 (선택과목 등)
@@ -721,9 +821,22 @@ public class RecommendationResultActivity extends AppCompatActivity {
             int currentGrade = Integer.parseInt(currentParts[0]);
             int currentSem = Integer.parseInt(currentParts[1]);
 
+            // 소양 과목은 2학년 1학기부터 추천
+            if ("소양".equals(categoryName)) {
+                // 현재 학기가 2학년 1학기 미만이면 추천하지 않음
+                if (currentGrade < 2) {
+                    return false;
+                }
+                if (currentGrade == 2 && currentSem < 1) {
+                    return false;
+                }
+                // 2학년 1학기 이후면 학년만 체크 (학기 무관)
+                return courseGrade <= currentGrade;
+            }
+
             // 교양 과목은 학기 상관없이 현재 학년 이하만 체크
             boolean isGeneralEducation = categoryName != null &&
-                (categoryName.contains("교양") || categoryName.contains("소양"));
+                (categoryName.contains("교양"));
 
             if (isGeneralEducation) {
                 // 교양: 학년만 체크 (학기 무관)

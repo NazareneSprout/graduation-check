@@ -153,7 +153,15 @@
       "Bash(tasklist:*)",
       "Bash(timeout:*)",
       "Bash(start /B /c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Pixel_8)",
-      "Bash(cmd /c \"start /c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Pixel_8\")"
+      "Bash(cmd /c \"start /c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Pixel_8\")",
+      "Bash(npm install:*)",
+      "Bash(dir:*)",
+      "Bash(python modify_file.py:*)",
+      "Bash(python update_save_method.py:*)",
+      "Bash(cmd /c \"start /B /c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Pixel_8\")",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c \"taskkill //F //IM emulator.exe\")",
+      "WebFetch(domain:www.kornu.ac.kr)"
     ],
     "deny": [],
     "ask": []

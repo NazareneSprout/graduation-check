@@ -402,8 +402,8 @@ public class FirebaseDataManager {
                         String[] parts = docId.split("_");
                         if (parts.length >= 3) {
                             String department = parts[0]; // 첫 번째 부분이 학부
-                            // 교양은 특정 학부가 아니므로 제외
-                            if (!"교양".equals(department)) {
+                            // 교양과 졸업요건은 특정 학부가 아니므로 제외
+                            if (!"교양".equals(department) && !"졸업요건".equals(department) && !"졸업요건 문서".equals(department)) {
                                 departmentsSet.add(department);
                             }
                         }

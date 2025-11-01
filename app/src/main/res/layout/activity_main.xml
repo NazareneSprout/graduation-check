@@ -436,14 +436,14 @@
                                 android:layout_gravity="center"
                                 android:src="@drawable/ic_arrow_back"
                                 app:tint="?attr/colorOnErrorContainer"
-                                android:contentDescription="기능6" />
+                                android:contentDescription="학식정보" />
 
                         </com.google.android.material.card.MaterialCardView>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="기능6"
+                            android:text="학식정보"
                             android:textSize="10sp"
                             android:textColor="?attr/colorOnSurface"
                             android:layout_marginTop="4dp"

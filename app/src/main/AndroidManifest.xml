@@ -35,6 +35,11 @@
         <activity android:name=".WebViewActivity" />
         <activity android:name=".CourseRecommendationActivity" />
         <activity android:name=".RecommendationResultActivity" />
+        <activity android:name=".MealMenuActivity"
+            android:exported="false" />
+        <activity android:name=".ImageZoomActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
         <activity android:name=".UserInfoActivity" />
         <activity android:name=".UserProfileActivity" />
         <activity android:name=".LoadingUserInfoActivity" />
@@ -90,12 +95,16 @@
             android:exported="false" />
         <activity android:name=".DebugFirestoreActivity"
             android:theme="@style/Theme.SakMvp1"
-            android:exported="true" />
+            android:exported="false" />
         <activity android:name=".MainActivityNew"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"/>
         <activity
             android:name=".CertificateBoardActivity"
+            android:exported="false" />
+        <activity
+            android:name=".BannerManagementActivity"
+            android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
 
     </application>

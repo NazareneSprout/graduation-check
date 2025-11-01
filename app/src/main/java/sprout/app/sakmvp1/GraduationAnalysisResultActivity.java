@@ -1997,12 +1997,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             // 학번에 따라 다른 레이아웃 사용
-            boolean shouldUseOldLayout = DepartmentConfig.shouldUseOldLayout(
-                GraduationAnalysisResultActivity.staticSelectedDepartment,
-                selectedYear);
-            int layoutResource = shouldUseOldLayout ? R.layout.tab_overview_old : R.layout.tab_overview;
-
-            View view = inflater.inflate(layoutResource, container, false);
+            // Always use the current layout (tab_overview_old has been removed)
+            View view = inflater.inflate(R.layout.tab_overview, container, false);
 
             // 실제 데이터로 UI 업데이트
             updateOverviewUI(view);

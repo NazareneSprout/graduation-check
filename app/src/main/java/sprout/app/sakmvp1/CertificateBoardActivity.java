@@ -7,10 +7,10 @@ import android.view.View;
 import android.widget.EditText;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 public class CertificateBoardActivity extends AppCompatActivity {
 
-    private Toolbar toolbar;
+    private MaterialToolbar toolbar;
     private EditText editSearch;
     private ChipGroup chipGroupDepartment;
     private RecyclerView recyclerViewCertificates;
@@ -42,9 +42,11 @@ public class CertificateBoardActivity extends AppCompatActivity {
 
         // 2. 툴바 설정
         setSupportActionBar(toolbar);
-        getSupportActionBar().setTitle("자격증 게시판");
-        // 뒤로가기 버튼 (필요한 경우)
-        // getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setDisplayShowHomeEnabled(true);
+        }
+        toolbar.setNavigationOnClickListener(v -> finish());
 
         // 3. RecyclerView 설정
         setupRecyclerView();
@@ -156,10 +158,9 @@ public class CertificateBoardActivity extends AppCompatActivity {
         applyFilters();
     }
 
-    // (툴바 뒤로가기 버튼 처리 - 필요한 경우)
-    // @Override
-    // public boolean onSupportNavigateUp() {
-    //     onBackPressed();
-    //     return true;
-    // }
+    @Override
+    public boolean onSupportNavigateUp() {
+        finish();
+        return true;
+    }
 }

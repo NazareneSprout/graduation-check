@@ -105,7 +105,11 @@ public class HomeFragment extends Fragment {
                         List<Banner> bannerList = new ArrayList<>();
                         for (QueryDocumentSnapshot document : task.getResult()) {
                             Banner banner = document.toObject(Banner.class);
-                            bannerList.add(banner);
+
+                            // 활성화되어 있고, 활성화 기간 내의 배너만 추가
+                            if (banner.isActive() && banner.isInActivePeriod()) {
+                                bannerList.add(banner);
+                            }
                         }
                         if (isAdded()) {
                             bannerAdapter.setData(bannerList);
@@ -169,9 +173,10 @@ public class HomeFragment extends Fragment {
         }
 
         if (btnFunction8 != null) {
-            btnFunction8.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "기능6 - 준비중", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction8.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), MealMenuActivity.class);
+                startActivity(intent);
+            });
         }
     }
 
@@ -277,16 +282,9 @@ public class HomeFragment extends Fragment {
                         .into(holder.bannerImage);
             }
 
-            // 2. << 추가: 클릭 리스너 설정 >>
+            // 2. 클릭 리스너 설정 - BannerRouter를 통한 스마트 라우팅
             holder.itemView.setOnClickListener(v -> {
-                String url = currentBanner.getTargetUrl();
-                // targetUrl이 비어있지 않은 경우에만 동작
-                if (url != null && !url.isEmpty()) {
-                    // 기존에 사용하시던 WebViewActivity를 재사용
-                    Intent intent = new Intent(v.getContext(), WebViewActivity.class);
-                    intent.putExtra("url", url);
-                    v.getContext().startActivity(intent);
-                }
+                BannerRouter.navigate(v.getContext(), currentBanner);
             });
         }
 

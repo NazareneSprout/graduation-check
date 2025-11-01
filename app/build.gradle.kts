@@ -78,6 +78,15 @@ dependencies {
     // Glide for image loading
     implementation("com.github.bumptech.glide:glide:4.16.0")
 
+    // Jsoup for HTML parsing (meal menu scraping)
+    implementation("org.jsoup:jsoup:1.17.2")
+
+    // OkHttp for HTTP requests
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // PhotoView for zoomable images
+    implementation("com.github.chrisbanes:PhotoView:2.3.0")
+
     // Desugar library for Java 8+ API support on older Android versions
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 

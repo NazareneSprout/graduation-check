@@ -44,12 +44,6 @@ public class CourseRecommendationActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private Spinner spinnerGrade;
     private Spinner spinnerSemester;
-    private MaterialCheckBox checkboxConsiderTimetable;
-    private TextView tvTimetableExplanation;
-    private Slider sliderDifficulty;
-    private TextView tvDifficultyLevel;
-    private TextView tvDifficultyValue;
-    private TextView tvDifficultyDescription;
     private Button btnGetRecommendations;
 
     // Firebase
@@ -99,22 +93,6 @@ public class CourseRecommendationActivity extends AppCompatActivity {
         semesterAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerSemester.setAdapter(semesterAdapter);
         spinnerSemester.setSelection(0); // 기본값: 1학기
-
-        // 옵션 체크박스 및 설명
-        checkboxConsiderTimetable = findViewById(R.id.checkboxConsiderTimetable);
-        tvTimetableExplanation = findViewById(R.id.tvTimetableExplanation);
-
-        // 난이도 슬라이더 및 관련 텍스트
-        sliderDifficulty = findViewById(R.id.sliderDifficulty);
-        tvDifficultyLevel = findViewById(R.id.tvDifficultyLevel);
-        tvDifficultyValue = findViewById(R.id.tvDifficultyValue);
-        tvDifficultyDescription = findViewById(R.id.tvDifficultyDescription);
-
-        // 커스텀 수직 막대 형태의 thumb drawable 적용
-        sliderDifficulty.setCustomThumbDrawable(R.drawable.slider_thumb_large);
-
-        // halo를 투명하게 설정하여 thumb 형태만 표시
-        sliderDifficulty.setHaloRadius(0);
 
         btnGetRecommendations = findViewById(R.id.btnGetRecommendations);
 
@@ -183,24 +161,6 @@ public class CourseRecommendationActivity extends AppCompatActivity {
         // Toolbar 뒤로가기 버튼
         toolbar.setNavigationOnClickListener(v -> finish());
 
-        // 시간표 고려 체크박스
-        checkboxConsiderTimetable.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                tvTimetableExplanation.setVisibility(View.VISIBLE);
-                tvTimetableExplanation.setText("✓ 기존 시간표와 겹치지 않는 과목만 추천합니다");
-                tvTimetableExplanation.setTextColor(getColor(com.google.android.material.R.color.design_default_color_primary));
-            } else {
-                tvTimetableExplanation.setVisibility(View.VISIBLE);
-                tvTimetableExplanation.setText("✕ 시간표 중복 여부를 고려하지 않습니다");
-                tvTimetableExplanation.setTextColor(getColor(android.R.color.darker_gray));
-            }
-        });
-
-        // 난이도 슬라이더 변경 리스너
-        sliderDifficulty.addOnChangeListener((slider, value, fromUser) -> {
-            updateDifficultyUI((int) value);
-        });
-
         // 추천 받기 버튼
         btnGetRecommendations.setOnClickListener(v -> {
             getRecommendations();
@@ -214,37 +174,6 @@ public class CourseRecommendationActivity extends AppCompatActivity {
     }
 
     /**
-     * 난이도 UI 업데이트
-     */
-    private void updateDifficultyUI(int value) {
-        // 단계 표시
-        tvDifficultyValue.setText(value + "/3");
-
-        // 난이도 레벨 및 설명
-        String level;
-        String description;
-        int color;
-
-        if (value == 1) {
-            level = "😊 쉬움";
-            description = "여유로운 학습 부담으로 편안한 학기를 보낼 수 있습니다. 다른 활동에도 시간을 투자할 수 있어요.";
-            color = getColor(android.R.color.holo_green_dark);
-        } else if (value == 2) {
-            level = "📚 보통";
-            description = "균형잡힌 학습 부담으로 안정적인 학기를 보낼 수 있습니다. 적절한 도전과 성취감을 느낄 수 있어요.";
-            color = getColor(com.google.android.material.R.color.design_default_color_primary);
-        } else {
-            level = "🔥 어려움";
-            description = "도전적인 학습 부담으로 집중이 필요한 학기입니다. 높은 성취감을 얻을 수 있지만 시간 관리가 중요해요.";
-            color = getColor(android.R.color.holo_red_dark);
-        }
-
-        tvDifficultyLevel.setText(level);
-        tvDifficultyLevel.setTextColor(color);
-        tvDifficultyDescription.setText(description);
-    }
-
-    /**
      * 추천 과목을 가져옵니다
      */
     private void getRecommendations() {
@@ -255,9 +184,6 @@ public class CourseRecommendationActivity extends AppCompatActivity {
             return;
         }
 
-        boolean considerTimetable = checkboxConsiderTimetable.isChecked();
-        int difficultyLevel = (int) sliderDifficulty.getValue();
-
         // 선택된 학년/학기 가져오기
         String selectedGrade = spinnerGrade.getSelectedItem().toString();
         String selectedSemester = spinnerSemester.getSelectedItem().toString();
@@ -265,8 +191,6 @@ public class CourseRecommendationActivity extends AppCompatActivity {
 
         // 추천 결과 화면으로 이동
         Intent intent = new Intent(this, RecommendationResultActivity.class);
-        intent.putExtra("considerTimetable", considerTimetable);
-        intent.putExtra("difficultyLevel", difficultyLevel);
         intent.putExtra("userYear", userYear);
         intent.putExtra("userDepartment", userDepartment);
         intent.putExtra("userTrack", userTrack);

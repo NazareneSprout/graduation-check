@@ -105,9 +105,9 @@
                             <ImageView
                                 android:layout_width="48dp"
                                 android:layout_height="48dp"
-                                android:src="@drawable/ic_arrow_back"
+                                android:src="@drawable/ic_certificate"
                                 app:tint="?attr/colorOnSecondaryContainer"
-                                android:contentDescription="기능2"
+                                android:contentDescription="자격증 모음"
                                 android:layout_marginBottom="8dp" />
 
                             <TextView
@@ -404,7 +404,7 @@
                                     android:layout_width="20dp"
                                     android:layout_height="20dp"
                                     android:layout_gravity="center"
-                                    android:src="@drawable/ic_arrow_back"
+                                    android:src="@drawable/ic_restaurant"
                                     app:tint="?attr/colorPrimary" />
 
                             </com.google.android.material.card.MaterialCardView>
@@ -412,7 +412,7 @@
                             <TextView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="기능6"
+                                android:text="학식정보"
                                 android:textSize="9sp"
                                 android:textColor="?attr/colorOnSurface"
                                 android:layout_marginTop="4dp"

@@ -29,6 +29,7 @@ public class MainActivityNew extends AppCompatActivity {
     // Fragment 인스턴스 재사용
     private HomeFragment homeFragment;
     private TimeTableFragment timeTableFragment;
+    private CampusMapFragment campusMapFragment;
     private UserProfileFragment userProfileFragment;
 
     @Override
@@ -91,8 +92,11 @@ public class MainActivityNew extends AppCompatActivity {
                 }
                 fragment = timeTableFragment;
             } else if (itemId == R.id.nav_button_3) {
-                // 준비중
-                return false;
+                // 캠퍼스 지도 Fragment
+                if (campusMapFragment == null) {
+                    campusMapFragment = new CampusMapFragment();
+                }
+                fragment = campusMapFragment;
             } else if (itemId == R.id.nav_button_4) {
                 // 내 정보 Fragment
                 if (userProfileFragment == null) {
@@ -124,6 +128,8 @@ public class MainActivityNew extends AppCompatActivity {
             bottomNavigation.setSelectedItemId(R.id.nav_button_1);
         } else if (currentFragment instanceof TimeTableFragment) {
             bottomNavigation.setSelectedItemId(R.id.nav_button_2);
+        } else if (currentFragment instanceof CampusMapFragment) {
+            bottomNavigation.setSelectedItemId(R.id.nav_button_3);
         } else if (currentFragment instanceof UserProfileFragment) {
             bottomNavigation.setSelectedItemId(R.id.nav_button_4);
         }

@@ -6,16 +6,26 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#F8F9FA"
+    android:fitsSystemWindows="true"
     tools:context=".CertificateBoardActivity">
 
-    <!-- 1. 상단 툴바 -->
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
+    <!-- 1. 상단 AppBarLayout + MaterialToolbar -->
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@android:color/white"
-        app:title="자격증"
-        app:titleTextColor="@android:color/black" />
+        android:layout_height="wrap_content"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:title="자격증 모음"
+            app:titleTextColor="?attr/colorOnPrimary"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:navigationIconTint="?attr/colorOnPrimary" />
+
+    </com.google.android.material.appbar.AppBarLayout>
 
     <!-- 2. 검색창 -->
     <com.google.android.material.card.MaterialCardView

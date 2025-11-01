@@ -17,6 +17,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import sprout.app.sakmvp1.R; // <- applicationId 기준으로 생성된 R 클래스(리소스 접근용)
 import sprout.app.sakmvp1.MainActivityNew;
+import sprout.app.sakmvp1.AdminActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
 import com.google.firebase.auth.FirebaseAuthInvalidUserException;
@@ -140,12 +141,14 @@ public class LoginActivity extends AppCompatActivity {
         // 관리자 접속
         btnAdminAccess.setOnClickListener(v -> {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            // commit()을 사용하여 동기적으로 저장 (apply()는 비동기라 타이밍 문제 발생 가능)
             prefs.edit()
                     .putBoolean("is_admin", true)
-                    .apply();
+                    .commit();
 
             Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+            // AdminActivity로 직접 이동하여 확실하게 관리자 권한 적용
+            startActivity(new Intent(LoginActivity.this, AdminActivity.class));
             dialog.dismiss();
         });
 

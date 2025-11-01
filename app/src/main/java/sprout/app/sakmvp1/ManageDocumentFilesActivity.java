@@ -50,7 +50,8 @@ public class ManageDocumentFilesActivity extends AppCompatActivity implements Ma
     private FirebaseStorage storage;
     private String folderId;
 
-    private ActivityResultLauncher<String> filePickerLauncher;
+    private static final int PICK_FILE_REQUEST = 1001;
+
     private Dialog currentDialog;
     private EditText currentEtFileUrl;
     private EditText currentEtFileName;
@@ -63,12 +64,6 @@ public class ManageDocumentFilesActivity extends AppCompatActivity implements Ma
 
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
-
-        // 파일 선택 launcher 초기화
-        filePickerLauncher = registerForActivityResult(
-                new ActivityResultContracts.GetContent(),
-                this::handleSelectedFile
-        );
 
         // Intent에서 폴더 정보 가져오기
         folderId = getIntent().getStringExtra("folderId");
@@ -171,7 +166,10 @@ public class ManageDocumentFilesActivity extends AppCompatActivity implements Ma
 
         // 파일 선택 버튼
         btnSelectFile.setOnClickListener(v -> {
-            filePickerLauncher.launch("*/*");
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            startActivityForResult(intent, PICK_FILE_REQUEST);
         });
 
         btnCancel.setOnClickListener(v -> dialog.dismiss());
@@ -290,28 +288,39 @@ public class ManageDocumentFilesActivity extends AppCompatActivity implements Ma
                 .show();
     }
 
-    /**
-     * 선택한 파일 처리
-     */
-    private void handleSelectedFile(Uri uri) {
-        if (uri == null) {
-            return;
-        }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
 
-        // 파일 이름 가져오기
-        String fileName = getFileName(uri);
-        if (fileName != null && currentEtFileName != null && TextUtils.isEmpty(currentEtFileName.getText())) {
-            currentEtFileName.setText(fileName);
-        }
+        if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null) {
+            Uri uri = data.getData();
+            if (uri != null) {
+                // URI 권한 획득
+                try {
+                    getContentResolver().takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    );
+                } catch (SecurityException e) {
+                    Log.w(TAG, "Could not take persistable URI permission", e);
+                }
 
-        // 상태 표시
-        if (currentTvFileStatus != null) {
-            currentTvFileStatus.setVisibility(View.VISIBLE);
-            currentTvFileStatus.setText("파일 업로드 중...");
-        }
+                // 파일 이름 가져오기
+                String fileName = getFileName(uri);
+                if (fileName != null && currentEtFileName != null && TextUtils.isEmpty(currentEtFileName.getText())) {
+                    currentEtFileName.setText(fileName);
+                }
 
-        // Firebase Storage에 업로드
-        uploadFileToStorage(uri, fileName);
+                // 상태 표시
+                if (currentTvFileStatus != null) {
+                    currentTvFileStatus.setVisibility(View.VISIBLE);
+                    currentTvFileStatus.setText("파일 업로드 중...");
+                }
+
+                // Firebase Storage에 업로드
+                uploadFileToStorage(uri, fileName);
+            }
+        }
     }
 
     /**

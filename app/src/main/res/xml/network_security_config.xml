@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- Firebase domains - HTTPS only -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">firebase.googleapis.com</domain>
         <domain includeSubdomains="true">firebaseapp.com</domain>
         <domain includeSubdomains="true">googleapis.com</domain>
     </domain-config>
+
+    <!-- Nazareth University domain - allow HTTP for meal menu images -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">kornu.ac.kr</domain>
+    </domain-config>
+
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system"/>

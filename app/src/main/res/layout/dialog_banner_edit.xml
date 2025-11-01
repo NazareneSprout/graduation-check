@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- 배너 이미지 미리보기 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="배너 이미지 (권장: 1200 x 400 픽셀)"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="3:1 비율의 가로형 이미지를 권장합니다"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="8dp" />
+
+        <ImageView
+            android:id="@+id/iv_banner_preview"
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:scaleType="centerCrop"
+            android:background="#E0E0E0"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btn_select_image"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="이미지 선택"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 배너 제목 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="배너 제목 (관리용)"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/et_banner_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="예: 2025학년도 신입생 모집"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 우선순위 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="우선순위 (낮을수록 먼저 표시)"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/et_priority"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="1-99"
+            android:inputType="number"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 활성화 여부 -->
+        <CheckBox
+            android:id="@+id/cb_active"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="활성화"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 배너 타입 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="배너 타입"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rg_banner_type"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp">
+
+            <RadioButton
+                android:id="@+id/rb_type_external"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="외부 링크 (WebView)" />
+
+            <RadioButton
+                android:id="@+id/rb_type_none"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="클릭 불가 (공지용)" />
+        </RadioGroup>
+
+        <!-- 외부 링크 입력 -->
+        <LinearLayout
+            android:id="@+id/layout_external_target"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="외부 링크 URL"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/et_target_url"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="https://..."
+                android:inputType="textUri" />
+        </LinearLayout>
+
+        <!-- 대상 학부 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="대상 학부"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <Spinner
+            android:id="@+id/spinner_department"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 활성화 기간 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="활성화 기간"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- 시작일 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="60dp"
+                android:layout_height="wrap_content"
+                android:text="시작일:" />
+
+            <TextView
+                android:id="@+id/tv_start_date"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="제한 없음"
+                android:textSize="14sp"
+                android:padding="8dp"
+                android:background="#E0E0E0" />
+
+            <Button
+                android:id="@+id/btn_set_start_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="설정"
+                android:layout_marginStart="4dp" />
+
+            <Button
+                android:id="@+id/btn_clear_start_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="제거"
+                android:layout_marginStart="4dp" />
+        </LinearLayout>
+
+        <!-- 종료일 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="60dp"
+                android:layout_height="wrap_content"
+                android:text="종료일:" />
+
+            <TextView
+                android:id="@+id/tv_end_date"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="제한 없음"
+                android:textSize="14sp"
+                android:padding="8dp"
+                android:background="#E0E0E0" />
+
+            <Button
+                android:id="@+id/btn_set_end_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="설정"
+                android:layout_marginStart="4dp" />
+
+            <Button
+                android:id="@+id/btn_clear_end_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="제거"
+                android:layout_marginStart="4dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

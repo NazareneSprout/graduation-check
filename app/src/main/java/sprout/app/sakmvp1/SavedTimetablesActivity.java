@@ -46,7 +46,9 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setDecorFitsSystemWindows(false);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+        }
         setContentView(R.layout.activity_saved_timetables);
 
         localStorage = new TimetableLocalStorage(this);
