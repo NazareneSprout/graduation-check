@@ -48,6 +48,8 @@ public class HomeFragment extends Fragment {
     private LinearLayout btnFunction6;
     private LinearLayout btnFunction7;
     private LinearLayout btnFunction8;
+    private LinearLayout btnSchoolTips;
+    private LinearLayout btnAssistProgram;
 
     @Nullable
     @Override
@@ -78,6 +80,8 @@ public class HomeFragment extends Fragment {
         btnFunction6 = view.findViewById(R.id.btnFunction6);
         btnFunction7 = view.findViewById(R.id.btnFunction7);
         btnFunction8 = view.findViewById(R.id.btnFunction8);
+        btnSchoolTips = view.findViewById(R.id.btnSchoolTips);
+        btnAssistProgram = view.findViewById(R.id.btnAssistProgram);
     }
 
     private void setupBannerViewPager() {
@@ -167,14 +171,29 @@ public class HomeFragment extends Fragment {
         }
 
         if (btnFunction7 != null) {
-            btnFunction7.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "기능5 - 준비중", Toast.LENGTH_SHORT).show()
-            );
+            btnFunction7.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), WebViewActivity.class);
+                intent.putExtra("url", "https://nabest.kornu.ac.kr/Career/");
+                startActivity(intent);
+            });
         }
 
         if (btnFunction8 != null) {
             btnFunction8.setOnClickListener(v -> {
                 Intent intent = new Intent(requireContext(), MealMenuActivity.class);
+                startActivity(intent);
+            });
+        }
+
+        if (btnSchoolTips != null) {
+            btnSchoolTips.setOnClickListener(v ->
+                    Toast.makeText(requireContext(), "학교에 완벽히 적응하는 꿀팁 - 준비중", Toast.LENGTH_SHORT).show()
+            );
+        }
+
+        if (btnAssistProgram != null) {
+            btnAssistProgram.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), AssistProgramActivity.class);
                 startActivity(intent);
             });
         }

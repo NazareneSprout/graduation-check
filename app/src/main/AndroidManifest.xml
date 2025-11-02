@@ -106,6 +106,10 @@
             android:name=".BannerManagementActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
+        <activity
+            android:name=".AssistProgramActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
 
     </application>
 
