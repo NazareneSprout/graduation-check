@@ -7,7 +7,7 @@
     android:orientation="vertical"
     android:background="#F8F9FA"
     android:fitsSystemWindows="true"
-    tools:context=".CertificateBoardActivity">
+    tools:context=".certificate.CertificateBoardActivity">
 
     <!-- 1. 상단 AppBarLayout + MaterialToolbar -->
     <com.google.android.material.appbar.AppBarLayout
@@ -23,9 +23,14 @@
             app:title="자격증 모음"
             app:titleTextColor="?attr/colorOnPrimary"
             app:navigationIcon="@drawable/ic_arrow_back"
-            app:navigationIconTint="?attr/colorOnPrimary" />
+            app:navigationIconTint="?attr/colorOnPrimary"
+
+            app:menu="@menu/menu_certificate_board" />
+        <!-- [추가] 툴바에 메뉴 파일을 연결합니다. -->
 
     </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- ... (이하 검색창, 칩 그룹, 리사이클러뷰 등 기존 코드는 동일) ... -->
 
     <!-- 2. 검색창 -->
     <com.google.android.material.card.MaterialCardView
@@ -34,7 +39,7 @@
         android:layout_margin="16dp"
         app:cardCornerRadius="24dp"
         app:cardElevation="4dp">
-
+        <!-- ... (EditText) ... -->
         <EditText
             android:id="@+id/edit_search"
             android:layout_width="match_parent"
@@ -46,8 +51,6 @@
             android:background="@android:color/transparent"
             android:drawableEnd="@drawable/ic_search"
             android:drawablePadding="12dp" />
-        <!-- 참고: @drawable/ic_search 는 돋보기 아이콘이며, drawable 폴더에 추가해야 합니다. -->
-
     </com.google.android.material.card.MaterialCardView>
 
     <!-- 3. 학부 필터 (가로 스크롤) -->
@@ -63,8 +66,7 @@
             android:paddingHorizontal="16dp"
             app:singleLine="true"
             app:singleSelection="true">
-
-            <!-- Chip은 Java/Kotlin 코드로 동적으로 추가하거나, 여기서 미리 정의할 수 있습니다. -->
+            <!-- ... (Chips) ... -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_all"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
@@ -72,40 +74,34 @@
                 android:layout_height="wrap_content"
                 android:text="전체"
                 android:checked="true" />
-
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_it"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="IT학부" />
-
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_police"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="경찰행정학부" />
-
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_christianity"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="기독교학부" />
-
             <com.google.android.material.chip.Chip
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="사회과학부" />
-
             <com.google.android.material.chip.Chip
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="예술체육학부" />
-
         </com.google.android.material.chip.ChipGroup>
     </HorizontalScrollView>
 

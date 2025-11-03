@@ -103,6 +103,10 @@
             android:name=".CertificateBoardActivity"
             android:exported="false" />
         <activity
+            android:name=".MyBookmarksActivity"
+            android:exported="false"
+            android:parentActivityName=".CertificateBoardActivity" />
+        <activity
             android:name=".BannerManagementActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />

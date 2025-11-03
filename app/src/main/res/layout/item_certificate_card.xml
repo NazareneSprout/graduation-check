@@ -4,80 +4,87 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginTop="8dp"
+    android:layout_marginBottom="8dp"
     app:cardCornerRadius="16dp"
     app:cardElevation="2dp">
 
-    <LinearLayout
+    <!-- 북마크 버튼을 카드 위에 띄우기 위해 RelativeLayout 사용 -->
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"> <!-- 전체 LinearLayout에 패딩을 적용하여 텍스트가 바로 카드 테두리에 붙지 않도록 조정 --><!-- 썸네일 이미지 제거 --><!-- <ImageView
-            android:id="@+id/img_thumbnail"
-            android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:scaleType="centerCrop"
-            android:background="#EEEEEE"
-            tools:src="@tools:sample/backgrounds/scenic" /> --><!-- 카드 내용 (기존 LinearLayout 유지) --><!-- 썸네일이 제거되었으므로, 이 LinearLayout의 padding="16dp"는 이제 전체 카드 내용에 적용됩니다. --><!-- 자격증 이름 (e.g., 정보처리기사) --><TextView
-        android:id="@+id/text_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        android:maxLines="2"
-        android:ellipsize="end"
-        tools:text="정보처리기사 (정처기)" />
+        android:padding="16dp">
 
-        <!-- 주최 기관 (e.g., 한국산업인력공단) --><TextView
-            android:id="@+id/text_issuer"
+        <!-- [추가] 북마크 버튼 -->
+        <ImageButton
+            android:id="@+id/btn_bookmark"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="4dp"
+            android:scaleType="fitCenter"
+            app:tint="?attr/colorPrimary"
+            tools:src="@drawable/ic_bookmark_border" />
+
+        <!-- 기존 텍스트 컨텐츠 (LinearLayout) -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="14sp"
-            android:textColor="#555555"
-            tools:text="한국산업인력공단" />
-
-        <!-- 메타데이터 (D-day, 조회수 등) --><LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:orientation="vertical"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
+            android:layout_toStartOf="@id/btn_bookmark"
+            android:layout_marginEnd="8dp">
 
             <TextView
-                android:id="@+id/text_d_day"
-                android:layout_width="wrap_content"
+                android:id="@+id/text_title"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="2dp"
-                android:textColor="#0D47A1"
-                android:textSize="12sp"
+                android:textSize="18sp"
                 android:textStyle="bold"
-                tools:text="D-10" />
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@drawable/ic_visibility"
-                android:layout_marginEnd="4dp"
-                app:tint="#888888"/>
+                android:textColor="@android:color/black"
+                android:maxLines="2"
+                android:ellipsize="end"
+                tools:text="정보처리기사 (정처기)" />
 
             <TextView
-                android:id="@+id/text_view_count"
-                android:layout_width="wrap_content"
+                android:id="@+id/text_issuer"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#888888"
-                tools:text="2,098" />
+                android:layout_marginTop="4dp"
+                android:textSize="14sp"
+                android:textColor="#555555"
+                tools:text="한국산업인력공단" />
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/text_d_day"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"
+                    android:textColor="#0D47A1"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="D-10" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+            </LinearLayout>
         </LinearLayout>
-
-    </LinearLayout>
+    </RelativeLayout>
 
 </com.google.android.material.card.MaterialCardView>

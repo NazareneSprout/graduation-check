@@ -1,69 +1,88 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1; // 패키지 경로 확인
+
+import com.google.firebase.firestore.DocumentId;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * 자격증 데이터 모델 (POJO)
- * RecyclerView의 각 항목에 표시될 데이터를 담습니다.
+ * Firestore 'certificates' 컬렉션의 문서 모델
  */
 public class Certificate {
 
-    private String title;       // 자격증 이름
-    private String issuer;      // 주최 기관
-    private String dDay;        // D-Day (e.g., "D-10", "접수중")
-    private int viewCount;      // 조회수
-    private String department;  // 관련 학부 (필터링을 위해)
+    @DocumentId
+    private String id; // Firestore 문서 ID
 
-    // Firestore 연동을 위한 기본 생성자
+    private String title;       // 자격증 이름
+    private String issuer;      // 발급 기관
+    private String department;  // 필터링용 (예: "IT학부", "경찰행정학부")
+    private String targetUrl;   // 클릭 시 이동할 URL
+    private long bookmarkCount; // 인기순 정렬용
+
+    // 어떤 유저가 북마크했는지 저장 (UID: true)
+    private Map<String, Boolean> bookmarks = new HashMap<>();
+
+    // Firestore 매핑을 위한 기본 생성자
     public Certificate() {
     }
 
-    // 데이터 생성을 위한 생성자
-    public Certificate(String title, String issuer, String dDay, int viewCount, String department) {
-        this.title = title;
-        this.issuer = issuer;
-        this.dDay = dDay;
-        this.viewCount = viewCount;
-        this.department = department; // "IT학부", "경찰행정학부" 등
+    // --- Getter 및 Setter ---
+    // (모든 필드에 대한 Getter와 Setter가 있어야 Firestore가 정상 동작합니다)
+
+    public String getId() {
+        return id;
     }
 
-    // --- Getter ---
+    public void setId(String id) {
+        this.id = id;
+    }
+
     public String getTitle() {
         return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getIssuer() {
         return issuer;
     }
 
-    public String getDDay() {
-        return dDay;
+    public void setIssuer(String issuer) {
+        this.issuer = issuer;
     }
 
-    public int getViewCount() {
-        return viewCount;
-    }
 
     public String getDepartment() {
         return department;
     }
 
-    // --- Setter (Firestore 사용 시 필요할 수 있음) ---
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public void setIssuer(String issuer) {
-        this.issuer = issuer;
-    }
-
-    public void setDDay(String dDay) {
-        this.dDay = dDay;
-    }
-
-    public void setViewCount(int viewCount) {
-        this.viewCount = viewCount;
-    }
-
     public void setDepartment(String department) {
         this.department = department;
+    }
+
+    public String getTargetUrl() {
+        return targetUrl;
+    }
+
+    public void setTargetUrl(String targetUrl) {
+        this.targetUrl = targetUrl;
+    }
+
+    public long getBookmarkCount() {
+        return bookmarkCount;
+    }
+
+    public void setBookmarkCount(long bookmarkCount) {
+        this.bookmarkCount = bookmarkCount;
+    }
+
+    public Map<String, Boolean> getBookmarks() {
+        return bookmarks;
+    }
+
+    public void setBookmarks(Map<String, Boolean> bookmarks) {
+        this.bookmarks = bookmarks;
     }
 }

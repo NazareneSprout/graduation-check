@@ -1,166 +1,249 @@
 package sprout.app.sakmvp1;
 
+import android.content.Intent; // [추가]
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
-import android.widget.EditText;
+import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
-public class CertificateBoardActivity extends AppCompatActivity {
+import sprout.app.sakmvp1.R;
 
-    private MaterialToolbar toolbar;
-    private EditText editSearch;
-    private ChipGroup chipGroupDepartment;
-    private RecyclerView recyclerViewCertificates;
+// Certificate 및 CertificateAdapter import (D-Day/조회수 제거 버전)
+import sprout.app.sakmvp1.R;
+import sprout.app.sakmvp1.CertificateAdapter;
 
+// OnBookmarkClickListener 인터페이스 구현
+public class CertificateBoardActivity extends AppCompatActivity implements CertificateAdapter.OnBookmarkClickListener {
+
+    private static final String TAG = "CertBoardActivity";
+    private RecyclerView recyclerView;
     private CertificateAdapter adapter;
-    private List<Certificate> allCertificatesList; // Firestore에서 가져온 원본 리스트
-    private List<Certificate> filteredList;      // 필터링된 리스트 (화면에 표시될 리스트)
+    private final List<Certificate> certificateList = new ArrayList<>();
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+    private String currentUserId;
+    private ListenerRegistration certificateListener;
+    private CollectionReference certCollection;
+    private ChipGroup chipGroupFilters;
+    private String currentFilter = "전체";
+
+    // [삭제] 북마크 필터 관련 변수 2줄 삭제
+    // private boolean isShowingOnlyBookmarks = false;
+    // private MenuItem menuShowBookmarks;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_certificate_board);
 
-        // 1. 뷰 초기화
-        toolbar = findViewById(R.id.toolbar);
-        editSearch = findViewById(R.id.edit_search);
-        chipGroupDepartment = findViewById(R.id.chip_group_department);
-        recyclerViewCertificates = findViewById(R.id.recycler_view_certificates);
+        // Firestore 및 Auth 초기화
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user == null) {
+            Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        currentUserId = user.getUid();
+        certCollection = db.collection("certificates");
 
-        // 2. 툴바 설정
+        // 툴바 설정
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setDisplayShowHomeEnabled(true);
+            getSupportActionBar().setTitle("자격증 모음");
         }
-        toolbar.setNavigationOnClickListener(v -> finish());
 
-        // 3. RecyclerView 설정
-        setupRecyclerView();
+        // 리사이클러뷰 설정
+        recyclerView = findViewById(R.id.recycler_view_certificates);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // 4. 리스너 설정 (검색, 칩 필터)
-        setupListeners();
+        adapter = new CertificateAdapter(certificateList, this);
+        recyclerView.setAdapter(adapter);
 
-        // 5. 데이터 로드 (지금은 임시 데이터, 나중에 Firestore에서 가져와야 함)
-        loadDummyData();
-    }
+        // [수정] XML 레이아웃과 동일한 ID로 변경
+        chipGroupFilters = findViewById(R.id.chip_group_department);
 
-    private void setupRecyclerView() {
-        allCertificatesList = new ArrayList<>();
-        filteredList = new ArrayList<>();
-
-        adapter = new CertificateAdapter(filteredList);
-        recyclerViewCertificates.setLayoutManager(new LinearLayoutManager(this));
-        recyclerViewCertificates.setAdapter(adapter);
-    }
-
-    private void setupListeners() {
-        // 칩 그룹 리스너 (학부 필터)
-        chipGroupDepartment.setOnCheckedChangeListener((group, checkedId) -> {
-            applyFilters();
-        });
-
-        // 검색창 리스너
-        editSearch.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                applyFilters();
+        // [수정] setOnCheckedChangeListener 사용 (단일 선택)
+        chipGroupFilters.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == View.NO_ID) {
+                // 사용자가 칩을 다시 눌러 선택 해제 시 '전체'를 기본값으로
+                group.check(R.id.chip_all);
+                return;
             }
 
-            @Override
-            public void afterTextChanged(Editable s) {}
+            Chip chip = group.findViewById(checkedId);
+
+            if (chip != null) {
+                // [삭제] 칩 클릭 시 북마크 필터 해제 로직 삭제
+                // if (isShowingOnlyBookmarks) { ... }
+
+                currentFilter = chip.getText().toString();
+                Log.d(TAG, "Filter changed to: " + currentFilter);
+                loadCertificates(); // 데이터 다시 로드
+            }
+        });
+
+        // [추가] 기본으로 '전체' 칩 선택
+        chipGroupFilters.check(R.id.chip_all);
+    }
+
+    // [수정] 툴바에 메뉴(북마크 버튼) 생성 (내용 간소화)
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        // res/menu/menu_certificate_board.xml 파일을 참조
+        inflater.inflate(R.menu.menu_certificate_board, menu);
+        // [삭제] menuShowBookmarks 관련 코드 삭제
+        // [삭제] updateBookmarkIcon() 호출 삭제
+        return true;
+    }
+
+    // [수정] 툴바의 버튼 클릭 시 (새 액티비티 호출)
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        // 안드로이드 홈 버튼(뒤로가기) 클릭 처리
+        if (item.getItemId() == android.R.id.home) {
+            onBackPressed();
+            return true;
+        }
+
+        // [수정] 북마크 아이콘 클릭 시
+        if (item.getItemId() == R.id.action_show_bookmarks) {
+            // "내 북마크" 화면(MyBookmarksActivity)으로 이동
+            Intent intent = new Intent(this, MyBookmarksActivity.class);
+            startActivity(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    // [삭제] updateBookmarkIcon() 메서드 전체 삭제
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        loadCertificates(); // "전체" 필터로 데이터 로드 시작
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (certificateListener != null) {
+            certificateListener.remove();
+        }
+    }
+
+    /**
+     * [수정됨] "북마크 필터" 관련 로직 삭제
+     */
+    private void loadCertificates() {
+        if (certificateListener != null) {
+            certificateListener.remove();
+        }
+
+        Query query;
+
+        // [삭제] if (isShowingOnlyBookmarks) { ... } 블록 전체 삭제
+
+        // [수정] 항상 칩 필터 기준으로 쿼리 실행
+        query = certCollection.orderBy("bookmarkCount", Query.Direction.DESCENDING);
+
+        if (!currentFilter.equals("전체")) {
+            query = query.whereEqualTo("department", currentFilter);
+        }
+
+        // 3. 실시간 스냅샷 리스너 등록 (쿼리 실행)
+        certificateListener = query.addSnapshotListener((value, error) -> {
+            if (error != null) {
+                Log.w(TAG, "Listen failed.", error);
+                Toast.makeText(this, "데이터 로드 실패: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            if (value != null) {
+                certificateList.clear();
+                for (Certificate doc : value.toObjects(Certificate.class)) {
+                    certificateList.add(doc);
+                }
+                adapter.notifyDataSetChanged();
+            }
         });
     }
 
     /**
-     * 검색어와 칩 필터를 모두 적용하여 리스트를 갱신합니다.
+     * 어댑터에서 북마크 버튼 클릭 시 호출될 메서드
+     * (이 메서드는 변경 없음)
      */
-    private void applyFilters() {
-        // 1. 검색어 가져오기 (소문자로)
-        String searchQuery = editSearch.getText().toString().toLowerCase().trim();
+    @Override
+    public void onBookmarkClick(Certificate certificate) {
+        if (currentUserId == null) return;
 
-        // 2. 선택된 칩의 텍스트 가져오기
-        String selectedChipText = "전체"; // 기본값
-        int checkedChipId = chipGroupDepartment.getCheckedChipId();
-        if (checkedChipId != View.NO_ID) {
-            Chip selectedChip = findViewById(checkedChipId);
-            selectedChipText = selectedChip.getText().toString();
-        }
+        DocumentReference docRef = certCollection.document(certificate.getId());
 
-        final String finalSelectedChipText = selectedChipText;
+        db.runTransaction(transaction -> {
+            Certificate latestCert = transaction.get(docRef).toObject(Certificate.class);
+            if (latestCert == null) {
+                throw new FirebaseFirestoreException("Document does not exist",
+                        FirebaseFirestoreException.Code.ABORTED);
+            }
 
-        // 3. 원본 리스트(allCertificatesList)에서 필터링
-        // (Java 8 스트림 사용)
-        filteredList = allCertificatesList.stream()
-                .filter(certificate -> {
-                    // 필터 1: 학부 필터
-                    boolean departmentMatch = finalSelectedChipText.equals("전체") ||
-                            certificate.getDepartment().equals(finalSelectedChipText);
+            Map<String, Boolean> bookmarks = latestCert.getBookmarks();
+            if (bookmarks == null) {
+                bookmarks = new HashMap<>();
+            }
 
-                    // 필터 2: 검색어 필터 (제목 또는 주최 기관에 포함되는지)
-                    boolean searchMatch = searchQuery.isEmpty() ||
-                            certificate.getTitle().toLowerCase().contains(searchQuery) ||
-                            certificate.getIssuer().toLowerCase().contains(searchQuery);
+            if (bookmarks.containsKey(currentUserId)) {
+                bookmarks.remove(currentUserId);
+                transaction.update(docRef, "bookmarkCount", FieldValue.increment(-1));
+                transaction.update(docRef, "bookmarks", bookmarks);
+            } else {
+                bookmarks.put(currentUserId, true);
+                transaction.update(docRef, "bookmarkCount", FieldValue.increment(1));
+                transaction.update(docRef, "bookmarks", bookmarks);
+            }
+            return null;
 
-                    return departmentMatch && searchMatch; // 두 조건 모두 만족
-                })
-                .collect(Collectors.toList());
-
-        // 4. 어댑터에 갱신된 리스트 적용
-        adapter.updateData(filteredList);
-
-        // (선택사항) 검색 결과가 없을 때 처리
-        if (filteredList.isEmpty()) {
-            // Toast.makeText(this, "검색 결과가 없습니다.", Toast.LENGTH_SHORT).show();
-            // 또는 "결과 없음"을 표시할 TextView를 보여줄 수 있습니다.
-        }
-    }
-
-
-    /**
-     * 임시 데이터를 로드합니다. (테스트용)
-     * TODO: 이 메서드를 Firestore에서 데이터를 가져오는 코드로 교체해야 합니다.
-     */
-    private void loadDummyData() {
-        allCertificatesList.clear(); // 원본 리스트 비우기
-
-        // "IT학부" 관련 자격증
-        allCertificatesList.add(new Certificate("정보처리기사", "한국산업인력공단", "D-30", 2098, "IT학부"));
-        allCertificatesList.add(new Certificate("리눅스마스터 1급", "KAIT", "접수중", 1502, "IT학부"));
-        allCertificatesList.add(new Certificate("AWS Certified Cloud Practitioner", "Amazon", "상시", 3012, "IT학부"));
-
-        // "경찰행정학부" 관련 자격증
-        allCertificatesList.add(new Certificate("경비지도사", "한국산업인력공단", "D-120", 1800, "경찰행정학부"));
-        allCertificatesList.add(new Certificate("신변보호사", "대한경호협회", "상시", 950, "경찰행정학부"));
-
-        // "기독교학부" 관련 자격증
-        allCertificatesList.add(new Certificate("청소년상담사 3급", "한국산업인력공단", "D-45", 1100, "기독교학부"));
-
-        // (다른 학부 데이터...)
-
-        // 처음에는 모든 데이터를 보여줌 (필터링 적용)
-        applyFilters();
+        }).addOnSuccessListener(aVoid -> {
+            Log.d(TAG, "Bookmark transaction success!");
+        }).addOnFailureListener(e -> {
+            Log.w(TAG, "Bookmark transaction failure.", e);
+            Toast.makeText(this, "작업에 실패했습니다.", Toast.LENGTH_SHORT).show();
+        });
     }
 
     @Override
     public boolean onSupportNavigateUp() {
-        finish();
+        onBackPressed();
         return true;
     }
 }
+

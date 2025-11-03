@@ -1,90 +1,109 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1; // 패키지 경로 확인
 
+import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.auth.FirebaseAuth;
+
+import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
-/**
- * 자격증 카드 목록을 RecyclerView에 바인딩하는 어댑터
- */
+import sprout.app.sakmvp1.R;
+import sprout.app.sakmvp1.WebViewActivity;
+
 public class CertificateAdapter extends RecyclerView.Adapter<CertificateAdapter.CertificateViewHolder> {
 
-    private List<Certificate> certificateList;
+    private final List<Certificate> certificateList;
+    private final String currentUserId; // 현재 유저 ID
 
-    public CertificateAdapter(List<Certificate> certificateList) {
+    // 북마크 클릭 리스너 인터페이스
+    public interface OnBookmarkClickListener {
+        void onBookmarkClick(Certificate certificate);
+    }
+    private final OnBookmarkClickListener bookmarkClickListener;
+
+    public CertificateAdapter(List<Certificate> certificateList, OnBookmarkClickListener listener) {
         this.certificateList = certificateList;
+        this.bookmarkClickListener = listener;
+        // 현재 로그인한 유저 ID 가져오기 (null일 수 있음)
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            this.currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        } else {
+            this.currentUserId = null;
+        }
     }
 
     @NonNull
     @Override
     public CertificateViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // item_certificate_card.xml 레이아웃을 inflate
-        View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_certificate_card, parent, false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_certificate_card, parent, false);
         return new CertificateViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull CertificateViewHolder holder, int position) {
-        // 현재 위치의 Certificate 객체를 가져옴
         Certificate certificate = certificateList.get(position);
 
-        // ViewHolder의 뷰들에 데이터를 설정
         holder.textTitle.setText(certificate.getTitle());
         holder.textIssuer.setText(certificate.getIssuer());
-        holder.textDDay.setText(certificate.getDDay());
 
-        // 조회수 포맷팅 (e.g., 2098 -> "2,098")
-        holder.textViewCount.setText(String.format(Locale.getDefault(), "%,d", certificate.getViewCount()));
 
-        // D-Day가 없거나 "상시"인 경우 D-Day 칩을 숨길 수 있습니다.
-        if (certificate.getDDay() == null || certificate.getDDay().isEmpty()) {
-            holder.textDDay.setVisibility(View.GONE);
+        // 북마크 상태 설정
+        if (currentUserId != null && certificate.getBookmarks() != null && certificate.getBookmarks().containsKey(currentUserId)) {
+            // 북마크 한 경우: 꽉 찬 아이콘
+            holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_filled);
         } else {
-            holder.textDDay.setVisibility(View.VISIBLE);
+            // 북마크 안 한 경우: 테두리 아이콘
+            holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_border);
         }
+
+        // 북마크 버튼 클릭 리스너
+        holder.btnBookmark.setOnClickListener(v -> {
+            if (bookmarkClickListener != null) {
+                bookmarkClickListener.onBookmarkClick(certificate);
+            }
+        });
+
+        // 카드 전체 클릭 리스너 (WebView로 이동)
+        holder.itemView.setOnClickListener(v -> {
+            String url = certificate.getTargetUrl();
+            if (url != null && !url.isEmpty()) {
+                Context context = v.getContext();
+                // WebViewActivity 경로는 본인 프로젝트에 맞게 수정 필요
+                Intent intent = new Intent(context, WebViewActivity.class);
+                intent.putExtra("url", url);
+                context.startActivity(intent);
+            }
+        });
     }
 
     @Override
     public int getItemCount() {
-        return certificateList == null ? 0 : certificateList.size();
+        return certificateList.size();
     }
 
-    /**
-     * ViewHolder 클래스
-     * item_certificate_card.xml의 뷰들을 참조합니다.
-     */
-    public static class CertificateViewHolder extends RecyclerView.ViewHolder {
-        TextView textTitle;
-        TextView textIssuer;
-        TextView textDDay;
-        TextView textViewCount;
-        ImageView iconViews; // 아이콘
+    static class CertificateViewHolder extends RecyclerView.ViewHolder {
+        TextView textTitle, textIssuer, textViewCount;
+        ImageButton btnBookmark;
 
-        public CertificateViewHolder(@NonNull View itemView) {
+        CertificateViewHolder(@NonNull View itemView) {
             super(itemView);
             textTitle = itemView.findViewById(R.id.text_title);
             textIssuer = itemView.findViewById(R.id.text_issuer);
-            textDDay = itemView.findViewById(R.id.text_d_day);
             textViewCount = itemView.findViewById(R.id.text_view_count);
-
+            // icon_views ID는 item_certificate_card.xml에 정의된 ID와 일치해야 함
+            btnBookmark = itemView.findViewById(R.id.btn_bookmark);
         }
-    }
-
-    /**
-     * [중요] 필터링된 새 리스트로 데이터를 업데이트하는 메서드
-     */
-    public void updateData(List<Certificate> newList) {
-        this.certificateList.clear();
-        this.certificateList.addAll(newList);
-        notifyDataSetChanged(); // RecyclerView 갱신
     }
 }
