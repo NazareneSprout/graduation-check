@@ -348,9 +348,9 @@ public class TimeTableFragment extends Fragment {
                 newSchedule.professorName, newSchedule.location
         );
 
-        // [수정됨] 경로 변경 (timetables -> userId -> user_timetables -> docId)
-        db.collection("timetables").document(userId)
-                .collection("user_timetables").document(activeTimetableId)
+        // users/{userId}/timetables/{timetableId}
+        db.collection("users").document(userId)
+                .collection("timetables").document(activeTimetableId)
                 .update("schedules", FieldValue.arrayUnion(scheduleItem))
                 .addOnSuccessListener(aVoid -> {
                     newSchedule.documentId = String.valueOf(System.currentTimeMillis());
@@ -378,9 +378,9 @@ public class TimeTableFragment extends Fragment {
             return;
         }
 
-        // [수정됨] 경로 변경
-        db.collection("timetables").document(userId)
-                .collection("user_timetables").document(activeTimetableId)
+        // users/{userId}/timetables/{timetableId}
+        db.collection("users").document(userId)
+                .collection("timetables").document(activeTimetableId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
@@ -424,9 +424,9 @@ public class TimeTableFragment extends Fragment {
                 scheduleData.professorName, scheduleData.location
         );
 
-        // [수정됨] 경로 변경
-        db.collection("timetables").document(userId)
-                .collection("user_timetables").document(activeTimetableId)
+        // users/{userId}/timetables/{timetableId}
+        db.collection("users").document(userId)
+                .collection("timetables").document(activeTimetableId)
                 .update("schedules", FieldValue.arrayRemove(scheduleItemToRemove))
                 .addOnSuccessListener(aVoid -> {
                     View viewToRemove = scheduleViewMap.remove(scheduleData.documentId);
@@ -510,9 +510,9 @@ public class TimeTableFragment extends Fragment {
             newTimetable.setSchedules(new java.util.ArrayList<>());
             // [삭제] setUserId() 호출 제거
 
-            // [수정됨] 경로 변경
-            db.collection("timetables").document(userId)
-                    .collection("user_timetables")
+            // users/{userId}/timetables
+            db.collection("users").document(userId)
+                    .collection("timetables")
                     .add(newTimetable)
                     .addOnSuccessListener(documentReference -> {
                         String newTimetableId = documentReference.getId();
@@ -564,9 +564,9 @@ public class TimeTableFragment extends Fragment {
                 return;
             }
 
-            // [수정됨] 경로 변경
-            db.collection("timetables").document(userId)
-                    .collection("user_timetables").document(currentActiveId)
+            // users/{userId}/timetables/{timetableId}
+            db.collection("users").document(userId)
+                    .collection("timetables").document(currentActiveId)
                     .update("name", newName)
                     .addOnSuccessListener(aVoid -> {
                         Toast.makeText(requireContext(), "시간표 이름이 수정되었습니다", Toast.LENGTH_SHORT).show();

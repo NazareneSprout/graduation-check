@@ -113,8 +113,10 @@ public class BannerRouter {
                 return new Intent(context, MealMenuActivity.class);
 
             case "timetable":
-                // 시간표
-                return new Intent(context, sprout.app.sakmvp1.timetable.TimeTableActivity.class);
+                // 시간표 - MainActivityNew의 시간표 탭으로 이동
+                Intent timetableIntent = new Intent(context, MainActivityNew.class);
+                timetableIntent.putExtra("selected_tab", "timetable");
+                return timetableIntent;
 
             default:
                 Log.w(TAG, "알 수 없는 targetScreen: " + targetScreen);

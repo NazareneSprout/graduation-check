@@ -113,7 +113,17 @@ public class MainActivityNew extends BaseActivity {
 
         // 초기 Fragment 설정 (savedInstanceState가 null일 때만)
         if (savedInstanceState == null) {
-            loadFragment(new HomeFragment());
+            // Intent로 전달된 탭 선택 확인
+            String selectedTab = getIntent().getStringExtra("selected_tab");
+            if ("timetable".equals(selectedTab)) {
+                bottomNavigation.setSelectedItemId(R.id.nav_button_2);
+                if (timeTableFragment == null) {
+                    timeTableFragment = new TimeTableFragment();
+                }
+                loadFragment(timeTableFragment);
+            } else {
+                loadFragment(new HomeFragment());
+            }
         }
     }
 

@@ -7,12 +7,11 @@
 
 ## 🎯 빠른 요약
 
-### ✅ 필수 컬렉션 (총 11개)
+### ✅ 필수 컬렉션 (총 9개)
 ```
 users                             - 사용자 정보
 ├─ current_graduation_analysis    - 최신 졸업 분석 결과 (단일 문서)
-├─ user_schedules                 - 일정
-└─ user_timetables                - 시간표
+└─ timetables                     - 시간표 목록
 
 graduation_requirements      - 졸업 요건 (메인)
 graduation_meta             - 메타데이터
@@ -22,13 +21,10 @@ banners                     - 홈 배너
 document_folders            - 서류 폴더
 └─ files                    - 서류 파일
 
-timetables                  - 시간표 (전체)
-schedules                   - 일정 (전체)
-student_progress            - 학생 진행상황
 replacement_courses         - 대체 과목
 ```
 
-### 🗑️ 삭제 가능 컬렉션 (총 9개)
+### 🗑️ 삭제 가능 컬렉션 (총 13개)
 ```
 즉시 삭제 가능:
 - graduation_requirements_v2  (미사용)
@@ -39,6 +35,11 @@ replacement_courses         - 대체 과목
 - user_graduation_analysis    (미구현)
 - graduation_check_history    (current_graduation_analysis로 대체됨)
 - courses                     (current_graduation_analysis로 통합됨)
+- timetables (최상위)         (users/{userId}/timetables로 이동됨)
+- schedules (최상위)          (users/{userId}/timetables로 통합됨)
+- student_progress            (실제 Firestore에 존재하지 않음)
+- user_schedules              (실제 사용되지 않음)
+- user_timetables             (실제 사용되지 않음)
 
 확인 후 삭제:
 - 학부                        (graduation_meta로 대체 확인 필요)
@@ -62,8 +63,7 @@ replacement_courses         - 대체 과목
 
 **하위 컬렉션**:
 - `users/{userId}/current_graduation_analysis` - 최신 졸업 분석 결과 (단일 문서 "latest") ✅
-- `users/{userId}/user_schedules` - 일정 정보 ✅
-- `users/{userId}/user_timetables` - 시간표 정보 ✅
+- `users/{userId}/timetables` - 사용자 시간표 목록 ✅
 
 ---
 
@@ -224,11 +224,10 @@ replacement_courses         - 대체 과목
 │   └── {userId}
 │       ├── 🟢 current_graduation_analysis (필수)
 │       │   └── latest (단일 문서 - 최신 졸업 분석 결과)
-│       ├── 🟢 user_schedules (필수 - 일정)
-│       └── 🟢 user_timetables (필수 - 시간표)
+│       └── 🟢 timetables (필수 - 시간표 목록)
 │
 ├── 🟢 graduation_requirements (필수 - 메인 졸업 요건)
-├── 🔴 graduation_requirements_v2 (삭제 고려 - 사용 안함)
+├── 🔴 graduation_requirements_v2 (삭제 - 사용 안함)
 │
 ├── 🟢 graduation_meta (필수)
 │   └── catalog
@@ -240,17 +239,16 @@ replacement_courses         - 대체 과목
 │   └── {folderId}
 │       └── 🟢 files (필수)
 │
-├── 🟢 timetables (최상위 - 시간표 전체 조회용?)
-├── 🟢 schedules (최상위 - 일정 전체 조회용?)
-│
-├── 🟢 student_progress (필수 - 학생 진행 상황)
 ├── 🟢 replacement_courses (필수 - 대체 과목)
 │
 ├── 🔴 graduation_check_history (삭제 - current_graduation_analysis로 대체됨)
 ├── 🔴 courses (삭제 - current_graduation_analysis로 통합됨)
-├── 🔴 학부 (삭제 고려 - graduation_meta로 대체됨)
-├── 🔴 test (삭제 고려 - 테스트 전용)
-└── 🔴 connection_test (삭제 고려 - 테스트 전용)
+├── 🔴 timetables (최상위) (삭제 - users/{userId}/timetables로 이동됨)
+├── 🔴 schedules (최상위) (삭제 - users/{userId}/timetables로 통합됨)
+├── 🔴 student_progress (삭제 - 코드에만 존재, 실제 미사용)
+├── 🔴 학부 (삭제 - graduation_meta로 대체됨)
+├── 🔴 test (삭제 - 테스트 전용)
+└── 🔴 connection_test (삭제 - 테스트 전용)
 ```
 
 **참고**: `user_academic_info`, `user_course_history`, `user_graduation_analysis`는

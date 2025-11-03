@@ -97,12 +97,10 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
             return;
         }
 
-        // [수정됨] 쿼리 경로 변경 (timetables -> userId -> user_timetables)
-        // 1. whereEqualTo("userId")가 더 이상 필요 없음
-        // 2. orderBy("savedDate")가 복합 색인 없이도 작동함!
-        db.collection("timetables").document(userId)
-                .collection("user_timetables") // <-- 하위 컬렉션 지정
-                .orderBy("savedDate", Query.Direction.DESCENDING) // 정렬 재활성화
+        // users/{userId}/timetables
+        db.collection("users").document(userId)
+                .collection("timetables")
+                .orderBy("savedDate", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     timetableList.clear();
@@ -186,9 +184,9 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
                 .setMessage(timetable.getName() + "을(를) 삭제하시겠습니까?")
                 .setPositiveButton("삭제", (dialog, which) -> {
 
-                    // [수정됨] 경로 변경
-                    db.collection("timetables").document(userId)
-                            .collection("user_timetables").document(timetable.getId())
+                    // users/{userId}/timetables/{timetableId}
+                    db.collection("users").document(userId)
+                            .collection("timetables").document(timetable.getId())
                             .delete()
                             .addOnSuccessListener(aVoid -> {
                                 timetableList.remove(position);
@@ -239,9 +237,9 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
                 return;
             }
 
-            // [수정됨] 경로 변경
-            db.collection("timetables").document(userId)
-                    .collection("user_timetables").document(timetable.getId())
+            // users/{userId}/timetables/{timetableId}
+            db.collection("users").document(userId)
+                    .collection("timetables").document(timetable.getId())
                     .update("name", newName)
                     .addOnSuccessListener(aVoid -> {
                         timetable.setName(newName);
@@ -293,9 +291,9 @@ public class SavedTimetablesActivity extends AppCompatActivity implements SavedT
             newTimetable.setSchedules(new ArrayList<>());
             // [삭제] setUserId() 호출 제거
 
-            // [수정됨] 경로 변경
-            db.collection("timetables").document(userId)
-                    .collection("user_timetables")
+            // users/{userId}/timetables
+            db.collection("users").document(userId)
+                    .collection("timetables")
                     .add(newTimetable)
                     .addOnSuccessListener(documentReference -> {
                         String newId = documentReference.getId();

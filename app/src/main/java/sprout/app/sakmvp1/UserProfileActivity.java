@@ -209,8 +209,9 @@ public class UserProfileActivity extends AppCompatActivity {
                     startActivity(intent);
                     return true;
                 } else if (itemId == R.id.nav_button_2) {
-                    // 시간표 화면으로 이동
-                    Intent intent = new Intent(this, sprout.app.sakmvp1.timetable.TimeTableActivity.class);
+                    // 시간표 화면으로 이동 - MainActivityNew의 시간표 탭
+                    Intent intent = new Intent(this, MainActivityNew.class);
+                    intent.putExtra("selected_tab", "timetable");
                     intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
                     startActivity(intent);
                     return true;
