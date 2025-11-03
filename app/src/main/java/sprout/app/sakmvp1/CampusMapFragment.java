@@ -1,44 +1,41 @@
 package sprout.app.sakmvp1;
 
-import android.graphics.Color;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.TextView;
+import android.widget.RadioGroup;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import com.google.android.material.checkbox.MaterialCheckBox;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
  * 캠퍼스 지도 Fragment
  * 학교 시설 위치를 지도에 표시하는 기능
+ * 라디오 버튼 선택 시 해당 시설 오버레이 이미지를 표시
  */
 public class CampusMapFragment extends Fragment {
 
+    private FrameLayout mapContainer;
     private ImageView ivCampusMap;
-    private FrameLayout markersContainer;
 
-    // 체크박스들
-    private MaterialCheckBox cbCopier;
-    private MaterialCheckBox cbCafeteria;
-    private MaterialCheckBox cbLibrary;
-    private MaterialCheckBox cbAtm;
-    private MaterialCheckBox cbDocumentPrinter;
+    // 오버레이 이미지들
+    private ImageView ivOverlayCopier;
+    private ImageView ivOverlayCafeteria;
+    private ImageView ivOverlayLibrary;
+    private ImageView ivOverlayAtm;
+    private ImageView ivOverlayDocumentPrinter;
+    private ImageView ivOverlayEnglishCafe;
 
-    // 시설 데이터 (좌표 및 정보)
-    private Map<String, List<FacilityMarker>> facilityData;
+    // 라디오 버튼 그룹
+    private RadioGroup radioGroupFacilities;
 
     @Nullable
     @Override
@@ -51,179 +48,114 @@ public class CampusMapFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         initViews(view);
-        initFacilityData();
-        setupCheckBoxListeners();
+        setupRadioButtonListener();
     }
 
     private void initViews(View view) {
+        // 지도 컨테이너
+        mapContainer = view.findViewById(R.id.map_container);
+
+        // 기본 지도 이미지
         ivCampusMap = view.findViewById(R.id.iv_campus_map);
-        markersContainer = view.findViewById(R.id.markers_container);
+        ivCampusMap.setImageResource(R.drawable.campus_map);
 
-        cbCopier = view.findViewById(R.id.cb_copier);
-        cbCafeteria = view.findViewById(R.id.cb_cafeteria);
-        cbLibrary = view.findViewById(R.id.cb_library);
-        cbAtm = view.findViewById(R.id.cb_atm);
-        cbDocumentPrinter = view.findViewById(R.id.cb_document_printer);
+        // 오버레이 이미지들
+        ivOverlayCopier = view.findViewById(R.id.iv_overlay_copier);
+        ivOverlayCafeteria = view.findViewById(R.id.iv_overlay_cafeteria);
+        ivOverlayLibrary = view.findViewById(R.id.iv_overlay_library);
+        ivOverlayAtm = view.findViewById(R.id.iv_overlay_atm);
+        ivOverlayDocumentPrinter = view.findViewById(R.id.iv_overlay_document_printer);
+        ivOverlayEnglishCafe = view.findViewById(R.id.iv_overlay_english_cafe);
 
-        // 지도 이미지 설정 (임시: 회색 배경)
-        // 실제 학교 지도 이미지가 있다면 ivCampusMap.setImageResource(R.drawable.campus_map); 으로 변경
+        // 오버레이 이미지 리소스 설정
+        ivOverlayCopier.setImageResource(R.drawable.campus_map_copier);
+        ivOverlayCafeteria.setImageResource(R.drawable.campus_map_cafeteria);
+        ivOverlayLibrary.setImageResource(R.drawable.campus_map_library);
+        ivOverlayAtm.setImageResource(R.drawable.campus_map_atm);
+        ivOverlayDocumentPrinter.setImageResource(R.drawable.campus_map_document_printer);
+        ivOverlayEnglishCafe.setImageResource(R.drawable.campus_map_english_cafe);
+
+        // 라디오 버튼 그룹
+        radioGroupFacilities = view.findViewById(R.id.radio_group_facilities);
+
+        // 지도 클릭 시 확대 화면으로 이동
+        mapContainer.setOnClickListener(v -> openImageZoom());
     }
 
     /**
-     * 시설 데이터 초기화
-     * 좌표는 지도 이미지 크기(1920x1440)를 기준으로 함
+     * 라디오 버튼 리스너 설정
      */
-    private void initFacilityData() {
-        facilityData = new HashMap<>();
+    private void setupRadioButtonListener() {
+        radioGroupFacilities.setOnCheckedChangeListener((group, checkedId) -> {
+            // 모든 오버레이 숨김
+            hideAllOverlays();
 
-        // 복사기
-        List<FacilityMarker> copiers = new ArrayList<>();
-        copiers.add(new FacilityMarker("본관 1층", 960, 480, "#FF5722"));
-        copiers.add(new FacilityMarker("학생회관 2층", 480, 360, "#FF5722"));
-        copiers.add(new FacilityMarker("도서관 1층", 1200, 720, "#FF5722"));
-        facilityData.put("copier", copiers);
-
-        // 식당
-        List<FacilityMarker> cafeterias = new ArrayList<>();
-        cafeterias.add(new FacilityMarker("학생식당", 600, 480, "#4CAF50"));
-        cafeterias.add(new FacilityMarker("교직원식당", 1008, 432, "#4CAF50"));
-        cafeterias.add(new FacilityMarker("푸드코트", 720, 600, "#4CAF50"));
-        facilityData.put("cafeteria", cafeterias);
-
-        // 도서관
-        List<FacilityMarker> libraries = new ArrayList<>();
-        libraries.add(new FacilityMarker("중앙도서관", 1200, 720, "#2196F3"));
-        libraries.add(new FacilityMarker("제2도서관", 1400, 900, "#2196F3"));
-        facilityData.put("library", libraries);
-
-        // ATM기기
-        List<FacilityMarker> atms = new ArrayList<>();
-        atms.add(new FacilityMarker("본관 1층", 960, 480, "#9C27B0"));
-        atms.add(new FacilityMarker("학생회관 1층", 504, 384, "#9C27B0"));
-        atms.add(new FacilityMarker("기숙사 1층", 1560, 1080, "#9C27B0"));
-        facilityData.put("atm", atms);
-
-        // 서류출력기
-        List<FacilityMarker> documentPrinters = new ArrayList<>();
-        documentPrinters.add(new FacilityMarker("행정관 1층", 800, 300, "#FF9800"));
-        documentPrinters.add(new FacilityMarker("본관 민원실", 960, 520, "#FF9800"));
-        documentPrinters.add(new FacilityMarker("학생지원센터", 650, 650, "#FF9800"));
-        facilityData.put("document_printer", documentPrinters);
-    }
-
-    /**
-     * 체크박스 리스너 설정
-     */
-    private void setupCheckBoxListeners() {
-        cbCopier.setOnCheckedChangeListener((buttonView, isChecked) -> updateMarkers("copier", isChecked));
-        cbCafeteria.setOnCheckedChangeListener((buttonView, isChecked) -> updateMarkers("cafeteria", isChecked));
-        cbLibrary.setOnCheckedChangeListener((buttonView, isChecked) -> updateMarkers("library", isChecked));
-        cbAtm.setOnCheckedChangeListener((buttonView, isChecked) -> updateMarkers("atm", isChecked));
-        cbDocumentPrinter.setOnCheckedChangeListener((buttonView, isChecked) -> updateMarkers("document_printer", isChecked));
-    }
-
-    /**
-     * 마커 업데이트
-     */
-    private void updateMarkers(String type, boolean show) {
-        // 해당 타입의 기존 마커 제거
-        removeMarkersByType(type);
-
-        if (show) {
-            // 마커 표시
-            List<FacilityMarker> markers = facilityData.get(type);
-            if (markers != null) {
-                for (FacilityMarker marker : markers) {
-                    addMarkerView(marker, type);
-                }
+            // 선택된 라디오 버튼에 따라 해당 오버레이만 표시
+            if (checkedId == R.id.rb_copier) {
+                ivOverlayCopier.setVisibility(View.VISIBLE);
+            } else if (checkedId == R.id.rb_cafeteria) {
+                ivOverlayCafeteria.setVisibility(View.VISIBLE);
+            } else if (checkedId == R.id.rb_library) {
+                ivOverlayLibrary.setVisibility(View.VISIBLE);
+            } else if (checkedId == R.id.rb_atm) {
+                ivOverlayAtm.setVisibility(View.VISIBLE);
+            } else if (checkedId == R.id.rb_document_printer) {
+                ivOverlayDocumentPrinter.setVisibility(View.VISIBLE);
+            } else if (checkedId == R.id.rb_english_cafe) {
+                ivOverlayEnglishCafe.setVisibility(View.VISIBLE);
             }
-        }
+            // rb_none이 선택되면 모든 오버레이가 숨겨진 상태 유지
+        });
     }
 
     /**
-     * 특정 타입의 마커 제거
+     * 모든 오버레이 숨김
      */
-    private void removeMarkersByType(String type) {
-        List<View> toRemove = new ArrayList<>();
-        for (int i = 0; i < markersContainer.getChildCount(); i++) {
-            View child = markersContainer.getChildAt(i);
-            if (type.equals(child.getTag())) {
-                toRemove.add(child);
+    private void hideAllOverlays() {
+        ivOverlayCopier.setVisibility(View.GONE);
+        ivOverlayCafeteria.setVisibility(View.GONE);
+        ivOverlayLibrary.setVisibility(View.GONE);
+        ivOverlayAtm.setVisibility(View.GONE);
+        ivOverlayDocumentPrinter.setVisibility(View.GONE);
+        ivOverlayEnglishCafe.setVisibility(View.GONE);
+    }
+
+    /**
+     * 지도를 확대 화면으로 열기
+     */
+    private void openImageZoom() {
+        try {
+            // 지도 컨테이너의 모든 레이어를 합쳐서 Bitmap으로 만들기
+            Bitmap bitmap = createBitmapFromView(mapContainer);
+
+            if (bitmap == null) {
+                Toast.makeText(requireContext(), "이미지를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                return;
             }
-        }
-        for (View view : toRemove) {
-            markersContainer.removeView(view);
+
+            // ImageZoomActivity에 Bitmap 전달
+            ImageZoomActivity.setTempBitmap(bitmap);
+
+            Intent intent = new Intent(requireContext(), ImageZoomActivity.class);
+            intent.putExtra(ImageZoomActivity.EXTRA_TITLE, "캠퍼스 지도");
+            startActivity(intent);
+
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "이미지를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
         }
     }
 
     /**
-     * 마커 뷰 추가
+     * View를 Bitmap으로 변환
      */
-    private void addMarkerView(FacilityMarker marker, String type) {
-        // 마커 컨테이너 생성
-        FrameLayout markerLayout = new FrameLayout(requireContext());
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        params.leftMargin = marker.x - 15; // 중앙 정렬을 위한 오프셋
-        params.topMargin = marker.y - 30;  // 핀 모양을 위한 오프셋
-        markerLayout.setLayoutParams(params);
-        markerLayout.setTag(type);
-
-        // 마커 핀 (간단한 원형)
-        View pin = new View(requireContext());
-        FrameLayout.LayoutParams pinParams = new FrameLayout.LayoutParams(30, 30);
-        pin.setLayoutParams(pinParams);
-        pin.setBackground(createCircleDrawable(marker.color));
-
-        // 마커 텍스트
-        TextView textView = new TextView(requireContext());
-        textView.setText(marker.name);
-        textView.setTextSize(10);
-        textView.setTextColor(Color.WHITE);
-        textView.setBackgroundColor(Color.parseColor("#AA000000")); // 반투명 검정
-        textView.setPadding(8, 4, 8, 4);
-        textView.setGravity(Gravity.CENTER);
-        FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        textParams.topMargin = 35;
-        textParams.gravity = Gravity.CENTER_HORIZONTAL;
-        textView.setLayoutParams(textParams);
-
-        markerLayout.addView(pin);
-        markerLayout.addView(textView);
-        markersContainer.addView(markerLayout);
-    }
-
-    /**
-     * 원형 Drawable 생성
-     */
-    private android.graphics.drawable.GradientDrawable createCircleDrawable(String colorHex) {
-        android.graphics.drawable.GradientDrawable drawable =
-            new android.graphics.drawable.GradientDrawable();
-        drawable.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        drawable.setColor(Color.parseColor(colorHex));
-        drawable.setStroke(3, Color.WHITE);
-        return drawable;
-    }
-
-    /**
-     * 시설 마커 데이터 클래스
-     */
-    private static class FacilityMarker {
-        String name;
-        int x;
-        int y;
-        String color;
-
-        FacilityMarker(String name, int x, int y, String color) {
-            this.name = name;
-            this.x = x;
-            this.y = y;
-            this.color = color;
+    private Bitmap createBitmapFromView(View view) {
+        if (view.getWidth() == 0 || view.getHeight() == 0) {
+            return null;
         }
+
+        Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        view.draw(canvas);
+        return bitmap;
     }
 }

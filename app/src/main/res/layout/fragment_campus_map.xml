@@ -9,8 +9,7 @@
     <!-- 상단 툴바 -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:fitsSystemWindows="true">
+        android:layout_height="wrap_content">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
@@ -58,54 +57,64 @@
                         android:textColor="?attr/colorOnSurface"
                         android:layout_marginBottom="12dp"/>
 
-                    <!-- 체크박스 그리드 -->
-                    <GridLayout
+                    <!-- 라디오 버튼 그룹 -->
+                    <RadioGroup
+                        android:id="@+id/radio_group_facilities"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:columnCount="2"
-                        android:rowCount="3">
+                        android:orientation="vertical">
 
-                        <com.google.android.material.checkbox.MaterialCheckBox
-                            android:id="@+id/cb_copier"
-                            android:layout_width="0dp"
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rb_none"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_columnWeight="1"
+                            android:text="없음"
+                            android:padding="8dp"
+                            android:checked="true"/>
+
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rb_copier"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                             android:text="복사기"
                             android:padding="8dp"/>
 
-                        <com.google.android.material.checkbox.MaterialCheckBox
-                            android:id="@+id/cb_cafeteria"
-                            android:layout_width="0dp"
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rb_cafeteria"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_columnWeight="1"
                             android:text="식당"
                             android:padding="8dp"/>
 
-                        <com.google.android.material.checkbox.MaterialCheckBox
-                            android:id="@+id/cb_library"
-                            android:layout_width="0dp"
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rb_library"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_columnWeight="1"
                             android:text="도서관"
                             android:padding="8dp"/>
 
-                        <com.google.android.material.checkbox.MaterialCheckBox
-                            android:id="@+id/cb_atm"
-                            android:layout_width="0dp"
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rb_atm"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_columnWeight="1"
                             android:text="ATM기기"
                             android:padding="8dp"/>
 
-                        <com.google.android.material.checkbox.MaterialCheckBox
-                            android:id="@+id/cb_document_printer"
-                            android:layout_width="0dp"
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rb_document_printer"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_columnWeight="1"
                             android:text="서류출력기"
                             android:padding="8dp"/>
 
-                    </GridLayout>
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rb_english_cafe"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="English Cafe"
+                            android:padding="8dp"/>
+
+                    </RadioGroup>
 
                 </LinearLayout>
 
@@ -123,42 +132,83 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
 
-                    <!-- 스크롤 가능한 지도 이미지 -->
-                    <HorizontalScrollView
+                    <!-- 지도 이미지 컨테이너 -->
+                    <FrameLayout
+                        android:id="@+id/map_container"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:scrollbars="none">
+                        android:layout_height="wrap_content">
 
-                        <ScrollView
-                            android:layout_width="wrap_content"
+                        <!-- 학교 기본 지도 이미지 -->
+                        <ImageView
+                            android:id="@+id/iv_campus_map"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:scrollbars="none">
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:background="?attr/colorSurfaceVariant"
+                            android:contentDescription="캠퍼스 지도"/>
 
-                            <FrameLayout
-                                android:id="@+id/map_container"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content">
+                        <!-- 복사기 오버레이 -->
+                        <ImageView
+                            android:id="@+id/iv_overlay_copier"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:visibility="gone"
+                            android:contentDescription="복사기 위치"/>
 
-                                <!-- 학교 지도 이미지 (기본 이미지) -->
-                                <ImageView
-                                    android:id="@+id/iv_campus_map"
-                                    android:layout_width="1920dp"
-                                    android:layout_height="1440dp"
-                                    android:scaleType="fitXY"
-                                    android:background="?attr/colorSurfaceVariant"
-                                    android:contentDescription="캠퍼스 지도"/>
+                        <!-- 식당 오버레이 -->
+                        <ImageView
+                            android:id="@+id/iv_overlay_cafeteria"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:visibility="gone"
+                            android:contentDescription="식당 위치"/>
 
-                                <!-- 마커들을 표시할 컨테이너 -->
-                                <FrameLayout
-                                    android:id="@+id/markers_container"
-                                    android:layout_width="1920dp"
-                                    android:layout_height="1440dp"/>
+                        <!-- 도서관 오버레이 -->
+                        <ImageView
+                            android:id="@+id/iv_overlay_library"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:visibility="gone"
+                            android:contentDescription="도서관 위치"/>
 
-                            </FrameLayout>
+                        <!-- ATM 오버레이 -->
+                        <ImageView
+                            android:id="@+id/iv_overlay_atm"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:visibility="gone"
+                            android:contentDescription="ATM 위치"/>
 
-                        </ScrollView>
+                        <!-- 서류출력기 오버레이 -->
+                        <ImageView
+                            android:id="@+id/iv_overlay_document_printer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:visibility="gone"
+                            android:contentDescription="서류출력기 위치"/>
 
-                    </HorizontalScrollView>
+                        <!-- English Cafe 오버레이 -->
+                        <ImageView
+                            android:id="@+id/iv_overlay_english_cafe"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:visibility="gone"
+                            android:contentDescription="English Cafe 위치"/>
+
+                    </FrameLayout>
 
                 </FrameLayout>
 

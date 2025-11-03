@@ -18,7 +18,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@android:drawable/ic_menu_agenda"
-            android:tint="?attr/colorPrimary"
+            app:tint="?attr/colorPrimary"
             android:contentDescription="폴더 아이콘" />
 
         <LinearLayout
@@ -43,7 +43,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_chevron_right"
-            android:tint="?android:textColorSecondary"
+            app:tint="?android:textColorSecondary"
             android:contentDescription="화살표" />
 
     </LinearLayout>

@@ -1,27 +1,70 @@
 package sprout.app.sakmvp1;
 
+// Context: 앱의 현재 상태나 환경 정보에 접근하기 위한 클래스
 import android.content.Context;
+// Intent: 화면 전환이나 작업을 요청하는 클래스
 import android.content.Intent;
+// SharedPreferences: 앱의 설정값을 저장하고 읽는 클래스
 import android.content.SharedPreferences;
+// Bundle: Activity 생명주기나 데이터 전달에 사용하는 클래스
 import android.os.Bundle;
 
+// EdgeToEdge: 화면을 전체(상태바 아래까지) 사용하는 기능
 import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
+// Insets: 시스템 UI(상태바, 네비게이션바)의 여백 정보
 import androidx.core.graphics.Insets;
+// ViewCompat: View의 호환성 기능을 제공하는 클래스
 import androidx.core.view.ViewCompat;
+// WindowInsetsCompat: Window의 여백(insets) 정보를 다루는 클래스
 import androidx.core.view.WindowInsetsCompat;
+// Fragment: 화면의 일부분을 나타내는 클래스 (재사용 가능한 UI 조각)
 import androidx.fragment.app.Fragment;
+// FragmentManager: Fragment를 관리하는 클래스
 import androidx.fragment.app.FragmentManager;
+// FragmentTransaction: Fragment를 추가/제거/교체하는 작업을 수행하는 클래스
 import androidx.fragment.app.FragmentTransaction;
 
+// BottomNavigationView: 화면 하단의 탭 메뉴
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+// TimeTableFragment: 시간표 화면 Fragment
 import sprout.app.sakmvp1.timetable.TimeTableFragment;
 
 /**
  * Single Activity + Fragment 패턴의 메인 컨테이너 Activity
+ *
+ * 이 Activity는 앱의 주요 화면들(홈, 시간표, 지도, 내정보)을 담는 컨테이너 역할을 합니다.
+ * 하단 네비게이션 바를 통해 Fragment를 전환하며 화면을 보여줍니다.
  */
-public class MainActivityNew extends AppCompatActivity {
+// ⭐ 중요: BaseActivity를 상속받습니다!
+//
+// 상속이란?
+// - 부모 클래스의 기능을 자식 클래스가 물려받는 것입니다
+// - MainActivityNew는 BaseActivity의 "자식"입니다
+// - BaseActivity는 MainActivityNew의 "부모"입니다
+//
+// BaseActivity가 제공하는 기능:
+// 1. onCreate(): 화면이 생성될 때 색약 모드 설정 확인
+// 2. onResume(): 화면이 표시될 때 색약 모드 설정 확인
+// 3. applyAccessibilitySettings(): 색약 모드 적용/해제
+// 4. applyGrayscaleFilter(): 흑백 필터 적용
+// 5. removeGrayscaleFilter(): 흑백 필터 제거
+//
+// MainActivityNew가 하는 일:
+// - 부모(BaseActivity)의 모든 기능을 자동으로 가지고 있음
+// - 추가로 탭 메뉴와 Fragment 관리 기능을 구현함
+//
+// 결과:
+// → MainActivityNew는 자동으로 색약 모드를 지원합니다!
+// → 별도의 코드 추가 없이 BaseActivity를 상속받는 것만으로 가능합니다!
+//
+// 만약 AppCompatActivity를 직접 상속받았다면?
+// - 색약 모드 기능이 작동하지 않습니다
+// - applyGrayscaleFilter() 같은 메서드가 없기 때문입니다
+//
+// extends: "확장하다", "상속받다"의 의미
+// BaseActivity의 기능을 확장하여 MainActivityNew를 만듭니다
+public class MainActivityNew extends BaseActivity {
 
     private BottomNavigationView bottomNavigation;
     private FragmentManager fragmentManager;

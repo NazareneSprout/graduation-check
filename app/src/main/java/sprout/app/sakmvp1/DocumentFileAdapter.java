@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -22,6 +23,8 @@ public class DocumentFileAdapter extends RecyclerView.Adapter<DocumentFileAdapte
 
     public interface OnFileClickListener {
         void onFileClick(DocumentFile file);
+        void onDownloadClick(DocumentFile file);
+        void onShareClick(DocumentFile file);
     }
 
     public DocumentFileAdapter(List<DocumentFile> fileList, OnFileClickListener listener) {
@@ -48,13 +51,28 @@ public class DocumentFileAdapter extends RecyclerView.Adapter<DocumentFileAdapte
             holder.tvFileDescription.setVisibility(View.GONE);
         }
 
-        // URL이 있으면 링크 아이콘 표시
+        // URL이 있으면 다운로드/공유 버튼 표시
         if (!TextUtils.isEmpty(file.getUrl())) {
-            holder.ivLinkIcon.setVisibility(View.VISIBLE);
+            holder.layoutActions.setVisibility(View.VISIBLE);
         } else {
-            holder.ivLinkIcon.setVisibility(View.GONE);
+            holder.layoutActions.setVisibility(View.GONE);
         }
 
+        // 다운로드 버튼 클릭
+        holder.ivDownload.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onDownloadClick(file);
+            }
+        });
+
+        // 공유 버튼 클릭
+        holder.ivShare.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onShareClick(file);
+            }
+        });
+
+        // 아이템 클릭 (전체 영역)
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onFileClick(file);
@@ -70,13 +88,17 @@ public class DocumentFileAdapter extends RecyclerView.Adapter<DocumentFileAdapte
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvFileName;
         TextView tvFileDescription;
-        ImageView ivLinkIcon;
+        LinearLayout layoutActions;
+        ImageView ivDownload;
+        ImageView ivShare;
 
         ViewHolder(View itemView) {
             super(itemView);
             tvFileName = itemView.findViewById(R.id.tv_file_name);
             tvFileDescription = itemView.findViewById(R.id.tv_file_description);
-            ivLinkIcon = itemView.findViewById(R.id.iv_link_icon);
+            layoutActions = itemView.findViewById(R.id.layout_actions);
+            ivDownload = itemView.findViewById(R.id.iv_download);
+            ivShare = itemView.findViewById(R.id.iv_share);
         }
     }
 }

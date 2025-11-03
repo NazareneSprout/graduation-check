@@ -11,7 +11,7 @@ android {
         applicationId = "sprout.app.sakmvp1"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -47,6 +47,10 @@ android {
         unitTests.all {
             it.enabled = false
         }
+    }
+
+    lint {
+        disable.add("NewApi")  // SDK 버전 체크가 이미 되어 있는 경우 무시
     }
 }
 

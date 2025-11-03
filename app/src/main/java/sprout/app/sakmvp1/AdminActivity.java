@@ -23,6 +23,7 @@ public class AdminActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private MaterialCardView cardGraduationRequirements;
     private MaterialCardView cardStudentData, cardDocuments, cardBannerManagement;
+    private MaterialCardView cardMajorDocument, cardGeneralDocument;
     private MaterialButton btnLogout;
 
     @Override
@@ -60,6 +61,8 @@ public class AdminActivity extends AppCompatActivity {
         cardGraduationRequirements = findViewById(R.id.card_graduation_requirements);
         cardStudentData = findViewById(R.id.card_student_data);
         cardDocuments = findViewById(R.id.card_documents);
+        cardMajorDocument = findViewById(R.id.card_major_document);
+        cardGeneralDocument = findViewById(R.id.card_general_document);
         cardBannerManagement = findViewById(R.id.card_banner_management);
 
         // 버튼들
@@ -95,6 +98,18 @@ public class AdminActivity extends AppCompatActivity {
         // 필요서류 관리
         cardDocuments.setOnClickListener(v -> {
             Intent intent = new Intent(this, ManageDocumentFoldersActivity.class);
+            startActivity(intent);
+        });
+
+        // 전공문서 관리
+        cardMajorDocument.setOnClickListener(v -> {
+            Intent intent = new Intent(this, MajorDocumentManageActivity.class);
+            startActivity(intent);
+        });
+
+        // 교양문서 관리
+        cardGeneralDocument.setOnClickListener(v -> {
+            Intent intent = new Intent(this, GeneralDocumentManageActivity.class);
             startActivity(intent);
         });
 

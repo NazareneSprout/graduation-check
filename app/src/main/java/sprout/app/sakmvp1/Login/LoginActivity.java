@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -128,28 +129,68 @@ public class LoginActivity extends AppCompatActivity {
 
         // 일반 접속
         btnNormalAccess.setOnClickListener(v -> {
-            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            prefs.edit()
-                    .putBoolean("is_admin", false)
-                    .apply();
+            // 이미 인증된 사용자가 있으면 재사용, 없으면 익명 로그인
+            if (mAuth.getCurrentUser() != null) {
+                // 이미 인증됨
+                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                prefs.edit()
+                        .putBoolean("is_admin", false)
+                        .apply();
 
-            Toast.makeText(LoginActivity.this, "일반 사용자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
-            dialog.dismiss();
+                Toast.makeText(LoginActivity.this, "일반 사용자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+                dialog.dismiss();
+            } else {
+                // Firebase 익명 로그인
+                mAuth.signInAnonymously()
+                        .addOnSuccessListener(authResult -> {
+                            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                            prefs.edit()
+                                    .putBoolean("is_admin", false)
+                                    .apply();
+
+                            Toast.makeText(LoginActivity.this, "일반 사용자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+                            dialog.dismiss();
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e("LoginActivity", "Firebase 익명 인증 실패", e);
+                            Toast.makeText(LoginActivity.this, "Firebase 인증 실패: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        });
+            }
         });
 
         // 관리자 접속
         btnAdminAccess.setOnClickListener(v -> {
-            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            // commit()을 사용하여 동기적으로 저장 (apply()는 비동기라 타이밍 문제 발생 가능)
-            prefs.edit()
-                    .putBoolean("is_admin", true)
-                    .commit();
+            // 이미 인증된 사용자가 있으면 재사용, 없으면 익명 로그인
+            if (mAuth.getCurrentUser() != null) {
+                // 이미 인증됨
+                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                prefs.edit()
+                        .putBoolean("is_admin", true)
+                        .commit();
 
-            Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
-            // AdminActivity로 직접 이동하여 확실하게 관리자 권한 적용
-            startActivity(new Intent(LoginActivity.this, AdminActivity.class));
-            dialog.dismiss();
+                Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(LoginActivity.this, AdminActivity.class));
+                dialog.dismiss();
+            } else {
+                // Firebase 익명 로그인
+                mAuth.signInAnonymously()
+                        .addOnSuccessListener(authResult -> {
+                            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                            prefs.edit()
+                                    .putBoolean("is_admin", true)
+                                    .commit();
+
+                            Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(LoginActivity.this, AdminActivity.class));
+                            dialog.dismiss();
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e("LoginActivity", "Firebase 익명 인증 실패", e);
+                            Toast.makeText(LoginActivity.this, "Firebase 인증 실패: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        });
+            }
         });
 
         // 취소

@@ -69,6 +69,10 @@ public class BannerManagementActivity extends AppCompatActivity {
     private Banner editingBanner;
     private List<String> departmentList = new ArrayList<>();
 
+    // 현재 열려있는 배너 편집 다이얼로그
+    private AlertDialog currentBannerDialog;
+    private ImageView currentPreviewImageView;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -183,6 +187,7 @@ public class BannerManagementActivity extends AppCompatActivity {
 
         // UI 요소
         ImageView ivPreview = dialogView.findViewById(R.id.iv_banner_preview);
+        currentPreviewImageView = ivPreview; // 미리보기 이미지뷰 저장
         Button btnSelectImage = dialogView.findViewById(R.id.btn_select_image);
         EditText etTitle = dialogView.findViewById(R.id.et_banner_title);
         EditText etPriority = dialogView.findViewById(R.id.et_priority);
@@ -299,9 +304,21 @@ public class BannerManagementActivity extends AppCompatActivity {
         builder.setView(dialogView)
                 .setTitle(banner == null ? "배너 추가" : "배너 수정")
                 .setPositiveButton("저장", null)
-                .setNegativeButton("취소", (dialog, which) -> dialog.dismiss());
+                .setNegativeButton("취소", (dialog, which) -> {
+                    currentBannerDialog = null;
+                    currentPreviewImageView = null;
+                    dialog.dismiss();
+                });
 
         AlertDialog dialog = builder.create();
+        currentBannerDialog = dialog; // 현재 다이얼로그 저장
+
+        // 다이얼로그 닫힐 때 정리
+        dialog.setOnDismissListener(d -> {
+            currentBannerDialog = null;
+            currentPreviewImageView = null;
+        });
+
         dialog.show();
 
         // 저장 버튼 클릭 처리 (validation 후 저장)
@@ -400,21 +417,33 @@ public class BannerManagementActivity extends AppCompatActivity {
      * 이미지 업로드 후 배너 저장
      */
     private void uploadImageAndSaveBanner(Banner banner, AlertDialog dialog) {
+        if (selectedImageUri == null) {
+            Log.e(TAG, "선택된 이미지가 없습니다");
+            Toast.makeText(this, "이미지를 선택해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String fileName = "banner_" + UUID.randomUUID().toString() + ".jpg";
         StorageReference storageRef = storage.getReference().child("banners/" + fileName);
 
+        Log.d(TAG, "이미지 업로드 시작: " + selectedImageUri);
         Toast.makeText(this, "이미지 업로드 중...", Toast.LENGTH_SHORT).show();
 
         storageRef.putFile(selectedImageUri)
                 .addOnSuccessListener(taskSnapshot -> {
+                    Log.d(TAG, "이미지 업로드 성공, 다운로드 URL 가져오는 중...");
                     storageRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                        Log.d(TAG, "다운로드 URL 획득 성공: " + uri.toString());
                         banner.setImageUrl(uri.toString());
                         saveBanner(banner, dialog);
+                    }).addOnFailureListener(e -> {
+                        Log.e(TAG, "다운로드 URL 획득 실패", e);
+                        Toast.makeText(this, "이미지 URL 획득 실패: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "이미지 업로드 실패", e);
-                    Toast.makeText(this, "이미지 업로드 실패", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "이미지 업로드 실패: " + e.getClass().getSimpleName(), e);
+                    Toast.makeText(this, "이미지 업로드 실패: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 
@@ -470,16 +499,27 @@ public class BannerManagementActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
             selectedImageUri = data.getData();
 
-            // 다이얼로그의 ImageView에 미리보기 표시
-            AlertDialog dialog = (AlertDialog) getWindow().getDecorView().getTag();
-            if (dialog != null) {
-                ImageView ivPreview = dialog.findViewById(R.id.iv_banner_preview);
-                if (ivPreview != null) {
-                    Glide.with(this).load(selectedImageUri).into(ivPreview);
-                }
+            // URI 영구 권한 요청 (Firebase Storage 업로드를 위해 필요)
+            try {
+                getContentResolver().takePersistableUriPermission(
+                        selectedImageUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                );
+            } catch (SecurityException e) {
+                Log.w(TAG, "영구 권한 획득 실패 (일시 권한 사용)", e);
+            }
+
+            // 미리보기 표시
+            if (currentPreviewImageView != null) {
+                Glide.with(this)
+                        .load(selectedImageUri)
+                        .into(currentPreviewImageView);
+                Log.d(TAG, "이미지 미리보기 로드 완료: " + selectedImageUri);
+            } else {
+                Log.w(TAG, "미리보기 ImageView를 찾을 수 없습니다");
             }
         }
     }
@@ -526,10 +566,24 @@ public class BannerManagementActivity extends AppCompatActivity {
             }
             holder.tvType.setText(typeDisplay);
 
-            holder.tvStatus.setText(banner.isActive() ? "활성화" : "비활성화");
-            holder.tvStatus.setTextColor(banner.isActive() ?
-                    getResources().getColor(android.R.color.holo_green_dark) :
-                    getResources().getColor(android.R.color.darker_gray));
+            // 실제 활성화 상태 확인 (체크박스 + 활성화 기간)
+            boolean isReallyActive = banner.isActive() && banner.isInActivePeriod();
+            String statusText;
+            int statusColor;
+
+            if (!banner.isActive()) {
+                statusText = "비활성화 (수동)";
+                statusColor = getResources().getColor(android.R.color.darker_gray);
+            } else if (!banner.isInActivePeriod()) {
+                statusText = "비활성화 (기간)";
+                statusColor = getResources().getColor(android.R.color.holo_orange_dark);
+            } else {
+                statusText = "활성화";
+                statusColor = getResources().getColor(android.R.color.holo_green_dark);
+            }
+
+            holder.tvStatus.setText(statusText);
+            holder.tvStatus.setTextColor(statusColor);
 
             // 활성화 기간
             String period = "기간: ";

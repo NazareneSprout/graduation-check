@@ -161,7 +161,18 @@
       "Bash(cmd /c \"start /B /c/Users/jsk00/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Pixel_8\")",
       "Bash(taskkill:*)",
       "Bash(cmd //c \"taskkill //F //IM emulator.exe\")",
-      "WebFetch(domain:www.kornu.ac.kr)"
+      "WebFetch(domain:www.kornu.ac.kr)",
+      "Bash(dotnet --version:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m PyInstaller:*)",
+      "Bash(python ScreenPenTool.py:*)",
+      "Bash(npm init -y)",
+      "Bash(./dist/ScreenPenTool_Debug.exe)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []

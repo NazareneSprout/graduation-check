@@ -277,41 +277,10 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
         btnSearch.setOnClickListener(v -> filterRequirements());
 
         // 추가 버튼 - 다이얼로그로 옵션 선택
-        fabAdd.setOnClickListener(v -> showDocumentTypeDialog());
+        fabAdd.setOnClickListener(v -> openGraduationRequirementAdd());
 
         // 삭제 버튼
         btnDeleteSelected.setOnClickListener(v -> showDeleteConfirmDialog());
-    }
-
-    /**
-     * 문서 타입 선택 다이얼로그 표시
-     */
-    private void showDocumentTypeDialog() {
-        String[] options = {
-            "졸업요건 문서 생성",
-            "전공 문서 생성",
-            "교양 문서 생성"
-        };
-
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("생성할 문서 선택")
-                .setItems(options, (dialog, which) -> {
-                    switch (which) {
-                        case 0:
-                            // 졸업요건 문서 생성
-                            openGraduationRequirementAdd();
-                            break;
-                        case 1:
-                            // 전공 문서 생성
-                            openMajorDocumentAdd();
-                            break;
-                        case 2:
-                            // 교양 문서 생성
-                            openGeneralDocumentAdd();
-                            break;
-                    }
-                })
-                .show();
     }
 
     /**
@@ -319,22 +288,6 @@ public class GraduationRequirementsActivity extends AppCompatActivity {
      */
     private void openGraduationRequirementAdd() {
         Intent intent = new Intent(this, GraduationRequirementAddActivity.class);
-        startActivity(intent);
-    }
-
-    /**
-     * 전공 문서 추가 Activity 열기
-     */
-    private void openMajorDocumentAdd() {
-        Intent intent = new Intent(this, MajorDocumentManageActivity.class);
-        startActivity(intent);
-    }
-
-    /**
-     * 교양 문서 추가 Activity 열기
-     */
-    private void openGeneralDocumentAdd() {
-        Intent intent = new Intent(this, GeneralDocumentManageActivity.class);
         startActivity(intent);
     }
 

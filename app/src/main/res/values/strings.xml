@@ -29,6 +29,8 @@
     <!-- 하단 작은 버튼 -->
     <string name="function_5">학사일정</string>
     <string name="function_6">학사공지</string>
+    <string name="function_7">nabest</string>
+    <string name="function_8">학식 메뉴</string>
 
     <!-- 하단 네비게이션 -->
     <string name="nav_button_1">홈</string>

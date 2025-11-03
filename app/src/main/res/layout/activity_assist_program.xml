@@ -140,7 +140,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="• 자유 그리기\n• 도형 그리기 (직선, 원, 사각형)\n• 다양한 색상 및 굵기 조절\n• 전체화면 투명 오버레이"
+                            android:text="• 자유 그리기\n• 다양한 색상 및 굵기 조절\n• 전체화면 투명 오버레이"
                             android:textSize="14sp"
                             android:textColor="?android:attr/textColorSecondary"
                             android:lineSpacingMultiplier="1.3"
