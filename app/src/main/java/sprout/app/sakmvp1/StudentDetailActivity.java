@@ -145,37 +145,51 @@ public class StudentDetailActivity extends AppCompatActivity {
         Log.d(TAG, "학생 ID: " + student.getUserId());
         Log.d(TAG, "학생 이름: " + student.getName());
 
-        // users/{userId}/courses 서브컬렉션에서 과목 데이터 가져오기
+        // users/{userId}/current_graduation_analysis/latest 문서에서 과목 데이터 가져오기
         db.collection("users")
                 .document(student.getUserId())
-                .collection("courses")
+                .collection("current_graduation_analysis")
+                .document("latest")
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
+                .addOnSuccessListener(documentSnapshot -> {
                     List<CourseItem> allCourses = new ArrayList<>();
-                    Log.d(TAG, "courses 서브컬렉션 문서 개수: " + queryDocumentSnapshots.size());
 
-                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
-                        String category = doc.getString("category");
-                        String name = doc.getString("name");
-                        Object creditsObj = doc.get("credits");
-                        int credits = 0;
-                        if (creditsObj instanceof Long) {
-                            credits = ((Long) creditsObj).intValue();
-                        } else if (creditsObj instanceof Integer) {
-                            credits = (Integer) creditsObj;
-                        }
+                    if (!documentSnapshot.exists()) {
+                        Log.d(TAG, "current_graduation_analysis 문서가 없음. users 문서에서 시도");
+                        loadCoursesFromUserDocument();
+                        return;
+                    }
 
-                        Log.d(TAG, "  과목: " + name + " / 카테고리: " + category + " / 학점: " + credits);
+                    Log.d(TAG, "✅ current_graduation_analysis/latest 문서 발견");
 
-                        if (category != null && name != null) {
-                            allCourses.add(new CourseItem(category, name, credits));
+                    // courses 배열에서 과목 데이터 추출
+                    List<Map<String, Object>> coursesList = (List<Map<String, Object>>) documentSnapshot.get("courses");
+                    if (coursesList != null) {
+                        Log.d(TAG, "courses 배열 크기: " + coursesList.size());
+
+                        for (Map<String, Object> courseMap : coursesList) {
+                            String category = (String) courseMap.get("category");
+                            String name = (String) courseMap.get("name");
+                            Object creditsObj = courseMap.get("credits");
+                            int credits = 0;
+                            if (creditsObj instanceof Long) {
+                                credits = ((Long) creditsObj).intValue();
+                            } else if (creditsObj instanceof Integer) {
+                                credits = (Integer) creditsObj;
+                            }
+
+                            Log.d(TAG, "  과목: " + name + " / 카테고리: " + category + " / 학점: " + credits);
+
+                            if (category != null && name != null) {
+                                allCourses.add(new CourseItem(category, name, credits));
+                            }
                         }
                     }
 
-                    Log.d(TAG, "✅ courses 서브컬렉션에서 로드 성공: " + allCourses.size() + "개");
+                    Log.d(TAG, "✅ current_graduation_analysis에서 로드 성공: " + allCourses.size() + "개");
 
                     if (allCourses.isEmpty()) {
-                        // courses 서브컬렉션이 비어있으면 users/{userId} 문서의 completedCourses 필드 시도
+                        // current_graduation_analysis가 비어있으면 users/{userId} 문서 시도
                         loadCoursesFromUserDocument();
                     } else {
                         displayCourses(allCourses);

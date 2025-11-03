@@ -234,14 +234,13 @@ public class UserProfileFragment extends Fragment {
 
         String userId = user.getUid();
 
-        // Firestore에서 최근 졸업요건 검사 결과 조회
+        // Firestore에서 저장된 졸업요건 검사 결과 조회
         db.collection("users").document(userId)
-                .collection("graduation_check_history")
-                .orderBy("checkedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(1)
+                .collection("current_graduation_analysis")
+                .document("latest")
                 .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    if (querySnapshot.isEmpty()) {
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
                         // 저장된 결과가 없으면 과목 입력 화면으로 이동
                         Toast.makeText(requireContext(), "저장된 졸업분석 결과가 없습니다.\n새로 분석을 시작합니다.", Toast.LENGTH_SHORT).show();
                         Intent intent = new Intent(requireContext(), LoadingUserInfoActivity.class);
@@ -249,13 +248,10 @@ public class UserProfileFragment extends Fragment {
                         return;
                     }
 
-                    // 가장 최근 검사 결과 가져오기
-                    com.google.firebase.firestore.DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
-
                     // 결과 화면으로 이동
                     Intent intent = new Intent(requireContext(), GraduationAnalysisResultActivity.class);
                     intent.putExtra("fromSaved", true);
-                    intent.putExtra("savedDocId", doc.getId());
+                    intent.putExtra("savedDocId", "latest");
                     startActivity(intent);
                 })
                 .addOnFailureListener(e -> {

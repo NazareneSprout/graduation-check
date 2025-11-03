@@ -7,13 +7,12 @@
 
 ## 🎯 빠른 요약
 
-### ✅ 필수 컬렉션 (총 12개)
+### ✅ 필수 컬렉션 (총 11개)
 ```
-users                        - 사용자 정보
-├─ graduation_check_history  - 졸업 확인 이력
-├─ courses                   - 수강 과목
-├─ user_schedules            - 일정
-└─ user_timetables           - 시간표
+users                             - 사용자 정보
+├─ current_graduation_analysis    - 최신 졸업 분석 결과 (단일 문서)
+├─ user_schedules                 - 일정
+└─ user_timetables                - 시간표
 
 graduation_requirements      - 졸업 요건 (메인)
 graduation_meta             - 메타데이터
@@ -29,7 +28,7 @@ student_progress            - 학생 진행상황
 replacement_courses         - 대체 과목
 ```
 
-### 🗑️ 삭제 가능 컬렉션 (총 7개)
+### 🗑️ 삭제 가능 컬렉션 (총 9개)
 ```
 즉시 삭제 가능:
 - graduation_requirements_v2  (미사용)
@@ -38,6 +37,8 @@ replacement_courses         - 대체 과목
 - user_academic_info          (미구현)
 - user_course_history         (미구현)
 - user_graduation_analysis    (미구현)
+- graduation_check_history    (current_graduation_analysis로 대체됨)
+- courses                     (current_graduation_analysis로 통합됨)
 
 확인 후 삭제:
 - 학부                        (graduation_meta로 대체 확인 필요)
@@ -60,8 +61,7 @@ replacement_courses         - 대체 과목
 - `RecommendationResultActivity.java` - 추천 결과 조회
 
 **하위 컬렉션**:
-- `users/{userId}/graduation_check_history` - 졸업 요건 확인 이력 ✅
-- `users/{userId}/courses` - 사용자의 수강 과목 정보 ✅
+- `users/{userId}/current_graduation_analysis` - 최신 졸업 분석 결과 (단일 문서 "latest") ✅
 - `users/{userId}/user_schedules` - 일정 정보 ✅
 - `users/{userId}/user_timetables` - 시간표 정보 ✅
 
@@ -222,8 +222,8 @@ replacement_courses         - 대체 과목
 📁 Firestore Database
 ├── 🟢 users (필수)
 │   └── {userId}
-│       ├── 🟢 graduation_check_history (필수)
-│       ├── 🟢 courses (필수)
+│       ├── 🟢 current_graduation_analysis (필수)
+│       │   └── latest (단일 문서 - 최신 졸업 분석 결과)
 │       ├── 🟢 user_schedules (필수 - 일정)
 │       └── 🟢 user_timetables (필수 - 시간표)
 │
@@ -246,6 +246,8 @@ replacement_courses         - 대체 과목
 ├── 🟢 student_progress (필수 - 학생 진행 상황)
 ├── 🟢 replacement_courses (필수 - 대체 과목)
 │
+├── 🔴 graduation_check_history (삭제 - current_graduation_analysis로 대체됨)
+├── 🔴 courses (삭제 - current_graduation_analysis로 통합됨)
 ├── 🔴 학부 (삭제 고려 - graduation_meta로 대체됨)
 ├── 🔴 test (삭제 고려 - 테스트 전용)
 └── 🔴 connection_test (삭제 고려 - 테스트 전용)
@@ -286,6 +288,14 @@ UserDataManager.java에 정의되어 있으나 앱에서 실제 사용하지 않
    - 사유: UserDataManager에 정의되어 있으나 앱에서 호출 안함
    - 영향: 없음 (미사용 코드)
 
+8. **`graduation_check_history`**
+   - 사유: `current_graduation_analysis`로 대체됨 (단일 문서 방식으로 개선)
+   - 영향: 없음 (코드에서 이미 마이그레이션 완료)
+
+9. **`courses`**
+   - 사유: `current_graduation_analysis`에 통합됨 (중복 제거)
+   - 영향: 없음 (코드에서 이미 마이그레이션 완료)
+
 ## 삭제 가능한 컬렉션 빠른 요약
 
 ### 즉시 삭제 가능 (앱에서 미사용)
@@ -296,6 +306,8 @@ UserDataManager.java에 정의되어 있으나 앱에서 실제 사용하지 않
 🗑️ user_academic_info
 🗑️ user_course_history
 🗑️ user_graduation_analysis
+🗑️ graduation_check_history (current_graduation_analysis로 대체)
+🗑️ courses (current_graduation_analysis로 통합)
 ```
 
 ### 확인 후 삭제 (대체 컬렉션 확인 필요)
@@ -307,14 +319,14 @@ UserDataManager.java에 정의되어 있으나 앱에서 실제 사용하지 않
 
 ### 👤 사용자 관리
 - `users`
-- `users/{userId}/graduation_check_history`
-- `users/{userId}/courses`
+- `users/{userId}/current_graduation_analysis`
 
 ### 🎓 졸업 요건 분석
 - `graduation_requirements`
 - `graduation_meta`
 - `replacement_courses`
 - `student_progress`
+- `users/{userId}/current_graduation_analysis`
 
 ### 🏠 홈 화면
 - `banners`
@@ -342,6 +354,8 @@ UserDataManager.java에 정의되어 있으나 앱에서 실제 사용하지 않
 - [ ] `user_academic_info` 삭제
 - [ ] `user_course_history` 삭제
 - [ ] `user_graduation_analysis` 삭제
+- [ ] `graduation_check_history` 삭제 (current_graduation_analysis로 대체)
+- [ ] `courses` 삭제 (current_graduation_analysis로 통합)
 
 ### 3단계: 확인 후 삭제
 - [ ] `학부` 컬렉션과 `graduation_meta/catalog/departments` 비교
