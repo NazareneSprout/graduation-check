@@ -264,124 +264,79 @@ public class UserProfileFragment extends Fragment {
      * 접근성 옵션 선택 다이얼로그 표시
      *
      * 사용자가 "장애학생 배려 모드" 버튼을 클릭하면 이 메서드가 호출됩니다.
-     * 다이얼로그에서 색약 모드 등의 접근성 옵션을 선택할 수 있습니다.
+     * 라디오 버튼 형식으로 한 가지 모드만 선택할 수 있습니다.
      */
     private void showAccessibilityOptionsDialog() {
-        // 1단계: 다이얼로그에 표시할 옵션 목록 정의
-        // final: 이 배열은 나중에 변경되지 않습니다 (상수)
-        // String[]: 문자열 배열 (옵션 이름들)
+        Log.d(TAG, "showAccessibilityOptionsDialog() 호출됨");
+        // 1단계: 다이얼로그에 표시할 옵션 목록 정의 (라디오 버튼 방식 - 하나만 선택 가능)
         final String[] options = {
-                "색약 전용 모드",  // 인덱스 0: 흑백 화면으로 전환
-                "선택2",          // 인덱스 1: 나중에 추가할 기능
-                "선택3",          // 인덱스 2: 나중에 추가할 기능
-                "선택4",          // 인덱스 3: 나중에 추가할 기능
-                "선택5"           // 인덱스 4: 나중에 추가할 기능
+                "없음 (기본 모드)",      // 인덱스 0: 모든 배려 모드 비활성화
+                "색약 전용 모드 (흑백)"  // 인덱스 1: 색약을 위한 흑백 화면
         };
 
         // 2단계: 현재 저장된 설정 불러오기
-        // requireContext(): 현재 Fragment가 속한 Activity의 Context를 가져옵니다
-        // getSharedPreferences(): "accessibility_prefs"라는 이름의 설정 저장소를 엽니다
-        // MODE_PRIVATE: 이 앱만 접근 가능하도록 설정
         android.content.SharedPreferences prefs = requireContext().getSharedPreferences("accessibility_prefs", android.content.Context.MODE_PRIVATE);
 
-        // 3단계: 각 옵션의 선택 상태를 저장할 배열 생성
-        // boolean[5]: true/false를 저장하는 배열 (5개 옵션)
-        // true = 선택됨, false = 선택 안됨
-        final boolean[] selectedOptions = new boolean[5];
+        // 3단계: 현재 선택된 모드 확인
+        // 색약 모드가 켜져있으면 인덱스 1, 아니면 인덱스 0
+        boolean colorBlindMode = prefs.getBoolean("color_blind_mode", false);
+        final int currentSelection = colorBlindMode ? 1 : 0;
 
-        // 4단계: 저장소에서 현재 설정값 읽어오기
-        // getBoolean(): 저장된 true/false 값을 읽어옵니다
-        // 첫 번째 파라미터: 설정 이름 (키)
-        // 두 번째 파라미터: 기본값 (설정이 없을 때 사용할 값)
-        selectedOptions[0] = prefs.getBoolean("color_blind_mode", false);  // 색약 모드
-        selectedOptions[1] = prefs.getBoolean("option_2", false);          // 옵션 2
-        selectedOptions[2] = prefs.getBoolean("option_3", false);          // 옵션 3
-        selectedOptions[3] = prefs.getBoolean("option_4", false);          // 옵션 4
-        selectedOptions[4] = prefs.getBoolean("option_5", false);          // 옵션 5
-
-        // 5단계: AlertDialog(팝업 창) 생성 및 표시
-        // AlertDialog.Builder: 다이얼로그를 만드는 도구
+        // 4단계: AlertDialog 생성 (라디오 버튼 방식)
         new AlertDialog.Builder(requireContext())
-                // 다이얼로그의 제목 설정
                 .setTitle("장애학생 배려 모드")
 
-                // 다중 선택 가능한 체크박스 목록 설정
-                // setMultiChoiceItems: 여러 개를 동시에 선택할 수 있는 체크박스 목록
-                // options: 표시할 옵션 이름들 (위에서 정의한 배열)
-                // selectedOptions: 각 옵션의 현재 선택 상태 (true/false)
-                // 람다식: 사용자가 체크박스를 클릭할 때 실행되는 코드
-                .setMultiChoiceItems(options, selectedOptions, (dialog, which, isChecked) -> {
-                    // which: 몇 번째 옵션이 클릭되었는지 (0~4)
-                    // isChecked: 체크되었는지(true) 해제되었는지(false)
-                    // 배열에 새로운 선택 상태를 저장합니다
-                    selectedOptions[which] = isChecked;
-                })
+                // 단일 선택 라디오 버튼 목록
+                // setSingleChoiceItems: 하나만 선택 가능한 라디오 버튼 목록
+                // options: 표시할 옵션 이름들
+                // currentSelection: 현재 선택된 항목의 인덱스
+                // null: 선택 변경 시 특별히 할 작업 없음 (적용 버튼을 누를 때 처리)
+                .setSingleChoiceItems(options, currentSelection, null)
 
                 // "적용" 버튼 설정
-                // setPositiveButton: 긍정적인 행동을 하는 버튼 (확인, 적용, 예 등)
                 .setPositiveButton("적용", (dialog, which) -> {
-                    // === 6단계: 선택한 설정을 저장소에 저장 ===
+                    Log.d(TAG, "적용 버튼 클릭됨");
 
-                    // Editor: SharedPreferences에 값을 쓰기 위한 도구
-                    // edit(): 설정을 수정할 준비를 합니다
+                    // 5단계: 사용자가 선택한 항목 확인
+                    AlertDialog alertDialog = (AlertDialog) dialog;
+                    int selectedPosition = alertDialog.getListView().getCheckedItemPosition();
+                    Log.d(TAG, "선택된 위치: " + selectedPosition);
+
+                    // 6단계: 선택한 설정을 저장소에 저장
                     android.content.SharedPreferences.Editor editor = prefs.edit();
 
-                    // 각 옵션의 선택 상태를 저장소에 기록합니다
-                    // putBoolean(키, 값): true/false 값을 저장합니다
-                    editor.putBoolean("color_blind_mode", selectedOptions[0]);  // 색약 모드 상태 저장
-                    editor.putBoolean("option_2", selectedOptions[1]);          // 옵션 2 상태 저장
-                    editor.putBoolean("option_3", selectedOptions[2]);          // 옵션 3 상태 저장
-                    editor.putBoolean("option_4", selectedOptions[3]);          // 옵션 4 상태 저장
-                    editor.putBoolean("option_5", selectedOptions[4]);          // 옵션 5 상태 저장
+                    // 선택된 인덱스에 따라 색약 모드 활성화/비활성화
+                    boolean enableColorBlindMode = (selectedPosition == 1);
+                    Log.d(TAG, "색약 모드 활성화: " + enableColorBlindMode);
 
-                    // apply(): 변경사항을 저장소에 실제로 저장합니다
-                    // (비동기: 백그라운드에서 저장되어 UI가 멈추지 않습니다)
+                    editor.putBoolean("color_blind_mode", enableColorBlindMode);
+
+                    // 기존의 사용하지 않는 옵션들은 모두 비활성화
+                    editor.putBoolean("option_2", false);
+                    editor.putBoolean("option_3", false);
+                    editor.putBoolean("option_4", false);
+                    editor.putBoolean("option_5", false);
+
                     editor.apply();
+                    Log.d(TAG, "SharedPreferences 저장 완료");
 
-                    // === 7단계: 사용자에게 메시지 표시 및 앱 재시작 ===
+                    // 7단계: Firestore에도 설정 저장 (완료 후 앱 재시작)
+                    Log.d(TAG, "Firestore 저장 시작");
 
-                    // StringBuilder: 여러 문자열을 효율적으로 연결하는 도구
-                    // 선택된 옵션들의 이름을 모아서 하나의 문장으로 만듭니다
-                    StringBuilder selected = new StringBuilder();
+                    // 사용자에게 메시지 표시
+                    String selectedMode = options[selectedPosition];
+                    Toast.makeText(requireContext(),
+                            "선택한 모드: " + selectedMode + "\n설정을 저장하고 앱을 재시작합니다.",
+                            Toast.LENGTH_LONG).show();
 
-                    // for문: 모든 옵션을 하나씩 확인합니다
-                    for (int i = 0; i < options.length; i++) {
-                        // 이 옵션이 선택되었는지 확인
-                        if (selectedOptions[i]) {
-                            // 이미 다른 옵션이 추가되었으면 쉼표로 구분
-                            if (selected.length() > 0) selected.append(", ");
-                            // 옵션 이름을 추가
-                            selected.append(options[i]);
-                        }
-                    }
-
-                    // 선택된 옵션이 하나라도 있는지 확인
-                    if (selected.length() > 0) {
-                        // 있으면: "적용되었습니다: 색약 전용 모드" 형태의 메시지 표시
-                        // Toast: 화면 하단에 잠깐 나타나는 알림 메시지
-                        // LENGTH_LONG: 긴 시간(약 3.5초) 동안 표시
-                        Toast.makeText(requireContext(),
-                                "적용되었습니다: " + selected.toString() + "\n앱을 재시작합니다.",
-                                Toast.LENGTH_LONG).show();
-
-                        // 설정이 변경되었으므로 앱을 재시작합니다
-                        restartApp();
-                    } else {
-                        // 없으면: "모든 옵션이 해제되었습니다" 메시지 표시
-                        Toast.makeText(requireContext(),
-                                "모든 옵션이 해제되었습니다\n앱을 재시작합니다.",
-                                Toast.LENGTH_LONG).show();
-                        // 마찬가지로 앱을 재시작합니다
-                        restartApp();
-                    }
+                    // Firestore 저장 완료를 기다린 후 앱 재시작
+                    saveAccessibilitySettingsToFirestoreAndRestart(enableColorBlindMode);
                 })
 
                 // "취소" 버튼 설정
-                // setNegativeButton: 부정적인 행동을 하는 버튼 (취소, 아니오 등)
-                // null: 버튼을 눌러도 아무것도 하지 않습니다 (그냥 다이얼로그만 닫힘)
                 .setNegativeButton("취소", null)
 
-                // 다이얼로그를 화면에 표시합니다
+                // 다이얼로그 표시
                 .show();
     }
 
@@ -448,6 +403,44 @@ public class UserProfileFragment extends Fragment {
                 })
                 .setNegativeButton("취소", null)
                 .show();
+    }
+
+    /**
+     * Firestore에 접근성 설정 저장 후 앱 재시작
+     *
+     * 사용자가 색약 모드를 켜거나 끌 때 Firestore에 저장합니다.
+     * Firestore 저장이 완료된 후에만 앱을 재시작합니다.
+     * 이렇게 해야 설정이 제대로 저장되고 다시 로드될 수 있습니다.
+     *
+     * @param enableColorBlindMode true: 색약 모드 켜기, false: 색약 모드 끄기
+     */
+    private void saveAccessibilitySettingsToFirestoreAndRestart(boolean enableColorBlindMode) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            Log.w(TAG, "접근성 설정 저장 실패: 로그인된 사용자가 없습니다 - 로컬 설정만 사용하고 재시작");
+            // 로그인하지 않은 경우 로컬 설정만 사용하고 재시작
+            restartApp();
+            return;
+        }
+
+        String userId = user.getUid();
+
+        // Firestore의 users 컬렉션에 color_blind_mode 필드 저장
+        db.collection("users")
+                .document(userId)
+                .update("color_blind_mode", enableColorBlindMode)
+                .addOnSuccessListener(aVoid -> {
+                    // 저장 성공: 로그 출력 후 앱 재시작
+                    Log.d(TAG, "접근성 설정 Firestore 저장 성공: color_blind_mode = " + enableColorBlindMode);
+                    Log.d(TAG, "Firestore 저장 완료 - 앱 재시작 시작");
+                    restartApp();
+                })
+                .addOnFailureListener(e -> {
+                    // 저장 실패: 경고 로그 출력 후에도 앱 재시작
+                    // (이미 SharedPreferences에 저장되었으므로 로컬에서는 동작함)
+                    Log.e(TAG, "접근성 설정 Firestore 저장 실패 - 로컬 설정만 사용하고 재시작", e);
+                    restartApp();
+                });
     }
 
     @Override

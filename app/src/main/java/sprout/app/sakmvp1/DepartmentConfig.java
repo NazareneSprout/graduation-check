@@ -54,12 +54,17 @@ public class DepartmentConfig {
      * @return "전공심화" 또는 "학부공통"
      */
     public static String getDepartmentCommonCategoryName(String department, String year) {
+        android.util.Log.d("DepartmentConfig", "getDepartmentCommonCategoryName 호출 - 학부: " + department + ", 학번: " + year);
+
         if (usesMajorAdvancedForAllYears(department)) {
+            android.util.Log.d("DepartmentConfig", "→ 모든 연도 전공심화 사용 학부: " + department);
             return "전공심화";
         } else {
             // 연도에 따라 구분
             int yearInt = Integer.parseInt(year);
-            return yearInt >= 2023 ? "전공심화" : "학부공통";
+            String result = yearInt >= 2023 ? "전공심화" : "학부공통";
+            android.util.Log.d("DepartmentConfig", "→ 연도별 구분: " + year + " (" + yearInt + ") => " + result);
+            return result;
         }
     }
 

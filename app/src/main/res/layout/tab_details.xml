@@ -122,6 +122,7 @@
 
         <!-- 전공심화 아코디언 -->
         <LinearLayout
+            android:id="@+id/accordion_major_advanced_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"

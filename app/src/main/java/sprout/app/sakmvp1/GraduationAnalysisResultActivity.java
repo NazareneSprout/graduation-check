@@ -652,6 +652,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                     groupStatus.requiredCourses = new ArrayList<>(subgroup.getAvailableCourses());
                     groupStatus.takenCourse = subgroup.getSelectedCourse();
                     groupStatus.isCompleted = subgroup.isCompleted();
+                    groupStatus.credits = subgroup.getRequiredCredits();  // 그룹의 학점 설정
 
                     generalEducationAnalysis.oneOfGroupStatus.put(subgroup.getGroupName(), groupStatus);
                 }
@@ -1730,6 +1731,8 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             status.requiredCourses = new ArrayList<>(groupCourses);
             status.takenCourse = takenCourse;
             status.isCompleted = takenCourse != null;
+            // 구 형식 데이터에는 그룹 학점 정보가 없으므로 기본값 3 사용
+            status.credits = 3;
 
             generalEducationAnalysis.oneOfGroupStatus.put(groupName, status);
         }
@@ -1951,6 +1954,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         public List<String> requiredCourses;
         public String takenCourse;
         public boolean isCompleted;
+        public int credits;  // 그룹의 학점
     }
 
     // 탭 어댑터
@@ -2056,10 +2060,28 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
         private void updateCategoryProgress(View view, GraduationProgress progress) {
             boolean isOld = isOldCurriculum(selectedYear);
 
+            // 컨테이너 visibility 제어
+            View departmentCommonContainer = view.findViewById(R.id.container_department_common);
+            View generalSelectionContainer = view.findViewById(R.id.container_general_selection);
+            View majorAdvancedContainer = view.findViewById(R.id.container_major_advanced);
+            View remainingCreditsContainer = view.findViewById(R.id.container_remaining_credits);
+
             if (isOld) {
+                // 구 교육과정: 학부공통, 일반선택 표시
+                if (departmentCommonContainer != null) departmentCommonContainer.setVisibility(View.VISIBLE);
+                if (generalSelectionContainer != null) generalSelectionContainer.setVisibility(View.VISIBLE);
+                if (majorAdvancedContainer != null) majorAdvancedContainer.setVisibility(View.GONE);
+                if (remainingCreditsContainer != null) remainingCreditsContainer.setVisibility(View.GONE);
+
                 updateCategoryUI(view, "department_common", progress.departmentCommon);
                 updateCategoryUI(view, "general_selection", progress.generalSelection);
             } else {
+                // 신 교육과정: 전공심화, 잔여학점 표시
+                if (departmentCommonContainer != null) departmentCommonContainer.setVisibility(View.GONE);
+                if (generalSelectionContainer != null) generalSelectionContainer.setVisibility(View.GONE);
+                if (majorAdvancedContainer != null) majorAdvancedContainer.setVisibility(View.VISIBLE);
+                if (remainingCreditsContainer != null) remainingCreditsContainer.setVisibility(View.VISIBLE);
+
                 updateCategoryUI(view, "major_advanced", progress.majorAdvanced);
                 updateCategoryUI(view, "remaining_credits", progress.remainingCredits);
             }
@@ -2142,8 +2164,7 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 GraduationAnalysisResultActivity.staticSelectedDepartment,
                 GraduationAnalysisResultActivity.staticSelectedYear);
 
-            View majorAdvancedContainer = view.findViewById(R.id.accordion_major_advanced_header).getParent() instanceof View ?
-                (View) view.findViewById(R.id.accordion_major_advanced_header).getParent() : null;
+            View majorAdvancedContainer = view.findViewById(R.id.accordion_major_advanced_container);
             View departmentCommonContainer = view.findViewById(R.id.accordion_department_common_container);
 
             if ("전공심화".equals(categoryName)) {
@@ -3036,6 +3057,15 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
                 return;
             }
 
+            // 디버깅: 그룹 정보 로깅
+            Log.d("OneOfGroup", "그룹: " + groupStatus.groupName);
+            Log.d("OneOfGroup", "  → 그룹 학점 (Firestore에서 가져온 값): " + groupStatus.credits + "학점");
+            Log.d("OneOfGroup", "  → 전체 과목 리스트:");
+            for (String course : groupStatus.requiredCourses) {
+                int credits = getCreditsForCourse(course);
+                Log.d("OneOfGroup", "      • " + course + " = " + credits + "학점");
+            }
+
             LinearLayout groupLayout = new LinearLayout(getContext());
             groupLayout.setOrientation(LinearLayout.VERTICAL);
             groupLayout.setPadding(0, dpToPx(8), 0, dpToPx(8));
@@ -3072,10 +3102,9 @@ public class GraduationAnalysisResultActivity extends AppCompatActivity {
             groupTitle.setLayoutParams(titleParams);
             titleLayout.addView(groupTitle);
 
-            // 학점 표시 (그룹의 첫 번째 과목 기준으로 학점 계산)
-            int groupCredits = getCreditsForCourse(groupStatus.requiredCourses.get(0));
+            // 학점 표시 (Firestore의 그룹 학점 데이터 사용)
             TextView creditText = new TextView(getContext());
-            creditText.setText(groupCredits + "학점");
+            creditText.setText(groupStatus.credits + "학점");
             creditText.setTextSize(14);
             creditText.setTextColor(0xFF2196F3);
             creditText.setTypeface(null, android.graphics.Typeface.BOLD);

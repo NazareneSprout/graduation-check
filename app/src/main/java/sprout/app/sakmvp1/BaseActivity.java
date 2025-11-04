@@ -10,6 +10,8 @@ import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
 // Activity 생명주기를 관리하는 Bundle 클래스
 import android.os.Bundle;
+// 로그 출력을 위한 Log 클래스
+import android.util.Log;
 // 화면의 View (모든 화면 요소의 기본 클래스)
 import android.view.View;
 
@@ -54,6 +56,16 @@ public class BaseActivity extends AppCompatActivity {
     }
 
     /**
+     * 접근성 설정을 강제로 다시 적용
+     *
+     * public 메서드로 외부에서 호출 가능
+     * Firestore에서 설정을 로드한 후 이 메서드를 호출하면 즉시 적용됩니다.
+     */
+    public void refreshAccessibilitySettings() {
+        applyAccessibilitySettings();
+    }
+
+    /**
      * 접근성 설정 적용
      *
      * 이 메서드는 저장된 설정을 확인해서
@@ -71,12 +83,17 @@ public class BaseActivity extends AppCompatActivity {
         // true = 색약 모드 켜짐, false = 색약 모드 꺼짐
         boolean colorBlindMode = prefs.getBoolean("color_blind_mode", false);
 
+        // 디버그 로그: 설정값 확인
+        Log.d("BaseActivity", "접근성 설정 적용: color_blind_mode = " + colorBlindMode + " (Activity: " + getClass().getSimpleName() + ")");
+
         // 색약 모드가 켜져있는지 확인합니다
         if (colorBlindMode) {
             // 켜져있으면: 흑백 필터를 적용합니다
+            Log.d("BaseActivity", "흑백 필터 적용");
             applyGrayscaleFilter();
         } else {
             // 꺼져있으면: 흑백 필터를 제거합니다 (원래 색상으로 복원)
+            Log.d("BaseActivity", "흑백 필터 제거");
             removeGrayscaleFilter();
         }
     }

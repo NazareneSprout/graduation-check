@@ -27,6 +27,13 @@ import androidx.fragment.app.FragmentTransaction;
 // BottomNavigationView: 화면 하단의 탭 메뉴
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+// Firebase Authentication: 사용자 인증 관리
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+// Firestore: 클라우드 데이터베이스
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentSnapshot;
+
 // TimeTableFragment: 시간표 화면 Fragment
 import sprout.app.sakmvp1.timetable.TimeTableFragment;
 
@@ -88,6 +95,9 @@ public class MainActivityNew extends BaseActivity {
             finish();
             return;
         }
+
+        // Firestore에서 접근성 설정 로드
+        loadAccessibilitySettingsFromFirestore();
 
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main_container);
@@ -186,5 +196,54 @@ public class MainActivityNew extends BaseActivity {
         } else if (currentFragment instanceof UserProfileFragment) {
             bottomNavigation.setSelectedItemId(R.id.nav_button_4);
         }
+    }
+
+    /**
+     * Firestore에서 사용자의 접근성 설정을 로드하여 SharedPreferences에 저장
+     *
+     * 앱 시작 시 호출되어 Firestore에 저장된 설정을 로드합니다.
+     * 로드된 설정은 SharedPreferences에 저장되어 BaseActivity가 사용합니다.
+     */
+    private void loadAccessibilitySettingsFromFirestore() {
+        // Firebase 인증에서 현재 로그인된 사용자 가져오기
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        FirebaseUser user = auth.getCurrentUser();
+
+        // 로그인하지 않은 경우 설정을 로드하지 않음
+        if (user == null) {
+            return;
+        }
+
+        String userId = user.getUid();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // Firestore에서 사용자의 접근성 설정 문서 조회
+        db.collection("users")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // color_blind_mode 필드 읽기 (기본값: false)
+                        Boolean colorBlindMode = documentSnapshot.getBoolean("color_blind_mode");
+                        if (colorBlindMode == null) {
+                            colorBlindMode = false;
+                        }
+
+                        // SharedPreferences에 저장하여 BaseActivity가 사용할 수 있도록 함
+                        SharedPreferences prefs = getSharedPreferences("accessibility_prefs", Context.MODE_PRIVATE);
+                        prefs.edit()
+                                .putBoolean("color_blind_mode", colorBlindMode)
+                                .apply();
+
+                        android.util.Log.d("MainActivityNew", "Firestore에서 접근성 설정 로드 완료: color_blind_mode = " + colorBlindMode);
+
+                        // BaseActivity의 refreshAccessibilitySettings()를 호출하여 즉시 적용
+                        refreshAccessibilitySettings();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // 로드 실패 시 로그만 출력하고 기본값(색약 모드 꺼짐) 사용
+                    android.util.Log.w("MainActivityNew", "접근성 설정 로드 실패 - 기본값 사용", e);
+                });
     }
 }

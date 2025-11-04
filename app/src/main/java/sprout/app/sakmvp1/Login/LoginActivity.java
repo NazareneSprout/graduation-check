@@ -17,11 +17,13 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import sprout.app.sakmvp1.R; // <- applicationId 기준으로 생성된 R 클래스(리소스 접근용)
+import sprout.app.sakmvp1.BaseActivity; // <- 색약 모드 지원을 위해 추가
 import sprout.app.sakmvp1.MainActivityNew;
 import sprout.app.sakmvp1.AdminActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
 import com.google.firebase.auth.FirebaseAuthInvalidUserException;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
  * 로그인 화면 액티비티
@@ -37,8 +39,12 @@ import com.google.firebase.auth.FirebaseAuthInvalidUserException;
  * 주의
  * - 실제 배포 시 테스트용 진입 버튼은 제거하거나 디버그 빌드에서만 노출하는 것을 권장
  * - 이메일 인증 여부, 비밀번호 최소 길이/강도 등의 추가 검증은 별도 정책에 맞게 확장 가능
+ *
+ * BaseActivity 상속:
+ * - BaseActivity를 상속받아 색약 모드(흑백 필터)를 자동으로 지원합니다
+ * - 사용자가 설정한 접근성 모드가 로그인 화면에서도 적용됩니다
  */
-public class LoginActivity extends AppCompatActivity {
+public class LoginActivity extends BaseActivity {
 
     // UI 참조
     private EditText etEmail;
@@ -127,70 +133,28 @@ public class LoginActivity extends AppCompatActivity {
 
         androidx.appcompat.app.AlertDialog dialog = builder.create();
 
-        // 일반 접속
+        // 일반 접속 (테스트용 - Firebase 인증 없이 바로 접속)
         btnNormalAccess.setOnClickListener(v -> {
-            // 이미 인증된 사용자가 있으면 재사용, 없으면 익명 로그인
-            if (mAuth.getCurrentUser() != null) {
-                // 이미 인증됨
-                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                prefs.edit()
-                        .putBoolean("is_admin", false)
-                        .apply();
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit()
+                    .putBoolean("is_admin", false)
+                    .apply();
 
-                Toast.makeText(LoginActivity.this, "일반 사용자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
-                startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
-                dialog.dismiss();
-            } else {
-                // Firebase 익명 로그인
-                mAuth.signInAnonymously()
-                        .addOnSuccessListener(authResult -> {
-                            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                            prefs.edit()
-                                    .putBoolean("is_admin", false)
-                                    .apply();
-
-                            Toast.makeText(LoginActivity.this, "일반 사용자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
-                            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
-                            dialog.dismiss();
-                        })
-                        .addOnFailureListener(e -> {
-                            Log.e("LoginActivity", "Firebase 익명 인증 실패", e);
-                            Toast.makeText(LoginActivity.this, "Firebase 인증 실패: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        });
-            }
+            Toast.makeText(LoginActivity.this, "일반 사용자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+            dialog.dismiss();
         });
 
-        // 관리자 접속
+        // 관리자 접속 (테스트용 - Firebase 인증 없이 바로 최고 권한 부여)
         btnAdminAccess.setOnClickListener(v -> {
-            // 이미 인증된 사용자가 있으면 재사용, 없으면 익명 로그인
-            if (mAuth.getCurrentUser() != null) {
-                // 이미 인증됨
-                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                prefs.edit()
-                        .putBoolean("is_admin", true)
-                        .commit();
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit()
+                    .putBoolean("is_admin", true)
+                    .apply();
 
-                Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
-                startActivity(new Intent(LoginActivity.this, AdminActivity.class));
-                dialog.dismiss();
-            } else {
-                // Firebase 익명 로그인
-                mAuth.signInAnonymously()
-                        .addOnSuccessListener(authResult -> {
-                            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                            prefs.edit()
-                                    .putBoolean("is_admin", true)
-                                    .commit();
-
-                            Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다", Toast.LENGTH_SHORT).show();
-                            startActivity(new Intent(LoginActivity.this, AdminActivity.class));
-                            dialog.dismiss();
-                        })
-                        .addOnFailureListener(e -> {
-                            Log.e("LoginActivity", "Firebase 익명 인증 실패", e);
-                            Toast.makeText(LoginActivity.this, "Firebase 인증 실패: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        });
-            }
+            Toast.makeText(LoginActivity.this, "관리자로 테스트 접속합니다 (최고 권한)", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(LoginActivity.this, AdminActivity.class));
+            dialog.dismiss();
         });
 
         // 취소
@@ -236,9 +200,8 @@ public class LoginActivity extends AppCompatActivity {
                                 .putBoolean("is_admin", isAdmin)
                                 .apply();
 
-                        // 메인 화면으로 이동 후 로그인 화면 종료
-                        startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
-                        finish();
+                        // Firestore에서 접근성 설정 로드 후 메인 화면으로 이동
+                        loadAccessibilitySettingsAndNavigate();
                     } else {
                         // 인증 실패: 예외 유형에 따라 구체 메시지 제공
                         Exception exception = task.getException();
@@ -281,5 +244,48 @@ public class LoginActivity extends AppCompatActivity {
             }
         }
         return false;
+    }
+
+    /**
+     * Firestore에서 접근성 설정을 로드한 후 메인 화면으로 이동
+     *
+     * 로그인 성공 후 호출되어 사용자의 색약 모드 설정을 불러옵니다.
+     * 로컬 SharedPreferences에 저장하여 앱 전체에서 사용할 수 있도록 합니다.
+     */
+    private void loadAccessibilitySettingsAndNavigate() {
+        String userId = mAuth.getCurrentUser().getUid();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // Firestore에서 사용자 문서 조회
+        db.collection("users")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // color_blind_mode 필드 읽기
+                        Boolean colorBlindMode = documentSnapshot.getBoolean("color_blind_mode");
+                        if (colorBlindMode == null) {
+                            colorBlindMode = false;
+                        }
+
+                        // 로컬 SharedPreferences에 저장
+                        SharedPreferences prefs = getSharedPreferences("accessibility_prefs", Context.MODE_PRIVATE);
+                        prefs.edit()
+                                .putBoolean("color_blind_mode", colorBlindMode)
+                                .apply();
+
+                        Log.d("LoginActivity", "접근성 설정 로드 완료: color_blind_mode = " + colorBlindMode);
+                    }
+
+                    // 설정 로드 완료 후 메인 화면으로 이동
+                    startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    // 로드 실패 시에도 메인 화면으로 이동 (기본값 사용)
+                    Log.w("LoginActivity", "접근성 설정 로드 실패 - 기본값 사용", e);
+                    startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+                    finish();
+                });
     }
 }
