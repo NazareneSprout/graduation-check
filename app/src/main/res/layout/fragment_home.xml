@@ -368,7 +368,7 @@
                             <TextView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="function_7"
+                                android:text="@string/function_7"
                                 android:textSize="9sp"
                                 android:textColor="?attr/colorOnSurface"
                                 android:layout_marginTop="4dp"
@@ -412,7 +412,7 @@
                             <TextView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="function_8"
+                                android:text="@string/function_8"
                                 android:textSize="9sp"
                                 android:textColor="?attr/colorOnSurface"
                                 android:layout_marginTop="4dp"

@@ -178,7 +178,7 @@ public class StudentDataActivity extends AppCompatActivity {
                         student.setStudentYear(studentYear);
                         student.setDepartment(department);
                         student.setTrack(track);
-                        student.setName(name != null ? name : document.getId());  // 이름이 없으면 UID 표시
+                        student.setName(name);  // name이 null이면 Student.getName()에서 "이름 없음" 반환
                         student.setEmail(email);
 
                         Long updatedAt = document.getLong("updatedAt");

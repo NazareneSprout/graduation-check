@@ -60,7 +60,56 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- 빈 상태 화면 -->
+    <LinearLayout
+        android:id="@+id/empty_state_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <ImageView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@drawable/ic_calendar"
+            android:alpha="0.5"
+            app:tint="?attr/colorPrimary"
+            android:contentDescription="시간표 아이콘" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="아직 시간표가 없습니다"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_marginTop="24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="새 시간표를 만들어\n수업을 추가해보세요"
+            android:textSize="14sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:gravity="center"
+            android:layout_marginTop="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_create_first_timetable"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="시간표 만들기"
+            android:layout_marginTop="24dp"
+            app:icon="@android:drawable/ic_input_add"
+            style="@style/Widget.Material3.Button.ElevatedButton" />
+
+    </LinearLayout>
+
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/timetable_scroll_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">

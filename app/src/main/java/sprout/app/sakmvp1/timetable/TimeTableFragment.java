@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.NumberPicker;
 import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
@@ -58,6 +59,9 @@ public class TimeTableFragment extends Fragment {
     private Toolbar toolbar;
     private ImageButton btnTimetableMenu;
     private FloatingActionButton fabAddSchedule;
+    private LinearLayout emptyStateLayout;
+    private androidx.core.widget.NestedScrollView timetableScrollView;
+    private MaterialButton btnCreateFirstTimetable;
 
     private int startHour = 9, startMinute = 0, endHour = 10, endMinute = 0;
 
@@ -119,6 +123,9 @@ public class TimeTableFragment extends Fragment {
         timetableLayout = view.findViewById(R.id.timetable_layout);
         btnTimetableMenu = view.findViewById(R.id.btnTimetableMenu);
         fabAddSchedule = view.findViewById(R.id.fab_add_schedule);
+        emptyStateLayout = view.findViewById(R.id.empty_state_layout);
+        timetableScrollView = view.findViewById(R.id.timetable_scroll_view);
+        btnCreateFirstTimetable = view.findViewById(R.id.btn_create_first_timetable);
 
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
@@ -127,7 +134,8 @@ public class TimeTableFragment extends Fragment {
         drawTimetableBase();
 
         btnTimetableMenu.setOnClickListener(v -> showTimetableMenu(v));
-        fabAddSchedule.setOnClickListener(v -> showAddScheduleBottomSheet());
+        fabAddSchedule.setOnClickListener(v -> handleAddScheduleClick());
+        btnCreateFirstTimetable.setOnClickListener(v -> createDefaultTimetableAndProceed());
 
         view.findViewById(R.id.btnPreviousTimetable).setOnClickListener(v -> {
             android.content.Intent intent = new android.content.Intent(requireContext(), sprout.app.sakmvp1.SavedTimetablesActivity.class);
@@ -375,8 +383,11 @@ public class TimeTableFragment extends Fragment {
 
         if (userId == null || activeTimetableId == null) {
             Log.d("TimeTableFragment", "No active user or timetable set.");
+            updateEmptyState(true);
             return;
         }
+
+        updateEmptyState(false);
 
         // users/{userId}/timetables/{timetableId}
         db.collection("users").document(userId)
@@ -579,5 +590,74 @@ public class TimeTableFragment extends Fragment {
         });
 
         dialog.show();
+    }
+
+    /**
+     * 빈 상태 UI 업데이트
+     */
+    private void updateEmptyState(boolean isEmpty) {
+        if (isEmpty) {
+            emptyStateLayout.setVisibility(View.VISIBLE);
+            timetableScrollView.setVisibility(View.GONE);
+            fabAddSchedule.hide();
+        } else {
+            emptyStateLayout.setVisibility(View.GONE);
+            timetableScrollView.setVisibility(View.VISIBLE);
+            fabAddSchedule.show();
+        }
+    }
+
+    /**
+     * FAB 클릭 시 시간표 자동 생성 또는 수업 추가
+     */
+    private void handleAddScheduleClick() {
+        if (activeTimetableId == null) {
+            createDefaultTimetableAndProceed();
+        } else {
+            showAddScheduleBottomSheet();
+        }
+    }
+
+    /**
+     * 기본 시간표 자동 생성 및 수업 추가 진행
+     */
+    private void createDefaultTimetableAndProceed() {
+        String userId = getCurrentUserId();
+        if (userId == null) {
+            return;
+        }
+
+        // 자동 이름 생성 (예: "내 시간표 2024-01")
+        String currentDate = new java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault())
+                .format(new java.util.Date());
+        String timetableName = "내 시간표 " + currentDate;
+
+        sprout.app.sakmvp1.SavedTimetable newTimetable = new sprout.app.sakmvp1.SavedTimetable();
+        newTimetable.setName(timetableName);
+        newTimetable.setSavedDate(System.currentTimeMillis());
+        newTimetable.setSchedules(new java.util.ArrayList<>());
+
+        // users/{userId}/timetables
+        db.collection("users").document(userId)
+                .collection("timetables")
+                .add(newTimetable)
+                .addOnSuccessListener(documentReference -> {
+                    String newTimetableId = documentReference.getId();
+                    localStorage.setActiveTimetableId(newTimetableId);
+                    activeTimetableId = newTimetableId;
+
+                    updateEmptyState(false);
+
+                    Toast.makeText(requireContext(),
+                            "'" + timetableName + "'이(가) 생성되었습니다",
+                            Toast.LENGTH_SHORT).show();
+
+                    // 바로 수업 추가 다이얼로그 표시
+                    showAddScheduleBottomSheet();
+                })
+                .addOnFailureListener(e -> {
+                    Log.w("TimeTableFragment", "Error creating default timetable", e);
+                    Toast.makeText(requireContext(), "시간표 생성에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                });
     }
 }
