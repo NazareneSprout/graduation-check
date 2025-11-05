@@ -28,7 +28,7 @@ public class AssistProgramActivity extends AppCompatActivity {
     private Button btnShareUrl;
     private Button btnDownloadMobile;
     private boolean isExpanded = false;
-    private static final String DOWNLOAD_URL = "https://firebasestorage.googleapis.com/v0/b/nazarenesprout.firebasestorage.app/o/assist_programs%2FScreenPenTool.exe?alt=media&token=946b59fe-e75e-40b3-90b9-8bbcf6ad818d";
+    private static final String DOWNLOAD_URL = "https://firebasestorage.googleapis.com/v0/b/nazarenesprout.firebasestorage.app/o/assist_programs%2FScreenPenTool_v2.exe?alt=media&token=98cefcca-dcc6-48d8-a413-62020ec930be";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
