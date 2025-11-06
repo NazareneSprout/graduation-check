@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -50,6 +51,7 @@ public class HomeFragment extends Fragment {
     private LinearLayout btnFunction8;
     private LinearLayout btnSchoolTips;
     private LinearLayout btnAssistProgram;
+    private FloatingActionButton fabChatbot;
 
     @Nullable
     @Override
@@ -82,6 +84,7 @@ public class HomeFragment extends Fragment {
         btnFunction8 = view.findViewById(R.id.btnFunction8);
         btnSchoolTips = view.findViewById(R.id.btnSchoolTips);
         btnAssistProgram = view.findViewById(R.id.btnAssistProgram);
+        fabChatbot = view.findViewById(R.id.fab_chatbot);
     }
 
     private void setupBannerViewPager() {
@@ -194,6 +197,13 @@ public class HomeFragment extends Fragment {
         if (btnAssistProgram != null) {
             btnAssistProgram.setOnClickListener(v -> {
                 Intent intent = new Intent(requireContext(), AssistProgramActivity.class);
+                startActivity(intent);
+            });
+        }
+
+        if (fabChatbot != null) {
+            fabChatbot.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), ChatBotActivity.class);
                 startActivity(intent);
             });
         }

@@ -542,8 +542,8 @@ public class RecommendationResultActivity extends AppCompatActivity {
             categoryGroups.get(category).add(course);
         }
 
-        // 교양선택과 소양은 DB에 과목 데이터가 없으므로 분석 결과에서 직접 추가
-        Log.d(TAG, ">>> 교양선택/소양 추가 시작 (analysisResult null 여부: " + (analysisResult == null) + ")");
+        // 교양선택, 소양, 잔여학점 등 DB에 과목 데이터가 없는 카테고리를 분석 결과에서 직접 추가
+        Log.d(TAG, ">>> 과목 없는 카테고리 추가 시작 (analysisResult null 여부: " + (analysisResult == null) + ")");
         if (analysisResult != null) {
             // 소양 표시 여부 확인: 2학년 1학기부터만 표시
             boolean shouldShowSoyang = shouldShowSoyangCategory();
@@ -551,7 +551,11 @@ public class RecommendationResultActivity extends AppCompatActivity {
 
             for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
                 String categoryName = categoryResult.getCategoryName();
-                if ("교양선택".equals(categoryName) || "소양".equals(categoryName)) {
+
+                // 과목이 없는 카테고리: 교양선택, 소양, 잔여학점, 일반선택, 자율선택
+                if ("교양선택".equals(categoryName) || "소양".equals(categoryName) ||
+                    "잔여학점".equals(categoryName) || "일반선택".equals(categoryName) || "자율선택".equals(categoryName)) {
+
                     // 소양인 경우 2학년 1학기 미만이면 스킵
                     if ("소양".equals(categoryName) && !shouldShowSoyang) {
                         Log.d(TAG, "    >>> 소양 카테고리 스킵 (2학년 1학기 미만)");
@@ -585,8 +589,9 @@ public class RecommendationResultActivity extends AppCompatActivity {
         Log.d(TAG, ">>> 카테고리 표시 시작");
         for (String category : categoryOrder) {
             List<RecommendedCourse> categoryCourses = categoryGroups.get(category);
-            // 교양선택과 소양은 빈 리스트여도 표시 (과목 데이터가 없는 카테고리)
-            boolean isEmptyButShowable = ("교양선택".equals(category) || "소양".equals(category))
+            // 과목 데이터가 없는 카테고리는 빈 리스트여도 표시 (교양선택, 소양, 잔여학점 등)
+            boolean isEmptyButShowable = ("교양선택".equals(category) || "소양".equals(category) ||
+                                         "잔여학점".equals(category) || "일반선택".equals(category) || "자율선택".equals(category))
                                         && categoryCourses != null;
 
             if (categoryCourses != null) {
@@ -633,8 +638,8 @@ public class RecommendationResultActivity extends AppCompatActivity {
         // 카테고리명과 과목 수/부족 학점 표시
         chipCategoryName.setText(category);
 
-        // 교양선택과 소양은 과목 수 대신 부족 학점 표시
-        if (("교양선택".equals(category) || "소양".equals(category)) && analysisResult != null) {
+        // 모든 카테고리에 대해 분석 결과에서 부족 학점 표시
+        if (analysisResult != null) {
             // 분석 결과에서 부족한 학점 가져오기
             for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
                 if (category.equals(categoryResult.getCategoryName())) {
@@ -656,13 +661,20 @@ public class RecommendationResultActivity extends AppCompatActivity {
                         }
                         tvCourseCount.setText(" · 부족 " + remainingCredits + "학점 · " + completedCompetencies + "/5 역량");
                     } else {
-                        // 소양은 학점만 표시
-                        tvCourseCount.setText(" · 부족 " + remainingCredits + "학점");
+                        // 다른 모든 카테고리: 과목 수와 부족 학점 표시
+                        if (courses.isEmpty()) {
+                            // 과목이 없는 경우 (교양선택, 소양 등)
+                            tvCourseCount.setText(" · 부족 " + remainingCredits + "학점");
+                        } else {
+                            // 과목이 있는 경우: 과목 수와 부족 학점 모두 표시
+                            tvCourseCount.setText(" · " + courses.size() + "과목 · 부족 " + remainingCredits + "학점");
+                        }
                     }
                     break;
                 }
             }
         } else {
+            // analysisResult가 없는 경우 과목 수만 표시
             tvCourseCount.setText(" · " + courses.size() + "과목");
         }
 

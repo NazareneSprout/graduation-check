@@ -114,6 +114,18 @@
             android:name=".AssistProgramActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
+        <activity
+            android:name=".CertificateManagementActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity
+            android:name=".CertificateEditActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
+        <activity
+            android:name=".ChatBotActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
 
     </application>
 
