@@ -94,6 +94,9 @@ dependencies {
     // Desugar library for Java 8+ API support on older Android versions
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
