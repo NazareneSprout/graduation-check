@@ -25,8 +25,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -35,20 +33,15 @@ import com.google.android.material.textfield.TextInputEditText;
 // Firestore 및 FirebaseAuth 임포트
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
 import sprout.app.sakmvp1.R;
-import sprout.app.sakmvp1.SavedTimetable;
-import sprout.app.sakmvp1.ScheduleItem;
-import sprout.app.sakmvp1.TimetableLocalStorage; // '활성 ID' 관리를 위해 유지
 
 /**
  * 시간표 Fragment (자동 저장 방식, Nested Collection)
@@ -68,7 +61,7 @@ public class TimeTableFragment extends Fragment {
     private static final int START_TIME_HOUR = 9;
     private static final int END_TIME_HOUR = 24;
 
-    private sprout.app.sakmvp1.TimetableLocalStorage localStorage;
+    private TimetableLocalStorage localStorage;
     private String activeTimetableId;
 
     private FirebaseFirestore db;
@@ -129,7 +122,7 @@ public class TimeTableFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
-        localStorage = new sprout.app.sakmvp1.TimetableLocalStorage(requireContext());
+        localStorage = new TimetableLocalStorage(requireContext());
 
         drawTimetableBase();
 
@@ -138,7 +131,7 @@ public class TimeTableFragment extends Fragment {
         btnCreateFirstTimetable.setOnClickListener(v -> createDefaultTimetableAndProceed());
 
         view.findViewById(R.id.btnPreviousTimetable).setOnClickListener(v -> {
-            android.content.Intent intent = new android.content.Intent(requireContext(), sprout.app.sakmvp1.SavedTimetablesActivity.class);
+            android.content.Intent intent = new android.content.Intent(requireContext(), SavedTimetablesActivity.class);
             startActivity(intent);
         });
     }
@@ -515,7 +508,7 @@ public class TimeTableFragment extends Fragment {
                 return;
             }
 
-            sprout.app.sakmvp1.SavedTimetable newTimetable = new sprout.app.sakmvp1.SavedTimetable();
+            SavedTimetable newTimetable = new SavedTimetable();
             newTimetable.setName(timetableName);
             newTimetable.setSavedDate(System.currentTimeMillis());
             newTimetable.setSchedules(new java.util.ArrayList<>());
@@ -632,7 +625,7 @@ public class TimeTableFragment extends Fragment {
                 .format(new java.util.Date());
         String timetableName = "내 시간표 " + currentDate;
 
-        sprout.app.sakmvp1.SavedTimetable newTimetable = new sprout.app.sakmvp1.SavedTimetable();
+        SavedTimetable newTimetable = new SavedTimetable();
         newTimetable.setName(timetableName);
         newTimetable.setSavedDate(System.currentTimeMillis());
         newTimetable.setSchedules(new java.util.ArrayList<>());

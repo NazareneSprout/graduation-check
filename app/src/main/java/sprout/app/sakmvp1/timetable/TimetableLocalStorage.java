@@ -1,4 +1,4 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1.timetable;
 
 import android.content.Context;
 import android.content.SharedPreferences;

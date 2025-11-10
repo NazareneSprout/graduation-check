@@ -1,7 +1,9 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1.timetable;
 
 import com.google.firebase.firestore.Exclude;
 import java.util.List;
+
+import sprout.app.sakmvp1.ScheduleItem;
 
 /**
  * 저장된 시간표 데이터 모델 클래스 (userId 필드 없음)

@@ -1,4 +1,4 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1.timetable;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -6,7 +6,6 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -17,15 +16,16 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 // Firestore 및 Auth 임포트
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+
+import sprout.app.sakmvp1.CurrentTimetableStorage;
+import sprout.app.sakmvp1.R;
+import sprout.app.sakmvp1.ScheduleItem;
 
 /**
  * 저장된 시간표 목록을 표시하는 Activity (Firestore 연동, Nested Collection)

@@ -57,7 +57,7 @@
             android:name=".timetable.TimeTableActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
-        <activity android:name=".SavedTimetablesActivity"
+        <activity android:name=".timetable.SavedTimetablesActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
         <activity android:name=".AdminActivity"

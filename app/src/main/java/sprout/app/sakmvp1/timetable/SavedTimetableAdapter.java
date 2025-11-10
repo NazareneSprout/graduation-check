@@ -1,4 +1,4 @@
-package sprout.app.sakmvp1;
+package sprout.app.sakmvp1.timetable;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -17,6 +17,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
+import sprout.app.sakmvp1.R;
 
 /**
  * 저장된 시간표 목록을 표시하는 RecyclerView Adapter
