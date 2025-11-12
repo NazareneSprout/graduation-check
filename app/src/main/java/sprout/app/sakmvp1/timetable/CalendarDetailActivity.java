@@ -13,17 +13,17 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-// [중요] XML과 맞추기 위해 SwitchCompat 사용
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.CollectionReference; // [필수 임포트]
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Random; // 랜덤 색상용
+import java.util.Random;
 
 import sprout.app.sakmvp1.R;
 
@@ -31,7 +31,7 @@ public class CalendarDetailActivity extends AppCompatActivity {
 
     private EditText editTitle, editDesc;
     private TextView btnStartDate, btnStartTime, btnEndDate, btnEndTime;
-    private SwitchCompat switchYearly; // [수정됨] MaterialSwitch -> SwitchCompat
+    private SwitchCompat switchYearly;
     private MaterialButton btnSave, btnDelete;
 
     private CalendarEvent currentEvent;
@@ -42,42 +42,44 @@ public class CalendarDetailActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private String userId;
 
+    // [중요] 저장할 위치(경로)를 담아둘 변수
+    private CollectionReference eventsCollectionRef;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_calendar_detail);
 
+        // 1. 파이어베이스 초기화
         db = FirebaseFirestore.getInstance();
         if (FirebaseAuth.getInstance().getCurrentUser() != null) {
             userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         } else { finish(); return; }
 
-        // 툴바 설정
-        MaterialToolbar toolbar = findViewById(R.id.detailToolbar);
-        toolbar.setNavigationOnClickListener(v -> finish()); // 뒤로가기 버튼
+        // 2. 저장할 경로 설정 (내 캘린더 vs 그룹 캘린더)
+        setupCalendarPath();
 
-        // 뷰 연결
+        // 3. 뷰 연결
+        MaterialToolbar toolbar = findViewById(R.id.detailToolbar);
+        toolbar.setNavigationOnClickListener(v -> finish());
+
         editTitle = findViewById(R.id.detailTitle);
         editDesc = findViewById(R.id.detailDesc);
         btnStartDate = findViewById(R.id.btnStartDate);
         btnStartTime = findViewById(R.id.btnStartTime);
         btnEndDate = findViewById(R.id.btnEndDate);
         btnEndTime = findViewById(R.id.btnEndTime);
-
-        // [수정됨] XML의 SwitchCompat ID와 연결
         switchYearly = findViewById(R.id.switchYearly);
-
         btnSave = findViewById(R.id.btnDetailSave);
         btnDelete = findViewById(R.id.btnDetailDelete);
 
-        // 데이터 초기화 (수정 vs 신규)
+        // 4. 데이터 초기화 (수정 모드 vs 신규 모드)
         if (getIntent().hasExtra("event_data")) {
             // [수정 모드]
             currentEvent = (CalendarEvent) getIntent().getSerializableExtra("event_data");
             editTitle.setText(currentEvent.title);
             editDesc.setText(currentEvent.description);
             switchYearly.setChecked(currentEvent.isYearly);
-
             tempStartDate = LocalDate.parse(currentEvent.startDate);
             tempEndDate = LocalDate.parse(currentEvent.endDate);
             parseTime(currentEvent.startTime, true);
@@ -98,7 +100,7 @@ public class CalendarDetailActivity extends AppCompatActivity {
 
         updateUI();
 
-        // 리스너 설정
+        // 5. 리스너 설정
         btnStartDate.setOnClickListener(v -> showDatePicker(true));
         btnEndDate.setOnClickListener(v -> showDatePicker(false));
         btnStartTime.setOnClickListener(v -> showTimePicker(true));
@@ -111,6 +113,28 @@ public class CalendarDetailActivity extends AppCompatActivity {
                     .setPositiveButton("삭제", (d, w) -> deleteEvent())
                     .setNegativeButton("취소", null).show();
         });
+    }
+
+    /**
+     * [핵심] 인텐트로 받은 정보를 확인해서 저장할 Firestore 경로를 미리 설정합니다.
+     */
+    private void setupCalendarPath() {
+        boolean isGroupCalendar = getIntent().getBooleanExtra("IS_GROUP_CALENDAR", false);
+        String calendarId = getIntent().getStringExtra("CALENDAR_ID_TO_SAVE");
+
+        // ID가 없으면 내 캘린더로 기본 설정
+        if (calendarId == null) {
+            calendarId = userId;
+            isGroupCalendar = false;
+        }
+
+        if (isGroupCalendar) {
+            // 그룹 캘린더 경로: groups -> {그룹ID} -> calendar_events
+            eventsCollectionRef = db.collection("groups").document(calendarId).collection("calendar_events");
+        } else {
+            // 내 캘린더 경로: users -> {내ID} -> calendar_events
+            eventsCollectionRef = db.collection("users").document(userId).collection("calendar_events");
+        }
     }
 
     private void parseTime(String timeStr, boolean isStart) {
@@ -141,7 +165,6 @@ public class CalendarDetailActivity extends AppCompatActivity {
         }, target.getYear(), target.getMonthValue()-1, target.getDayOfMonth()).show();
     }
 
-    // 커스텀 스피너(Wheel) 시간 선택 다이얼로그
     private void showTimePicker(boolean isStart) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_time_spinner, null);
@@ -172,6 +195,12 @@ public class CalendarDetailActivity extends AppCompatActivity {
     }
 
     private void saveEvent() {
+        // 경로 설정이 안 되어 있으면 중단
+        if (eventsCollectionRef == null) {
+            Toast.makeText(this, "저장 경로 오류", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String title = editTitle.getText().toString().trim();
         if (title.isEmpty()) {
             Toast.makeText(this, "제목을 입력하세요", Toast.LENGTH_SHORT).show();
@@ -188,30 +217,34 @@ public class CalendarDetailActivity extends AppCompatActivity {
         boolean isYearly = switchYearly.isChecked();
 
         if (currentEvent == null) {
-            // [신규 추가] -> 랜덤 파스텔 색상 생성
+            // [신규 추가]
             Random rnd = new Random();
             int randomColor = Color.argb(255, rnd.nextInt(50) + 180, rnd.nextInt(50) + 180, rnd.nextInt(50) + 180);
 
             CalendarEvent newEvent = new CalendarEvent(title, tempStartDate.toString(), tempEndDate.toString(),
                     startTimeStr, endTimeStr, editDesc.getText().toString(), randomColor, isYearly);
 
-            db.collection("users").document(userId).collection("calendar_events").add(newEvent)
+            // [수정됨] setupCalendarPath에서 만든 경로(eventsCollectionRef)에 바로 추가
+            eventsCollectionRef.add(newEvent)
                     .addOnSuccessListener(doc -> finish());
         } else {
-            // [수정] -> 기존 색상 유지
-            db.collection("users").document(userId).collection("calendar_events").document(currentEvent.documentId)
+            // [수정]
+            eventsCollectionRef.document(currentEvent.documentId)
                     .update("title", title, "description", editDesc.getText().toString(),
                             "startDate", tempStartDate.toString(), "endDate", tempEndDate.toString(),
                             "startTime", startTimeStr, "endTime", endTimeStr,
-                            "isYearly", isYearly,
-                            "color", currentEvent.color)
+                            "isYearly", isYearly)
                     .addOnSuccessListener(v -> finish());
         }
     }
 
     private void deleteEvent() {
         if (currentEvent == null) return;
-        db.collection("users").document(userId).collection("calendar_events")
-                .document(currentEvent.documentId).delete().addOnSuccessListener(v -> finish());
+        if (eventsCollectionRef == null) return;
+
+        // [수정됨] 설정된 경로에서 삭제
+        eventsCollectionRef.document(currentEvent.documentId)
+                .delete()
+                .addOnSuccessListener(v -> finish());
     }
 }

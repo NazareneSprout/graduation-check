@@ -138,6 +138,10 @@
             android:name=".timetable.CalendarDetailActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
+        <activity
+            android:name=".timetable.GroupListActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="false" />
 
     </application>
 

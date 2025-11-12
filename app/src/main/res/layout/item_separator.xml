@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 캘린더 리스트의 구분선 역할을 하는 1px 높이의 뷰 -->
+<View xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="1dp"
+    android:background="#EEEEEE"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="8dp"/>

@@ -4,6 +4,8 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageButton;
@@ -11,6 +13,8 @@ import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,7 +24,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.CollectionReference; // [필수 임포트]
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query; // [필수 임포트]
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.time.LocalDate;
@@ -40,8 +46,11 @@ public class CommonCalendarActivity extends AppCompatActivity {
     private ImageButton btnPrevMonth, btnNextMonth;
 
     private FirebaseFirestore db;
-    private String userId;
+    private String userId; // 내 ID
+    private String currentCalendarId; // 현재 보고 있는 캘린더 ID (내 ID 혹은 그룹 ID)
     private List<CalendarEvent> allEvents = new ArrayList<>();
+
+    private ActivityResultLauncher<Intent> calendarSwitchLauncher;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -53,12 +62,12 @@ public class CommonCalendarActivity extends AppCompatActivity {
             userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         } else { finish(); return; }
 
+        currentCalendarId = userId; // 처음엔 "내 캘린더"
+
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setDisplayShowTitleEnabled(false);
-        }
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setDisplayShowTitleEnabled(false);
         toolbar.setNavigationOnClickListener(v -> finish());
 
         textMonthYear = findViewById(R.id.textMonthYear);
@@ -66,15 +75,31 @@ public class CommonCalendarActivity extends AppCompatActivity {
         fabAddEvent = findViewById(R.id.fabAddEvent);
         btnPrevMonth = findViewById(R.id.btnPrevMonth);
         btnNextMonth = findViewById(R.id.btnNextMonth);
-
         selectedDate = LocalDate.now();
 
         // 새 글 쓰기
         fabAddEvent.setOnClickListener(v -> {
             Intent intent = new Intent(this, CalendarDetailActivity.class);
             intent.putExtra("selected_date", selectedDate.toString());
+            intent.putExtra("IS_GROUP_CALENDAR", !currentCalendarId.equals(userId));
+            intent.putExtra("CALENDAR_ID_TO_SAVE", currentCalendarId);
             startActivity(intent);
         });
+
+        // 캘린더 전환 ActivityResultLauncher 초기화
+        calendarSwitchLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        String newCalendarId = result.getData().getStringExtra(GroupListActivity.RESULT_CALENDAR_ID);
+                        if (newCalendarId != null && !newCalendarId.equals(currentCalendarId)) {
+                            currentCalendarId = newCalendarId;
+                            loadEventsFromFirestore(); // 캘린더 새로고침
+                            Toast.makeText(this, "캘린더가 전환되었습니다.", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+        );
 
         btnPrevMonth.setOnClickListener(v -> {
             selectedDate = selectedDate.minusMonths(1);
@@ -90,11 +115,49 @@ public class CommonCalendarActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        loadEventsFromFirestore();
+        loadEventsFromFirestore(); // 화면 돌아올 때마다 새로고침
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_common_calendar, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+        if (itemId == android.R.id.home) {
+            finish();
+            return true;
+        }
+        else if (itemId == R.id.action_group_menu) {
+            // 그룹 선택 화면으로 이동
+            Intent intent = new Intent(this, GroupListActivity.class);
+            intent.putExtra("CURRENT_CALENDAR_ID", currentCalendarId);
+            calendarSwitchLauncher.launch(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * [수정됨] Firestore 로드 경로를 올바르게 수정
+     */
     private void loadEventsFromFirestore() {
-        db.collection("users").document(userId).collection("calendar_events").get()
+        CollectionReference eventsCollectionRef; // [수정] 경로를 담을 변수
+
+        if (currentCalendarId.equals(userId)) {
+            // "내 캘린더": users -> {내ID} -> calendar_events
+            eventsCollectionRef = db.collection("users").document(userId).collection("calendar_events");
+        } else {
+            // "그룹 캘린더": groups -> {그룹ID} -> calendar_events
+            eventsCollectionRef = db.collection("groups").document(currentCalendarId).collection("calendar_events");
+        }
+
+        // [수정] 올바른 경로(eventsCollectionRef)에서 데이터 가져오기
+        eventsCollectionRef.get()
                 .addOnSuccessListener(qs -> {
                     allEvents.clear();
                     for (QueryDocumentSnapshot doc : qs) {
@@ -102,6 +165,11 @@ public class CommonCalendarActivity extends AppCompatActivity {
                         ev.documentId = doc.getId();
                         allEvents.add(ev);
                     }
+                    updateCalendarView(); // 캘린더 UI 갱신
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "일정을 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    allEvents.clear();
                     updateCalendarView();
                 });
     }
@@ -109,16 +177,21 @@ public class CommonCalendarActivity extends AppCompatActivity {
     private void updateCalendarView() {
         textMonthYear.setText(selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월")));
         ArrayList<LocalDate> days = daysInMonthArray(selectedDate);
-        // 어댑터 클릭 시 -> 수정 화면 이동
+
         CalendarAdapter adapter = new CalendarAdapter(days, allEvents, event -> {
+            // 일정 수정 화면으로 이동
             Intent intent = new Intent(this, CalendarDetailActivity.class);
             intent.putExtra("event_data", event);
+            // 수정 시에도 이 이벤트가 어느 캘린더 소속인지 알려줘야 함
+            intent.putExtra("IS_GROUP_CALENDAR", !currentCalendarId.equals(userId));
+            intent.putExtra("CALENDAR_ID_TO_SAVE", currentCalendarId);
             startActivity(intent);
         });
         recyclerCalendar.setLayoutManager(new GridLayoutManager(this, 7));
         recyclerCalendar.setAdapter(adapter);
     }
 
+    // (showYearMonthPicker, daysInMonthArray 메서드는 변경 없음)
     private void showYearMonthPicker() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_year_month_picker, null);
@@ -137,12 +210,6 @@ public class CommonCalendarActivity extends AppCompatActivity {
         });
         view.findViewById(R.id.btnDialogCancel).setOnClickListener(v -> dialog.dismiss());
         dialog.show();
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == android.R.id.home) { finish(); return true; }
-        return super.onOptionsItemSelected(item);
     }
 
     private ArrayList<LocalDate> daysInMonthArray(LocalDate date) {
