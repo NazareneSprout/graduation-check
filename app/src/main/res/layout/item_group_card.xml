@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="horizontal"
     android:paddingHorizontal="16dp"
     android:paddingVertical="12dp"
@@ -28,11 +29,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="상세 정보"
+            android:text="상세 정보 · 멤버 수"
             android:textSize="13sp"
             android:textColor="#757575"/>
     </LinearLayout>
 
+    <!-- 일반 모드 (체크박스) -->
     <CheckBox
         android:id="@+id/img_check"
         android:layout_width="wrap_content"
@@ -40,5 +42,25 @@
         android:clickable="false"
         android:focusable="false"
         android:visibility="visible"/>
+
+    <!-- [추가] 수정 모드 (연필 아이콘) -->
+    <ImageView
+        android:id="@+id/icon_edit_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_edit"
+        app:tint="?attr/colorPrimary"
+        android:visibility="gone"
+        android:layout_marginStart="8dp"/>
+
+    <!-- [추가] 삭제 모드 (X 아이콘) -->
+    <ImageView
+        android:id="@+id/icon_delete_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_close"
+        app:tint="#FF3B30"
+        android:visibility="gone"
+        android:layout_marginStart="8dp"/>
 
 </LinearLayout>
