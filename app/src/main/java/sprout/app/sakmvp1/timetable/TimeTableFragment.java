@@ -1,6 +1,7 @@
 package sprout.app.sakmvp1.timetable;
 
 import android.app.AlertDialog;
+import android.content.Intent; // Intent 임포트 확인
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
@@ -51,6 +52,7 @@ public class TimeTableFragment extends Fragment {
     private RelativeLayout timetableLayout;
     private Toolbar toolbar;
     private ImageButton btnTimetableMenu;
+    private ImageButton btnCommonCalendar; // [추가됨] 공통 캘린더 버튼 변수 선언
     private FloatingActionButton fabAddSchedule;
     private LinearLayout emptyStateLayout;
     private androidx.core.widget.NestedScrollView timetableScrollView;
@@ -115,6 +117,10 @@ public class TimeTableFragment extends Fragment {
 
         timetableLayout = view.findViewById(R.id.timetable_layout);
         btnTimetableMenu = view.findViewById(R.id.btnTimetableMenu);
+
+        // [추가됨] XML에서 공통 캘린더 버튼 연결
+        btnCommonCalendar = view.findViewById(R.id.btnCommonCalendar);
+
         fabAddSchedule = view.findViewById(R.id.fab_add_schedule);
         emptyStateLayout = view.findViewById(R.id.empty_state_layout);
         timetableScrollView = view.findViewById(R.id.timetable_scroll_view);
@@ -130,10 +136,20 @@ public class TimeTableFragment extends Fragment {
         fabAddSchedule.setOnClickListener(v -> handleAddScheduleClick());
         btnCreateFirstTimetable.setOnClickListener(v -> createDefaultTimetableAndProceed());
 
+        // 기존: 이전 시간표 목록 보기
         view.findViewById(R.id.btnPreviousTimetable).setOnClickListener(v -> {
-            android.content.Intent intent = new android.content.Intent(requireContext(), SavedTimetablesActivity.class);
+            Intent intent = new Intent(requireContext(), SavedTimetablesActivity.class);
             startActivity(intent);
         });
+
+        // [추가됨] 공통 캘린더 버튼 클릭 리스너
+        if (btnCommonCalendar != null) {
+            btnCommonCalendar.setOnClickListener(v -> {
+                // 공통 캘린더 액티비티로 이동 (CommonCalendarActivity 클래스를 새로 만드셔야 합니다)
+                Intent intent = new Intent(requireContext(), CommonCalendarActivity.class);
+                startActivity(intent);
+            });
+        }
     }
 
     @Override
@@ -180,9 +196,6 @@ public class TimeTableFragment extends Fragment {
 
     private int dpToPx(float dp) { return (int) (dp * getResources().getDisplayMetrics().density); }
 
-    /**
-     * [수정됨] findViewById가 추가된 버전
-     */
     private void showAddScheduleBottomSheet() {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
         View bottomSheetView = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_add_schedule, null);
@@ -333,9 +346,6 @@ public class TimeTableFragment extends Fragment {
         return params;
     }
 
-    /**
-     * [수정됨] Firestore 경로 변경 (수업 추가)
-     */
     private void saveScheduleToFirestore(ScheduleData newSchedule) {
         String userId = getCurrentUserId();
         if (userId == null || activeTimetableId == null) {
@@ -349,7 +359,6 @@ public class TimeTableFragment extends Fragment {
                 newSchedule.professorName, newSchedule.location
         );
 
-        // users/{userId}/timetables/{timetableId}
         db.collection("users").document(userId)
                 .collection("timetables").document(activeTimetableId)
                 .update("schedules", FieldValue.arrayUnion(scheduleItem))
@@ -366,9 +375,6 @@ public class TimeTableFragment extends Fragment {
     }
 
 
-    /**
-     * [수정됨] Firestore 경로 변경 (활성 시간표 로드)
-     */
     private void loadActiveTimetableFromFirestore() {
         clearTimetableViews();
         activeTimetableId = localStorage.getActiveTimetableId();
@@ -382,7 +388,6 @@ public class TimeTableFragment extends Fragment {
 
         updateEmptyState(false);
 
-        // users/{userId}/timetables/{timetableId}
         db.collection("users").document(userId)
                 .collection("timetables").document(activeTimetableId)
                 .get()
@@ -412,9 +417,6 @@ public class TimeTableFragment extends Fragment {
     }
 
 
-    /**
-     * [수정됨] Firestore 경로 변경 (수업 삭제)
-     */
     private void deleteScheduleFromFirestore(ScheduleData scheduleData) {
         String userId = getCurrentUserId();
         if (userId == null || activeTimetableId == null) {
@@ -428,7 +430,6 @@ public class TimeTableFragment extends Fragment {
                 scheduleData.professorName, scheduleData.location
         );
 
-        // users/{userId}/timetables/{timetableId}
         db.collection("users").document(userId)
                 .collection("timetables").document(activeTimetableId)
                 .update("schedules", FieldValue.arrayRemove(scheduleItemToRemove))
@@ -454,9 +455,6 @@ public class TimeTableFragment extends Fragment {
         scheduleList.clear();
     }
 
-    /**
-     * [수정됨] "시간표 저장" 메뉴 숨기기
-     */
     private void showTimetableMenu(View anchor) {
         PopupMenu popup = new PopupMenu(requireContext(), anchor);
         popup.getMenuInflater().inflate(R.menu.menu_timetable, popup.getMenu());
@@ -478,9 +476,6 @@ public class TimeTableFragment extends Fragment {
         popup.show();
     }
 
-    /**
-     * [수정됨] Firestore 경로 변경 (새 시간표 생성)
-     */
     private void showCreateNewTimetableDialog() {
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
         android.view.View dialogView = android.view.LayoutInflater.from(requireContext()).inflate(R.layout.dialog_save_timetable, null);
@@ -512,9 +507,7 @@ public class TimeTableFragment extends Fragment {
             newTimetable.setName(timetableName);
             newTimetable.setSavedDate(System.currentTimeMillis());
             newTimetable.setSchedules(new java.util.ArrayList<>());
-            // [삭제] setUserId() 호출 제거
 
-            // users/{userId}/timetables
             db.collection("users").document(userId)
                     .collection("timetables")
                     .add(newTimetable)
@@ -535,9 +528,6 @@ public class TimeTableFragment extends Fragment {
         dialog.show();
     }
 
-    /**
-     * [수정됨] Firestore 경로 변경 (시간표 이름 수정)
-     */
     private void showEditActiveTimetableDialog() {
         String currentActiveId = localStorage.getActiveTimetableId();
         String userId = getCurrentUserId();
@@ -568,7 +558,6 @@ public class TimeTableFragment extends Fragment {
                 return;
             }
 
-            // users/{userId}/timetables/{timetableId}
             db.collection("users").document(userId)
                     .collection("timetables").document(currentActiveId)
                     .update("name", newName)
@@ -585,9 +574,6 @@ public class TimeTableFragment extends Fragment {
         dialog.show();
     }
 
-    /**
-     * 빈 상태 UI 업데이트
-     */
     private void updateEmptyState(boolean isEmpty) {
         if (isEmpty) {
             emptyStateLayout.setVisibility(View.VISIBLE);
@@ -600,9 +586,6 @@ public class TimeTableFragment extends Fragment {
         }
     }
 
-    /**
-     * FAB 클릭 시 시간표 자동 생성 또는 수업 추가
-     */
     private void handleAddScheduleClick() {
         if (activeTimetableId == null) {
             createDefaultTimetableAndProceed();
@@ -611,16 +594,12 @@ public class TimeTableFragment extends Fragment {
         }
     }
 
-    /**
-     * 기본 시간표 자동 생성 및 수업 추가 진행
-     */
     private void createDefaultTimetableAndProceed() {
         String userId = getCurrentUserId();
         if (userId == null) {
             return;
         }
 
-        // 자동 이름 생성 (예: "내 시간표 2024-01")
         String currentDate = new java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault())
                 .format(new java.util.Date());
         String timetableName = "내 시간표 " + currentDate;
@@ -630,7 +609,6 @@ public class TimeTableFragment extends Fragment {
         newTimetable.setSavedDate(System.currentTimeMillis());
         newTimetable.setSchedules(new java.util.ArrayList<>());
 
-        // users/{userId}/timetables
         db.collection("users").document(userId)
                 .collection("timetables")
                 .add(newTimetable)
@@ -645,7 +623,6 @@ public class TimeTableFragment extends Fragment {
                             "'" + timetableName + "'이(가) 생성되었습니다",
                             Toast.LENGTH_SHORT).show();
 
-                    // 바로 수업 추가 다이얼로그 표시
                     showAddScheduleBottomSheet();
                 })
                 .addOnFailureListener(e -> {

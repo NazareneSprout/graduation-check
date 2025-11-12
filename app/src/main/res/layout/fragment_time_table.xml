@@ -31,6 +31,16 @@
                     android:src="@drawable/ic_calendar"
                     android:contentDescription="이전 시간표 조회"
                     app:tint="@android:color/white" />
+                <ImageButton
+                    android:id="@+id/btnCommonCalendar"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_toEndOf="@id/btnPreviousTimetable"
+                    android:layout_centerVertical="true"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_my_calendar"
+                    android:contentDescription="공통 캘린더 보기"
+                    app:tint="@android:color/white" />
 
                 <!-- 중앙 시간표 텍스트 -->
                 <TextView
