@@ -29,7 +29,7 @@ import sprout.app.sakmvp1.models.GraduationRules;
  * - 통합 데이터 구조 사용 (graduation_requirements collection)
  * - 각 Fragment에서 "Firestore에서 불러오기" 기능 제공 (기존 데이터 로드 후 부분 수정 가능)
  */
-public class GraduationRequirementEditActivity extends AppCompatActivity {
+public class GraduationRequirementEditActivity extends BaseActivity {
 
     private static final String TAG = "GradReqEdit";
     public static final String EXTRA_DOCUMENT_ID = "document_id";

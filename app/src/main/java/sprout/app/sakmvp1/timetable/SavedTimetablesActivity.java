@@ -23,6 +23,7 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import java.util.ArrayList;
 import java.util.List;
 
+import sprout.app.sakmvp1.BaseActivity;
 import sprout.app.sakmvp1.CurrentTimetableStorage;
 import sprout.app.sakmvp1.R;
 import sprout.app.sakmvp1.ScheduleItem;
@@ -30,7 +31,7 @@ import sprout.app.sakmvp1.ScheduleItem;
 /**
  * 저장된 시간표 목록을 표시하는 Activity (Firestore 연동, Nested Collection)
  */
-public class SavedTimetablesActivity extends AppCompatActivity implements SavedTimetableAdapter.OnTimetableActionListener {
+public class SavedTimetablesActivity extends BaseActivity implements SavedTimetableAdapter.OnTimetableActionListener {
 
     private RecyclerView recyclerView;
     private LinearLayout emptyView;

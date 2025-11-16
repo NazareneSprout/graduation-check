@@ -41,7 +41,7 @@ import java.util.Map;
  * - 컬렉션명 정렬 및 선택 복원
  * - 결과 항목 탭 시 클립보드 복사(디버깅 편의)
  */
-public class DataViewerActivity extends AppCompatActivity {
+public class DataViewerActivity extends BaseActivity {
     private static final String TAG = "DataViewerActivity";
 
     // ── SavedInstanceState 키 ────────────────────────────────────────────────

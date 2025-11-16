@@ -8,7 +8,7 @@
     <item
         android:id="@+id/nav_button_2"
         android:icon="@drawable/ic_schedule"
-        android:title="시간표" />
+        android:title="라이프" />
 
     <item
         android:id="@+id/nav_button_3"

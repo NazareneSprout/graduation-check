@@ -15,6 +15,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import sprout.app.sakmvp1.BaseActivity;
 import sprout.app.sakmvp1.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -28,7 +29,7 @@ import java.time.format.DateTimeFormatter;
  * - Firestore에 사용자 프로필 저장
  * - UI 입력: 이메일, 비밀번호, 비밀번호 확인, 이름
  */
-public class SignUpActivity extends AppCompatActivity {
+public class SignUpActivity extends BaseActivity {
 
     // UI 요소
     private EditText editTextEmail;

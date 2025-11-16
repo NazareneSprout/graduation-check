@@ -27,7 +27,7 @@ import java.util.List;
 /**
  * 서류 파일 목록 Activity (사용자용)
  */
-public class DocumentFilesActivity extends AppCompatActivity implements DocumentFileAdapter.OnFileClickListener {
+public class DocumentFilesActivity extends BaseActivity implements DocumentFileAdapter.OnFileClickListener {
 
     private static final String TAG = "DocumentFiles";
 

@@ -37,7 +37,7 @@ import java.util.Map;
 
 import sprout.app.sakmvp1.CertificateAdapter;
 
-public class CertificateBoardActivity extends AppCompatActivity implements CertificateAdapter.OnBookmarkClickListener {
+public class CertificateBoardActivity extends BaseActivity implements CertificateAdapter.OnBookmarkClickListener {
 
     private static final String TAG = "CertBoardActivity";
     private RecyclerView recyclerView;

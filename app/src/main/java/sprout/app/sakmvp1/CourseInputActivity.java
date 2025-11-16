@@ -72,7 +72,7 @@ import java.util.Map;
  * @see FirebaseDataManager 강의 데이터 제공
  * @see AdditionalRequirementsActivity 이전 단계 화면
  */
-public class CourseInputActivity extends AppCompatActivity {
+public class CourseInputActivity extends BaseActivity {
 
     private static final String TAG = "CourseInput";
 

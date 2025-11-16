@@ -28,7 +28,7 @@ import java.util.Map;
  * 학번, 학부, 트랙 정보를 입력받아 Firebase에 저장합니다.
  * 기능1(졸업 요건 분석)과 기능3(수강과목 추천)에서 이 정보를 사용합니다.
  */
-public class UserInfoActivity extends AppCompatActivity {
+public class UserInfoActivity extends BaseActivity {
 
     private static final String TAG = "UserInfoActivity";
 

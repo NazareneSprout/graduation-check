@@ -25,9 +25,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Random;
 
+import sprout.app.sakmvp1.BaseActivity;
 import sprout.app.sakmvp1.R;
 
-public class CalendarDetailActivity extends AppCompatActivity {
+public class CalendarDetailActivity extends BaseActivity {
 
     private EditText editTitle, editDesc;
     private TextView btnStartDate, btnStartTime, btnEndDate, btnEndTime;

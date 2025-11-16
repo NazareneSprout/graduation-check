@@ -25,7 +25,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
  *
  * 사용자의 계정 정보와 학적 정보를 표시합니다.
  */
-public class UserProfileActivity extends AppCompatActivity {
+public class UserProfileActivity extends BaseActivity {
 
     private static final String TAG = "UserProfile";
 

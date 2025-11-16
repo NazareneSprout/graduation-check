@@ -59,7 +59,7 @@ import java.util.Map;
  * @see AdditionalRequirementsActivity 다음 단계 화면
  * @see FirebaseDataManager 데이터 관리 클래스
  */
-public class GraduationAnalysisActivity extends AppCompatActivity {
+public class GraduationAnalysisActivity extends BaseActivity {
 
     /** 로깅 식별용 태그 */
     private static final String TAG = "GraduationAnalysis";

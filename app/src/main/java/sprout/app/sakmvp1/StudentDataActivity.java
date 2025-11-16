@@ -33,7 +33,7 @@ import sprout.app.sakmvp1.models.Student;
 /**
  * 학생 데이터 조회 Activity (관리자용)
  */
-public class StudentDataActivity extends AppCompatActivity {
+public class StudentDataActivity extends BaseActivity {
 
     private static final String TAG = "StudentDataActivity";
 

@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 - 깔끔 버전 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 상단 AppBar -->
+            <com.google.android.material.appbar.MaterialToolbar
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:background="?android:attr/colorBackground"
+                android:elevation="0dp"
+                app:title="@string/app_name"
+                app:titleTextColor="?android:attr/textColorPrimary"
+                app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge">
+
+                <!-- 누구나 쉽게 보이는 배려 모드 버튼 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_accessibility_mode"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_gravity="end"
+                    android:layout_marginEnd="12dp"
+                    android:text="배려 모드"
+                    android:textSize="12sp"
+                    android:paddingHorizontal="12dp"
+                    app:cornerRadius="18dp"
+                    app:icon="@drawable/ic_accessibility"
+                    app:iconSize="18dp"
+                    app:iconPadding="6dp"
+                    app:iconGravity="textStart" />
+
+            </com.google.android.material.appbar.MaterialToolbar>
+
+            <!-- 기능 카드 캐러셀 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="8dp"
+                android:paddingBottom="12dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="400dp"
+                    android:paddingHorizontal="8dp">
+
+                    <androidx.viewpager2.widget.ViewPager2
+                        android:id="@+id/feature_card_viewpager"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:clipToPadding="false"
+                        android:clipChildren="false"
+                        android:overScrollMode="never" />
+
+                </FrameLayout>
+
+                <LinearLayout
+                    android:id="@+id/feature_indicator_layout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/indicator_background"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp" />
+
+            </LinearLayout>
+
+            <!-- 주요 기능 그리드 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="주요 기능"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <!-- 1행 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:weightSum="4">
+
+                    <!-- 기능 1 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_1"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_1" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_1"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                    <!-- 기능 2 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_2"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_2" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_2"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                    <!-- 기능 3 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_3"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_3" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_3"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                    <!-- 기능 4 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction4"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_4"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_4" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_4"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- 2행 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="4dp"
+                    android:weightSum="4">
+
+                    <!-- 기능 5 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction5"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_5"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_5" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_5"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                    <!-- 기능 6 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction6"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_6"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_6" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_6"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                    <!-- 기능 7 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction7"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_7"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_7" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_7"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                    <!-- 기능 8 -->
+                    <LinearLayout
+                        android:id="@+id/btnFunction8"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="60dp"
+                            android:layout_height="60dp"
+                            android:src="@drawable/image_8"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="@string/function_8" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/function_8"
+                            android:textSize="11sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 배너 영역 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="공지사항"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="180dp">
+
+                    <androidx.viewpager2.widget.ViewPager2
+                        android:id="@+id/banner_viewpager"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:clipToPadding="false"
+                        android:clipChildren="false"
+                        android:overScrollMode="never" />
+
+                </FrameLayout>
+
+                <LinearLayout
+                    android:id="@+id/banner_indicator_layout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/indicator_background"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp" />
+
+            </LinearLayout>
+
+            <!-- 하단 여백 (챗봇 FAB 공간 확보) -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="80dp" />
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</FrameLayout>
+

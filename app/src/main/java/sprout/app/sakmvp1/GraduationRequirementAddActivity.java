@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class GraduationRequirementAddActivity extends AppCompatActivity {
+public class GraduationRequirementAddActivity extends BaseActivity {
 
     private static final String TAG = "GradReqAdd";
 

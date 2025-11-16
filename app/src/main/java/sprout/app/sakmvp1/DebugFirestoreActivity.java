@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class DebugFirestoreActivity extends AppCompatActivity {
+public class DebugFirestoreActivity extends BaseActivity {
 
     private static final String TAG = "DebugFirestore";
     private TextView tvOutput;

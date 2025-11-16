@@ -19,7 +19,7 @@ import com.google.android.material.appbar.MaterialToolbar;
  * - 전달받은 이미지 Bitmap을 전체화면으로 표시
  * - PhotoView를 사용하여 핀치 줌, 더블탭 줌 지원
  */
-public class ImageZoomActivity extends AppCompatActivity {
+public class ImageZoomActivity extends BaseActivity {
 
     private static final String TAG = "ImageZoomActivity";
     public static final String EXTRA_TITLE = "title";

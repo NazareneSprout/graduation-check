@@ -53,7 +53,7 @@ import java.util.UUID;
  * - 활성화 기간 설정
  * - 학부별 타겟팅
  */
-public class BannerManagementActivity extends AppCompatActivity {
+public class BannerManagementActivity extends BaseActivity {
 
     private static final String TAG = "BannerManagement";
     private static final int PICK_IMAGE_REQUEST = 1001;

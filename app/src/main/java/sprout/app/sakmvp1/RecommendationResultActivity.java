@@ -42,7 +42,7 @@ import sprout.app.sakmvp1.models.RequirementCategory;
  * FirebaseDataManager와 GraduationRules를 활용하여
  * 졸업 요건을 분석하고 맞춤형 과목을 추천합니다.
  */
-public class RecommendationResultActivity extends AppCompatActivity {
+public class RecommendationResultActivity extends BaseActivity {
 
     private static final String TAG = "RecommendationResult";
 
@@ -64,6 +64,8 @@ public class RecommendationResultActivity extends AppCompatActivity {
     private String userDepartment;
     private String userTrack;
     private String currentSemester;
+    private String priorityMode; // 우선순위 모드: "shortage", "abundant", "custom"
+    private String selectedCategory; // 특정 과목군 (custom 모드일 때만 사용)
     private List<CourseInputActivity.Course> takenCourses; // 수강한 과목 이력
     private GraduationAnalysisResult analysisResult; // 졸업요건 분석 결과
 
@@ -113,6 +115,16 @@ public class RecommendationResultActivity extends AppCompatActivity {
         userDepartment = getIntent().getStringExtra("userDepartment");
         userTrack = getIntent().getStringExtra("userTrack");
         currentSemester = getIntent().getStringExtra("currentSemester");
+        priorityMode = getIntent().getStringExtra("priorityMode");
+        selectedCategory = getIntent().getStringExtra("selectedCategory");
+
+        // 기본값 설정
+        if (priorityMode == null || priorityMode.isEmpty()) {
+            priorityMode = "shortage";
+        }
+
+        Log.d(TAG, "우선순위 모드: " + priorityMode +
+              (selectedCategory != null ? " (선택 카테고리: " + selectedCategory + ")" : ""));
 
         // 추천 과목 생성
         generateRecommendations();
@@ -397,27 +409,63 @@ public class RecommendationResultActivity extends AppCompatActivity {
         Log.d(TAG, "========================================");
         Log.d(TAG, "총 추천 과목 수: " + allRecommendations.size());
 
-        // 우선순위로 정렬
-        Collections.sort(allRecommendations, new Comparator<RecommendedCourse>() {
+        // 우선순위 모드에 따라 정렬
+        sortRecommendationsByPriorityMode(allRecommendations);
+
+        // UI 업데이트
+        finalizeRecommendations(allRecommendations);
+    }
+
+    /**
+     * 우선순위 모드에 따라 추천 과목 정렬
+     */
+    private void sortRecommendationsByPriorityMode(List<RecommendedCourse> courses) {
+        Log.d(TAG, "정렬 모드: " + priorityMode);
+
+        Collections.sort(courses, new Comparator<RecommendedCourse>() {
             @Override
             public int compare(RecommendedCourse c1, RecommendedCourse c2) {
-                // 우선순위 낮은 숫자가 먼저 (1 > 2 > 3...)
-                int priorityCompare = Integer.compare(c1.getPriority(), c2.getPriority());
-                if (priorityCompare != 0) {
-                    return priorityCompare;
+                // custom 모드: 선택한 카테고리를 최우선으로
+                if ("custom".equals(priorityMode) && selectedCategory != null) {
+                    boolean c1IsSelected = c1.getCategory().equals(selectedCategory);
+                    boolean c2IsSelected = c2.getCategory().equals(selectedCategory);
+
+                    if (c1IsSelected && !c2IsSelected) {
+                        return -1; // c1이 선택 카테고리면 앞으로
+                    } else if (!c1IsSelected && c2IsSelected) {
+                        return 1; // c2가 선택 카테고리면 앞으로
+                    }
+                    // 둘 다 선택 카테고리거나 둘 다 아니면 아래 로직 계속 진행
                 }
+
+                // abundant 모드: 부족한 학점이 적은 순서 (역순)
+                if ("abundant".equals(priorityMode)) {
+                    // 우선순위 높은 숫자가 먼저 (역순)
+                    int priorityCompare = Integer.compare(c2.getPriority(), c1.getPriority());
+                    if (priorityCompare != 0) {
+                        return priorityCompare;
+                    }
+                } else {
+                    // shortage 모드 (기본): 부족한 학점이 많은 순서
+                    // 우선순위 낮은 숫자가 먼저 (1 > 2 > 3...)
+                    int priorityCompare = Integer.compare(c1.getPriority(), c2.getPriority());
+                    if (priorityCompare != 0) {
+                        return priorityCompare;
+                    }
+                }
+
                 // 우선순위가 같으면 카테고리 순서
                 int categoryCompare = c1.getCategory().compareTo(c2.getCategory());
                 if (categoryCompare != 0) {
                     return categoryCompare;
                 }
+
                 // 카테고리도 같으면 과목명 순서
                 return c1.getCourseName().compareTo(c2.getCourseName());
             }
         });
 
-        // UI 업데이트
-        finalizeRecommendations(allRecommendations);
+        Log.d(TAG, "정렬 완료 (" + priorityMode + " 모드)");
     }
 
     /**
@@ -579,11 +627,8 @@ public class RecommendationResultActivity extends AppCompatActivity {
             }
         }
 
-        // 카테고리 표시 순서 정의 (우선순위 기반)
-        String[] categoryOrder = {
-            "교양필수", "전공필수", "학부공통", "전공심화",
-            "전공선택", "교양선택", "소양", "자율선택", "일반선택", "잔여학점"
-        };
+        // 카테고리 표시 순서 정의 (우선순위 모드에 따라 동적 정렬)
+        List<String> categoryOrder = getCategoryOrderByPriorityMode(categoryGroups);
 
         boolean hasAnyCategory = false;
         Log.d(TAG, ">>> 카테고리 표시 시작");
@@ -609,13 +654,7 @@ public class RecommendationResultActivity extends AppCompatActivity {
         // 정의되지 않은 카테고리도 추가
         for (Map.Entry<String, List<RecommendedCourse>> entry : categoryGroups.entrySet()) {
             String category = entry.getKey();
-            boolean isInOrder = false;
-            for (String orderedCategory : categoryOrder) {
-                if (orderedCategory.equals(category)) {
-                    isInOrder = true;
-                    break;
-                }
-            }
+            boolean isInOrder = categoryOrder.contains(category);
             if (!isInOrder && !entry.getValue().isEmpty()) {
                 hasAnyCategory = true;
                 addCategoryView(category, entry.getValue());
@@ -623,6 +662,103 @@ public class RecommendationResultActivity extends AppCompatActivity {
         }
 
         cardPrioritySummary.setVisibility(hasAnyCategory ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * 우선순위 모드에 따른 카테고리 표시 순서 반환
+     */
+    private List<String> getCategoryOrderByPriorityMode(Map<String, List<RecommendedCourse>> categoryGroups) {
+        // 기본 카테고리 리스트
+        List<String> allCategories = new ArrayList<>();
+        allCategories.add("교양필수");
+        allCategories.add("전공필수");
+        allCategories.add("학부공통");
+        allCategories.add("전공심화");
+        allCategories.add("전공선택");
+        allCategories.add("교양선택");
+        allCategories.add("소양");
+        allCategories.add("자율선택");
+        allCategories.add("일반선택");
+        allCategories.add("잔여학점");
+
+        // custom 모드: 선택한 카테고리를 맨 앞으로
+        if ("custom".equals(priorityMode) && selectedCategory != null) {
+            List<String> result = new ArrayList<>();
+            // 선택한 카테고리를 먼저 추가
+            if (allCategories.contains(selectedCategory)) {
+                result.add(selectedCategory);
+            }
+            // 나머지 카테고리 추가 (선택한 것 제외)
+            for (String category : allCategories) {
+                if (!category.equals(selectedCategory)) {
+                    result.add(category);
+                }
+            }
+            Log.d(TAG, "카테고리 순서 (custom 모드 - " + selectedCategory + " 우선): " + result);
+            return result;
+        }
+
+        // abundant 모드: 부족한 학점이 적은 순서 (역순)
+        if ("abundant".equals(priorityMode)) {
+            // 카테고리별 부족 학점 계산
+            final Map<String, Integer> categoryRemainingCredits = new HashMap<>();
+            if (analysisResult != null) {
+                for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
+                    String categoryName = categoryResult.getCategoryName();
+                    int remainingCredits = Math.max(0,
+                        categoryResult.getRequiredCredits() - categoryResult.getEarnedCredits());
+                    categoryRemainingCredits.put(categoryName, remainingCredits);
+                }
+            }
+
+            // 부족한 학점이 적은 순서로 정렬 (오름차순)
+            Collections.sort(allCategories, new Comparator<String>() {
+                @Override
+                public int compare(String c1, String c2) {
+                    int remaining1 = categoryRemainingCredits.getOrDefault(c1, 0);
+                    int remaining2 = categoryRemainingCredits.getOrDefault(c2, 0);
+                    // 부족한 학점이 적은 것이 먼저
+                    int compareRemaining = Integer.compare(remaining1, remaining2);
+                    if (compareRemaining != 0) {
+                        return compareRemaining;
+                    }
+                    // 부족한 학점이 같으면 카테고리명 순서
+                    return c1.compareTo(c2);
+                }
+            });
+            Log.d(TAG, "카테고리 순서 (abundant 모드 - 부족 학점 적은 순): " + allCategories);
+            return allCategories;
+        }
+
+        // shortage 모드 (기본): 부족한 학점이 많은 순서
+        // 카테고리별 부족 학점 계산
+        final Map<String, Integer> categoryRemainingCredits = new HashMap<>();
+        if (analysisResult != null) {
+            for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
+                String categoryName = categoryResult.getCategoryName();
+                int remainingCredits = Math.max(0,
+                    categoryResult.getRequiredCredits() - categoryResult.getEarnedCredits());
+                categoryRemainingCredits.put(categoryName, remainingCredits);
+            }
+        }
+
+        // 부족한 학점이 많은 순서로 정렬 (내림차순)
+        Collections.sort(allCategories, new Comparator<String>() {
+            @Override
+            public int compare(String c1, String c2) {
+                int remaining1 = categoryRemainingCredits.getOrDefault(c1, 0);
+                int remaining2 = categoryRemainingCredits.getOrDefault(c2, 0);
+                // 부족한 학점이 많은 것이 먼저 (역순)
+                int compareRemaining = Integer.compare(remaining2, remaining1);
+                if (compareRemaining != 0) {
+                    return compareRemaining;
+                }
+                // 부족한 학점이 같으면 카테고리명 순서
+                return c1.compareTo(c2);
+            }
+        });
+        Log.d(TAG, "카테고리 순서 (shortage 모드 - 부족 학점 많은 순): " + allCategories);
+        return allCategories;
     }
 
     /**

@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * 챗봇 Activity - "나싹이" 학사 도우미
  */
-public class ChatBotActivity extends AppCompatActivity {
+public class ChatBotActivity extends BaseActivity {
 
     private MaterialToolbar toolbar;
     private RecyclerView recyclerChat;

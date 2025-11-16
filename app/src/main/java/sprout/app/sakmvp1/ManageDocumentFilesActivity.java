@@ -37,7 +37,7 @@ import java.util.UUID;
 /**
  * 관리자용 서류 파일 관리 Activity
  */
-public class ManageDocumentFilesActivity extends AppCompatActivity implements ManageDocumentFileAdapter.OnFileActionListener {
+public class ManageDocumentFilesActivity extends BaseActivity implements ManageDocumentFileAdapter.OnFileActionListener {
 
     private static final String TAG = "ManageDocFiles";
 

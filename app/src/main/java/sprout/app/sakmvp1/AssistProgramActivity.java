@@ -20,7 +20,7 @@ import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.card.MaterialCardView;
 
-public class AssistProgramActivity extends AppCompatActivity {
+public class AssistProgramActivity extends BaseActivity {
 
     private LinearLayout accordionHeader;
     private LinearLayout accordionContent;

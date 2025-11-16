@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * 필요서류 모아보기 Activity (사용자용)
  */
-public class RequiredDocumentsActivity extends AppCompatActivity implements DocumentFolderAdapter.OnFolderClickListener {
+public class RequiredDocumentsActivity extends BaseActivity implements DocumentFolderAdapter.OnFolderClickListener {
 
     private static final String TAG = "RequiredDocuments";
 

@@ -36,7 +36,7 @@ import sprout.app.sakmvp1.utils.GraduationRequirementUtils;
  * 졸업요건 관리 Activity (관리자용)
  * Firestore의 graduation_requirements 컬렉션에서 학번/학과/트랙별 졸업요건 조회
  */
-public class GraduationRequirementsActivity extends AppCompatActivity {
+public class GraduationRequirementsActivity extends BaseActivity {
 
     private static final String TAG = "GradReqActivity";
 

@@ -22,6 +22,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import sprout.app.sakmvp1.timetable.SavedTimetablesActivity;
+
 /**
  * 사용자 프로필 Fragment
  */
@@ -43,6 +45,9 @@ public class UserProfileFragment extends Fragment {
     // 바로가기 버튼들
     private LinearLayout btnShortcutGraduationResult;
     private LinearLayout btnShortcutHistoryTimetable;
+    private LinearLayout btnShortcutGroups;
+    private LinearLayout btnShortcutCommonCalendar;
+    private LinearLayout btnShortcutCertificates;
     private LinearLayout btnShortcutLinksHeader;
     private LinearLayout layoutLinksContent;
     private ImageView ivExpandIcon;
@@ -91,6 +96,9 @@ public class UserProfileFragment extends Fragment {
         // 바로가기 버튼들
         btnShortcutGraduationResult = view.findViewById(R.id.btnShortcutGraduationResult);
         btnShortcutHistoryTimetable = view.findViewById(R.id.btnShortcutHistoryTimetable);
+        btnShortcutGroups = view.findViewById(R.id.btnShortcutGroups);
+        btnShortcutCommonCalendar = view.findViewById(R.id.btnShortcutCommonCalendar);
+        btnShortcutCertificates = view.findViewById(R.id.btnShortcutCertificates);
         btnShortcutLinksHeader = view.findViewById(R.id.btnShortcutLinksHeader);
         layoutLinksContent = view.findViewById(R.id.layoutLinksContent);
         ivExpandIcon = view.findViewById(R.id.ivExpandIcon);
@@ -184,8 +192,28 @@ public class UserProfileFragment extends Fragment {
 
         // 역대 시간표 확인하기
         btnShortcutHistoryTimetable.setOnClickListener(v -> {
-            Toast.makeText(requireContext(), "역대 시간표 기능은 준비 중입니다", Toast.LENGTH_SHORT).show();
-            // TODO: 역대 시간표 Activity 구현 필요
+            Intent intent = new Intent(requireContext(), SavedTimetablesActivity.class);
+            startActivity(intent);
+        });
+
+        // 그룹 관리
+        btnShortcutGroups.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), MainActivityNew.class);
+            intent.putExtra("navigate_to", "timetable");
+            intent.putExtra("timetable_tab", "group");
+            startActivity(intent);
+        });
+
+        // 공통 캘린더
+        btnShortcutCommonCalendar.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), sprout.app.sakmvp1.timetable.CommonCalendarActivity.class);
+            startActivity(intent);
+        });
+
+        // 자격증 게시판
+        btnShortcutCertificates.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), CertificateBoardActivity.class);
+            startActivity(intent);
         });
 
         // 링크 바로가기 아코디언 토글

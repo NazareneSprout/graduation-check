@@ -21,9 +21,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.util.ArrayList;
 import java.util.Random;
 
+import sprout.app.sakmvp1.BaseActivity;
 import sprout.app.sakmvp1.R;
 
-public class AddScheduleActivity extends AppCompatActivity {
+public class AddScheduleActivity extends BaseActivity {
 
     private RelativeLayout timetableLayout;
     private EditText editSubjectName, editProfessorName, editLocation;

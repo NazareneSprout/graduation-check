@@ -65,7 +65,7 @@ import androidx.core.view.WindowInsetsCompat;
  * @see AdditionalRequirements 추가 요건 데이터 모델
  * @see FirebaseDataManager#loadExtraGradRequirements 동적 요건 로드
  */
-public class AdditionalRequirementsActivity extends AppCompatActivity {
+public class AdditionalRequirementsActivity extends BaseActivity {
 
     private static final String TAG = "AdditionalRequirements";
 

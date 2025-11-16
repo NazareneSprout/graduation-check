@@ -4,8 +4,6 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageButton;
@@ -13,8 +11,6 @@ import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -26,7 +22,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference; // [필수 임포트]
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query; // [필수 임포트]
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.time.LocalDate;
@@ -35,9 +30,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+import sprout.app.sakmvp1.BaseActivity;
 import sprout.app.sakmvp1.R;
 
-public class CommonCalendarActivity extends AppCompatActivity {
+public class CommonCalendarActivity extends BaseActivity {
 
     private TextView textMonthYear;
     private RecyclerView recyclerCalendar;
@@ -50,8 +46,6 @@ public class CommonCalendarActivity extends AppCompatActivity {
     private String currentCalendarId; // 현재 보고 있는 캘린더 ID (내 ID 혹은 그룹 ID)
     private List<CalendarEvent> allEvents = new ArrayList<>();
 
-    private ActivityResultLauncher<Intent> calendarSwitchLauncher;
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,7 +56,13 @@ public class CommonCalendarActivity extends AppCompatActivity {
             userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         } else { finish(); return; }
 
-        currentCalendarId = userId; // 처음엔 "내 캘린더"
+        // Intent로 groupId 받기
+        String groupId = getIntent().getStringExtra("groupId");
+        if (groupId != null) {
+            currentCalendarId = groupId; // 그룹 캘린더
+        } else {
+            currentCalendarId = userId; // 내 캘린더
+        }
 
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -86,21 +86,6 @@ public class CommonCalendarActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // 캘린더 전환 ActivityResultLauncher 초기화
-        calendarSwitchLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                        String newCalendarId = result.getData().getStringExtra(GroupListActivity.RESULT_CALENDAR_ID);
-                        if (newCalendarId != null && !newCalendarId.equals(currentCalendarId)) {
-                            currentCalendarId = newCalendarId;
-                            loadEventsFromFirestore(); // 캘린더 새로고침
-                            Toast.makeText(this, "캘린더가 전환되었습니다.", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                }
-        );
-
         btnPrevMonth.setOnClickListener(v -> {
             selectedDate = selectedDate.minusMonths(1);
             updateCalendarView();
@@ -119,24 +104,10 @@ public class CommonCalendarActivity extends AppCompatActivity {
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.menu_common_calendar, menu);
-        return true;
-    }
-
-    @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int itemId = item.getItemId();
         if (itemId == android.R.id.home) {
             finish();
-            return true;
-        }
-        else if (itemId == R.id.action_group_menu) {
-            // 그룹 선택 화면으로 이동
-            Intent intent = new Intent(this, GroupListActivity.class);
-            intent.putExtra("CURRENT_CALENDAR_ID", currentCalendarId);
-            calendarSwitchLauncher.launch(intent);
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -222,4 +193,5 @@ public class CommonCalendarActivity extends AppCompatActivity {
         for (int i = 1; i <= len; i++) list.add(LocalDate.of(selectedDate.getYear(), selectedDate.getMonth(), i));
         return list;
     }
+
 }

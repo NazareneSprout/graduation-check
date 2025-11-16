@@ -33,7 +33,7 @@ import okhttp3.Response;
  * - 나사렛대학교 홈페이지에서 최신 식단표 정보를 스크래핑
  * - 식단표 이미지를 화면에 표시
  */
-public class MealMenuActivity extends AppCompatActivity {
+public class MealMenuActivity extends BaseActivity {
 
     private static final String TAG = "MealMenuActivity";
     private static final String MEAL_MENU_URL = "https://www.kornu.ac.kr/mbs/kornukr/jsp/board/list.jsp?boardId=29&id=kornukr_081300000000";

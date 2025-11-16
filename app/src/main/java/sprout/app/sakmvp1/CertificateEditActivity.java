@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * 자격증 추가/수정 Activity
  */
-public class CertificateEditActivity extends AppCompatActivity {
+public class CertificateEditActivity extends BaseActivity {
 
     private MaterialToolbar toolbar;
     private TextInputLayout tilTitle, tilIssuer, tilDepartment, tilTargetUrl;

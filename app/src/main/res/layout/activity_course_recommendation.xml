@@ -154,12 +154,117 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- 추천 우선순위 선택 카드 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎯 추천 우선순위"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="과목을 어떤 순서로 추천받을지 선택하세요."
+                        android:textSize="13sp"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:layout_marginBottom="16dp" />
+
+                    <RadioGroup
+                        android:id="@+id/radioGroupPriority"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <RadioButton
+                            android:id="@+id/radioPriorityShortage"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="부족한 과목군 우선"
+                            android:textSize="14sp"
+                            android:paddingVertical="8dp"
+                            android:checked="true" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="  학점이 많이 부족한 과목군부터 추천"
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:layout_marginBottom="8dp"
+                            android:layout_marginStart="32dp" />
+
+                        <RadioButton
+                            android:id="@+id/radioPriorityAbundant"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="넉넉한 과목군 우선"
+                            android:textSize="14sp"
+                            android:paddingVertical="8dp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="  거의 완료된 과목군부터 추천"
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:layout_marginBottom="8dp"
+                            android:layout_marginStart="32dp" />
+
+                        <RadioButton
+                            android:id="@+id/radioPriorityCustom"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="특정 과목군 우선"
+                            android:textSize="14sp"
+                            android:paddingVertical="8dp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="  선택한 과목군을 최우선으로 추천"
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:layout_marginBottom="8dp"
+                            android:layout_marginStart="32dp" />
+
+                    </RadioGroup>
+
+                    <!-- 특정 과목군 선택 스피너 (라디오 버튼 선택 시 표시) -->
+                    <Spinner
+                        android:id="@+id/spinnerCategoryPriority"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- 추천 받기 버튼 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGetRecommendations"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="AI 추천 받기"
+                android:text="과목 추천 받기"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:icon="@drawable/ic_recommend"

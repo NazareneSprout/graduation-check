@@ -25,7 +25,7 @@ import java.util.Map;
  * 저장된 학적 정보를 확인하고 졸업 요건을 검증한 후
  * 적절한 화면으로 이동합니다.
  */
-public class LoadingUserInfoActivity extends AppCompatActivity {
+public class LoadingUserInfoActivity extends BaseActivity {
 
     private static final String TAG = "LoadingUserInfo";
 

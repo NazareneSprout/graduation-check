@@ -32,7 +32,7 @@ import sprout.app.sakmvp1.models.Student;
  * 학생 상세 정보 화면 (관리자용)
  * 학생의 기본 정보와 수강 과목을 카테고리별로 표시
  */
-public class StudentDetailActivity extends AppCompatActivity {
+public class StudentDetailActivity extends BaseActivity {
 
     private static final String TAG = "StudentDetailActivity";
     public static final String EXTRA_STUDENT = "extra_student";

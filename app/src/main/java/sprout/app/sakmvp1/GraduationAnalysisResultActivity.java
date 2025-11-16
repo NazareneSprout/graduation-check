@@ -86,7 +86,7 @@ import sprout.app.sakmvp1.CourseInputActivity.Course;
  * @see FirebaseDataManager 졸업 요건 데이터 관리
  * @see GraduationProgress 졸업 진행 상황 데이터 모델
  */
-public class GraduationAnalysisResultActivity extends AppCompatActivity {
+public class GraduationAnalysisResultActivity extends BaseActivity {
 
     private static final String TAG = "GraduationResult";
 

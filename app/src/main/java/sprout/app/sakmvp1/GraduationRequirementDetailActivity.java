@@ -31,7 +31,7 @@ import sprout.app.sakmvp1.utils.GraduationRequirementUtils;
  * 졸업요건 상세보기 Activity
  * Firestore에서 졸업요건 문서를 조회하여 상세 정보 및 과목 목록 표시
  */
-public class GraduationRequirementDetailActivity extends AppCompatActivity {
+public class GraduationRequirementDetailActivity extends BaseActivity {
 
     private static final String TAG = "GradReqDetail";
     public static final String EXTRA_DOCUMENT_ID = "document_id";

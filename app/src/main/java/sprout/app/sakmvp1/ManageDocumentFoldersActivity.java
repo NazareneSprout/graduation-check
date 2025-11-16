@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * 관리자용 서류 폴더 관리 Activity
  */
-public class ManageDocumentFoldersActivity extends AppCompatActivity implements ManageDocumentFolderAdapter.OnFolderActionListener {
+public class ManageDocumentFoldersActivity extends BaseActivity implements ManageDocumentFolderAdapter.OnFolderActionListener {
 
     private static final String TAG = "ManageDocFolders";
 

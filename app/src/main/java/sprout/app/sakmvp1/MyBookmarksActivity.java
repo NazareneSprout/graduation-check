@@ -28,7 +28,7 @@ import java.util.Map;
 
 import sprout.app.sakmvp1.R;
 
-public class MyBookmarksActivity extends AppCompatActivity implements CertificateAdapter.OnBookmarkClickListener {
+public class MyBookmarksActivity extends BaseActivity implements CertificateAdapter.OnBookmarkClickListener {
 
     private static final String TAG = "MyBookmarksActivity";
     private RecyclerView recyclerView;

@@ -30,10 +30,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import sprout.app.sakmvp1.BaseActivity;
 import sprout.app.sakmvp1.R;
 
 // [수정] 어댑터 리스너 인터페이스를 여기서 바로 구현
-public class GroupListActivity extends AppCompatActivity implements GroupAdapter.OnItemClickListener {
+public class GroupListActivity extends BaseActivity implements GroupAdapter.OnItemClickListener {
 
     private RecyclerView recyclerView;
     private GroupAdapter adapter;

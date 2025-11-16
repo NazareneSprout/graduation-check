@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
+import sprout.app.sakmvp1.ChecklistActivity;
 import sprout.app.sakmvp1.R;
 
 /**
@@ -52,11 +53,16 @@ public class TimeTableFragment extends Fragment {
     private RelativeLayout timetableLayout;
     private Toolbar toolbar;
     private ImageButton btnTimetableMenu;
-    private ImageButton btnCommonCalendar; // [추가됨] 공통 캘린더 버튼 변수 선언
-    private FloatingActionButton fabAddSchedule;
+    private ImageButton btnPreviousTimetable;
+    private TextView toolbarTitle;
     private LinearLayout emptyStateLayout;
     private androidx.core.widget.NestedScrollView timetableScrollView;
     private MaterialButton btnCreateFirstTimetable;
+
+    // 서브 카테고리 버튼
+    private MaterialButton btnMyTimetable;
+    private MaterialButton btnGroup;
+    private MaterialButton btnChecklist;
 
     private int startHour = 9, startMinute = 0, endHour = 10, endMinute = 0;
 
@@ -117,14 +123,42 @@ public class TimeTableFragment extends Fragment {
 
         timetableLayout = view.findViewById(R.id.timetable_layout);
         btnTimetableMenu = view.findViewById(R.id.btnTimetableMenu);
+        btnPreviousTimetable = view.findViewById(R.id.btnPreviousTimetable);
+        toolbarTitle = view.findViewById(R.id.toolbar_title);
 
-        // [추가됨] XML에서 공통 캘린더 버튼 연결
-        btnCommonCalendar = view.findViewById(R.id.btnCommonCalendar);
-
-        fabAddSchedule = view.findViewById(R.id.fab_add_schedule);
         emptyStateLayout = view.findViewById(R.id.empty_state_layout);
         timetableScrollView = view.findViewById(R.id.timetable_scroll_view);
         btnCreateFirstTimetable = view.findViewById(R.id.btn_create_first_timetable);
+
+        // 서브 카테고리 버튼 연결
+        btnMyTimetable = view.findViewById(R.id.btn_my_timetable);
+        btnGroup = view.findViewById(R.id.btn_group);
+        btnChecklist = view.findViewById(R.id.btn_checklist);
+
+        // 서브 카테고리 버튼 클릭 리스너
+        if (btnMyTimetable != null) {
+            btnMyTimetable.setOnClickListener(v -> {
+                showMyTimetable();
+                updateButtonStates(btnMyTimetable);
+            });
+        }
+
+        if (btnGroup != null) {
+            btnGroup.setOnClickListener(v -> {
+                showGroupFragment();
+                updateButtonStates(btnGroup);
+            });
+        }
+
+        if (btnChecklist != null) {
+            btnChecklist.setOnClickListener(v -> {
+                showChecklistFragment();
+                updateButtonStates(btnChecklist);
+            });
+        }
+
+        // 초기 상태: 내 시간표 표시
+        updateButtonStates(btnMyTimetable);
 
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
@@ -132,8 +166,10 @@ public class TimeTableFragment extends Fragment {
 
         drawTimetableBase();
 
-        btnTimetableMenu.setOnClickListener(v -> showTimetableMenu(v));
-        fabAddSchedule.setOnClickListener(v -> handleAddScheduleClick());
+        // 상단 연필 버튼에서 바로 수업 추가 기능을 실행하도록 변경
+        if (btnTimetableMenu != null) {
+            btnTimetableMenu.setOnClickListener(v -> handleAddScheduleClick());
+        }
         btnCreateFirstTimetable.setOnClickListener(v -> createDefaultTimetableAndProceed());
 
         // 기존: 이전 시간표 목록 보기
@@ -141,15 +177,6 @@ public class TimeTableFragment extends Fragment {
             Intent intent = new Intent(requireContext(), SavedTimetablesActivity.class);
             startActivity(intent);
         });
-
-        // [추가됨] 공통 캘린더 버튼 클릭 리스너
-        if (btnCommonCalendar != null) {
-            btnCommonCalendar.setOnClickListener(v -> {
-                // 공통 캘린더 액티비티로 이동 (CommonCalendarActivity 클래스를 새로 만드셔야 합니다)
-                Intent intent = new Intent(requireContext(), CommonCalendarActivity.class);
-                startActivity(intent);
-            });
-        }
     }
 
     @Override
@@ -578,11 +605,9 @@ public class TimeTableFragment extends Fragment {
         if (isEmpty) {
             emptyStateLayout.setVisibility(View.VISIBLE);
             timetableScrollView.setVisibility(View.GONE);
-            fabAddSchedule.hide();
         } else {
             emptyStateLayout.setVisibility(View.GONE);
             timetableScrollView.setVisibility(View.VISIBLE);
-            fabAddSchedule.show();
         }
     }
 
@@ -629,5 +654,89 @@ public class TimeTableFragment extends Fragment {
                     Log.w("TimeTableFragment", "Error creating default timetable", e);
                     Toast.makeText(requireContext(), "시간표 생성에 실패했습니다.", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    // 프래그먼트 교체 메서드들
+    private void showMyTimetable() {
+        // 기본 시간표 화면 표시 (프래그먼트 제거)
+        if (getChildFragmentManager().findFragmentById(R.id.sub_fragment_container) != null) {
+            getChildFragmentManager().beginTransaction()
+                    .remove(getChildFragmentManager().findFragmentById(R.id.sub_fragment_container))
+                    .commit();
+        }
+        // 시간표 뷰 표시
+        if (timetableScrollView != null) {
+            timetableScrollView.setVisibility(View.VISIBLE);
+        }
+        if (emptyStateLayout != null && timetableScrollView != null && timetableScrollView.getVisibility() != View.VISIBLE) {
+            emptyStateLayout.setVisibility(View.VISIBLE);
+        }
+
+        // 툴바 설정: 시간표는 기존 그대로
+        updateToolbar("시간표", true, true);
+    }
+
+    private void showGroupFragment() {
+        // 시간표 뷰 숨기기
+        if (timetableScrollView != null) {
+            timetableScrollView.setVisibility(View.GONE);
+        }
+        if (emptyStateLayout != null) {
+            emptyStateLayout.setVisibility(View.GONE);
+        }
+
+        // MyGroupsFragment로 교체
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.sub_fragment_container, new sprout.app.sakmvp1.MyGroupsFragment())
+                .commit();
+
+        // 툴바 설정: 그룹 - 버튼 모두 숨김
+        updateToolbar("그룹", false, false);
+    }
+
+    private void showChecklistFragment() {
+        // 시간표 뷰 숨기기
+        if (timetableScrollView != null) {
+            timetableScrollView.setVisibility(View.GONE);
+        }
+        if (emptyStateLayout != null) {
+            emptyStateLayout.setVisibility(View.GONE);
+        }
+
+        // ChecklistFragment로 교체 (새로 만들 예정)
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.sub_fragment_container, new sprout.app.sakmvp1.ChecklistFragment())
+                .commit();
+
+        // 툴바 설정: 체크리스트 - 제목만 표시, 버튼 숨김
+        updateToolbar("체크리스트", false, false);
+    }
+
+    // 툴바 업데이트 메서드
+    private void updateToolbar(String title, boolean showLeftButton, boolean showRightButton) {
+        if (toolbarTitle != null) {
+            toolbarTitle.setText(title);
+        }
+        if (btnPreviousTimetable != null) {
+            btnPreviousTimetable.setVisibility(showLeftButton ? View.VISIBLE : View.GONE);
+        }
+        if (btnTimetableMenu != null) {
+            btnTimetableMenu.setVisibility(showRightButton ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void updateButtonStates(MaterialButton selectedButton) {
+        // 모든 버튼을 기본 상태로
+        if (btnMyTimetable != null) {
+            btnMyTimetable.setBackgroundColor(getResources().getColor(android.R.color.transparent, null));
+        }
+        if (btnGroup != null) {
+            btnGroup.setBackgroundColor(getResources().getColor(android.R.color.transparent, null));
+        }
+        if (btnChecklist != null) {
+            btnChecklist.setBackgroundColor(getResources().getColor(android.R.color.transparent, null));
+        }
+
+        // 선택된 버튼 강조 (이미 TonalButton 스타일이 적용되어 있으므로 추가 처리 불필요)
     }
 }

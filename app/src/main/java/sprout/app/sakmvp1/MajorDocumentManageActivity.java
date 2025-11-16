@@ -34,7 +34,7 @@ import java.util.Set;
  * - 전공필수/전공선택/학부공통(또는 전공심화) 과목 추가/수정/삭제
  * - Firestore에 저장
  */
-public class MajorDocumentManageActivity extends AppCompatActivity {
+public class MajorDocumentManageActivity extends BaseActivity {
 
     private static final String TAG = "MajorDocManage";
 

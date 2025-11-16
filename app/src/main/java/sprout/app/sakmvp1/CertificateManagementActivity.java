@@ -24,7 +24,7 @@ import java.util.List;
  * 자격증 관리 Activity (관리자 전용)
  * 자격증 목록 조회, 추가, 수정, 삭제 기능 제공
  */
-public class CertificateManagementActivity extends AppCompatActivity {
+public class CertificateManagementActivity extends BaseActivity {
 
     private MaterialToolbar toolbar;
     private RecyclerView recyclerCertificates;

@@ -30,7 +30,7 @@ import java.util.Map;
  * - 단일과목/복수과목 중 택1 과목 추가/수정/삭제
  * - Firestore에 저장
  */
-public class GeneralDocumentManageActivity extends AppCompatActivity {
+public class GeneralDocumentManageActivity extends BaseActivity {
 
     private static final String TAG = "GeneralDocManage";
 
