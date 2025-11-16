@@ -13,3 +13,16 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Build outputs
+app/release/
+app/build/
+*.apk
+*.aab
+
+# Claude settings
+.claude/settings.local.json
