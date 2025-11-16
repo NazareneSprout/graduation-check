@@ -31,8 +31,6 @@ import java.util.List;
 
 public class HomeFragment extends Fragment {
 
-    private static final boolean USE_CLEAN_HOME_LAYOUT = true;
-
     private static final String TAG = "HomeFragment";
 
     // UI 컴포넌트
@@ -59,7 +57,6 @@ public class HomeFragment extends Fragment {
     private LinearLayout btnFunction6;
     private LinearLayout btnFunction7;
     private LinearLayout btnFunction8;
-    private LinearLayout btnAssistProgram;
 
     // Firebase
     private FirebaseAuth auth;
@@ -68,10 +65,7 @@ public class HomeFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        int layoutId = USE_CLEAN_HOME_LAYOUT
-                ? R.layout.fragment_home_clean
-                : R.layout.fragment_home;
-        return inflater.inflate(layoutId, container, false);
+        return inflater.inflate(R.layout.fragment_home_clean, container, false);
     }
 
     @Override
@@ -113,7 +107,6 @@ public class HomeFragment extends Fragment {
         btnFunction6 = view.findViewById(R.id.btnFunction6);
         btnFunction7 = view.findViewById(R.id.btnFunction7);
         btnFunction8 = view.findViewById(R.id.btnFunction8);
-        btnAssistProgram = view.findViewById(R.id.btnAssistProgram);
     }
 
     private void setupListeners() {
@@ -178,13 +171,6 @@ public class HomeFragment extends Fragment {
         if (btnFunction8 != null) {
             btnFunction8.setOnClickListener(v -> {
                 Intent intent = new Intent(requireContext(), MealMenuActivity.class);
-                startActivity(intent);
-            });
-        }
-
-        if (btnAssistProgram != null) {
-            btnAssistProgram.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), AssistProgramActivity.class);
                 startActivity(intent);
             });
         }
