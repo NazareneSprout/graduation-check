@@ -320,6 +320,7 @@ public class ReplacementRulesFragment extends Fragment {
         TextView tvTitle = dialogView.findViewById(R.id.tv_dialog_title);
         com.google.android.material.chip.ChipGroup chipGroupSort = dialogView.findViewById(R.id.chip_group_sort);
         com.google.android.material.textfield.TextInputEditText etSearch = dialogView.findViewById(R.id.et_search);
+        MaterialButton btnAddOtherYear = dialogView.findViewById(R.id.btn_add_other_year);
         RecyclerView rvCourses = dialogView.findViewById(R.id.rv_courses);
         MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
         MaterialButton btnConfirm = dialogView.findViewById(R.id.btn_confirm);
@@ -387,6 +388,11 @@ public class ReplacementRulesFragment extends Fragment {
             public void afterTextChanged(android.text.Editable s) {}
         });
 
+        // "다른 학번 과목 추가" 버튼 리스너
+        btnAddOtherYear.setOnClickListener(v -> {
+            showOtherYearDocumentSelectionDialog(courses, displayedCourses, selectionAdapter);
+        });
+
         // 버튼 리스너
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         btnConfirm.setOnClickListener(v -> {
@@ -399,6 +405,134 @@ public class ReplacementRulesFragment extends Fragment {
         });
 
         dialog.show();
+    }
+
+    /**
+     * 다른 학번 문서 선택 다이얼로그
+     */
+    private void showOtherYearDocumentSelectionDialog(List<ReplacementRule.CourseInfo> courses,
+                                                      List<ReplacementRule.CourseInfo> displayedCourses,
+                                                      CourseSelectionAdapter adapter) {
+        db.collection("graduation_requirements")
+            .get()
+            .addOnSuccessListener(queryDocumentSnapshots -> {
+                List<String> docIds = new ArrayList<>();
+                List<String> displayNames = new ArrayList<>();
+
+                for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                    String docId = document.getId();
+                    docIds.add(docId);
+
+                    // 표시용 이름 생성 (예: "2025학번 IT학부 (인공지능)")
+                    String[] parts = docId.split("_");
+                    String displayName = docId;
+                    if (parts.length >= 3) {
+                        String department = parts[0];
+                        String track = parts[1];
+                        String cohort = parts[2];
+                        displayName = cohort + "학번 " + department + " (" + track + ")";
+                    }
+                    displayNames.add(displayName);
+                }
+
+                if (docIds.isEmpty()) {
+                    Toast.makeText(getContext(), "불러올 문서가 없습니다", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("학번 선택")
+                    .setItems(displayNames.toArray(new String[0]), (dialog, which) -> {
+                        loadCoursesFromOtherDocument(docIds.get(which), courses, displayedCourses, adapter);
+                    })
+                    .setNegativeButton("취소", null)
+                    .show();
+            })
+            .addOnFailureListener(e -> {
+                Toast.makeText(getContext(), "문서 목록 로드 실패: " + e.getMessage(),
+                    Toast.LENGTH_SHORT).show();
+            });
+    }
+
+    /**
+     * 다른 문서에서 과목 불러오기
+     */
+    private void loadCoursesFromOtherDocument(String docId, List<ReplacementRule.CourseInfo> courses,
+                                              List<ReplacementRule.CourseInfo> displayedCourses,
+                                              CourseSelectionAdapter adapter) {
+        db.collection("graduation_requirements")
+            .document(docId)
+            .get()
+            .addOnSuccessListener(documentSnapshot -> {
+                if (!documentSnapshot.exists()) {
+                    Toast.makeText(getContext(), "문서를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                List<ReplacementRule.CourseInfo> newCourses = new ArrayList<>();
+
+                // 문서에서 categories 가져오기
+                Object categoriesObj = documentSnapshot.get("categories");
+                if (categoriesObj instanceof List) {
+                    List<?> categoriesList = (List<?>) categoriesObj;
+                    for (Object categoryObj : categoriesList) {
+                        if (categoryObj instanceof java.util.Map) {
+                            java.util.Map<String, Object> categoryMap = (java.util.Map<String, Object>) categoryObj;
+                            String categoryName = (String) categoryMap.get("name");
+
+                            Object coursesObj = categoryMap.get("courses");
+                            if (coursesObj instanceof List) {
+                                List<?> coursesList = (List<?>) coursesObj;
+                                for (Object courseObj : coursesList) {
+                                    if (courseObj instanceof java.util.Map) {
+                                        java.util.Map<String, Object> courseMap = (java.util.Map<String, Object>) courseObj;
+                                        String courseName = (String) courseMap.get("name");
+                                        Object creditsObj = courseMap.get("credits");
+                                        int credits = 0;
+                                        if (creditsObj instanceof Number) {
+                                            credits = ((Number) creditsObj).intValue();
+                                        }
+
+                                        if (courseName != null && !courseName.isEmpty()) {
+                                            ReplacementRule.CourseInfo courseInfo = new ReplacementRule.CourseInfo(
+                                                courseName,
+                                                categoryName,
+                                                credits
+                                            );
+
+                                            // 중복 체크
+                                            boolean isDuplicate = false;
+                                            for (ReplacementRule.CourseInfo existing : courses) {
+                                                if (existing.getName().equals(courseName)) {
+                                                    isDuplicate = true;
+                                                    break;
+                                                }
+                                            }
+
+                                            if (!isDuplicate) {
+                                                newCourses.add(courseInfo);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (newCourses.isEmpty()) {
+                    Toast.makeText(getContext(), "추가할 과목이 없습니다", Toast.LENGTH_SHORT).show();
+                } else {
+                    courses.addAll(newCourses);
+                    displayedCourses.addAll(newCourses);
+                    adapter.notifyDataSetChanged();
+                    Toast.makeText(getContext(), newCourses.size() + "개 과목이 추가되었습니다", Toast.LENGTH_SHORT).show();
+                }
+            })
+            .addOnFailureListener(e -> {
+                Toast.makeText(getContext(), "과목 로드 실패: " + e.getMessage(),
+                    Toast.LENGTH_SHORT).show();
+            });
     }
 
     /**

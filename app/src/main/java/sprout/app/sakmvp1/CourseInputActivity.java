@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -277,6 +278,10 @@ public class CourseInputActivity extends BaseActivity {
         tabMajorAdvanced = findViewById(R.id.tab_major_advanced);
         tabGeneralRequired = findViewById(R.id.tab_general_required);
         tabGeneralElective = findViewById(R.id.tab_general_elective);
+
+        // 대체과목 리스트 보기 버튼
+        com.google.android.material.button.MaterialButton btnViewReplacementCourses = findViewById(R.id.btn_view_replacement_courses);
+        btnViewReplacementCourses.setOnClickListener(v -> showReplacementCoursesDialog());
 
         dataManager = FirebaseDataManager.getInstance();
 
@@ -1271,5 +1276,233 @@ public class CourseInputActivity extends BaseActivity {
         // 목록/버튼 상태 갱신
         updateCourseDisplay();
         updateAnalyzeButtonState();
+    }
+
+    /**
+     * 대체과목 리스트 보기 다이얼로그 표시
+     */
+    private void showReplacementCoursesDialog() {
+        // 현재 학번/학부/트랙 정보로 대체 규칙 로드
+        loadReplacementRules();
+    }
+
+    /**
+     * Firestore에서 대체 규칙 로드
+     */
+    private void loadReplacementRules() {
+        dataManager.loadGraduationRules(selectedYear, selectedDepartment, selectedTrack,
+            new FirebaseDataManager.OnGraduationRulesLoadedListener() {
+                @Override
+                public void onSuccess(sprout.app.sakmvp1.models.GraduationRules rules) {
+                    List<sprout.app.sakmvp1.models.ReplacementRule> replacementRules =
+                        rules.getReplacementRules();
+
+                    if (replacementRules == null || replacementRules.isEmpty()) {
+                        Toast.makeText(CourseInputActivity.this,
+                            "설정된 대체과목 규칙이 없습니다", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    showReplacementSelectionDialog(replacementRules);
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    Toast.makeText(CourseInputActivity.this,
+                        "대체과목 규칙 로드 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+    }
+
+    /**
+     * 대체과목 선택 다이얼로그 표시
+     */
+    private void showReplacementSelectionDialog(List<sprout.app.sakmvp1.models.ReplacementRule> rules) {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_replacement_course_selection, null);
+        builder.setView(dialogView);
+
+        android.app.AlertDialog dialog = builder.create();
+
+        // UI 요소 참조
+        com.google.android.material.textfield.TextInputEditText etSearch =
+            dialogView.findViewById(R.id.et_search_replacement);
+        androidx.recyclerview.widget.RecyclerView rvReplacements =
+            dialogView.findViewById(R.id.rv_replacement_courses);
+        com.google.android.material.button.MaterialButton btnCancel =
+            dialogView.findViewById(R.id.btn_cancel);
+        com.google.android.material.button.MaterialButton btnAddSelected =
+            dialogView.findViewById(R.id.btn_add_selected);
+
+        // Adapter 설정
+        ReplacementCourseSelectionAdapter adapter = new ReplacementCourseSelectionAdapter(rules);
+        rvReplacements.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this));
+        rvReplacements.setAdapter(adapter);
+
+        // 검색 기능
+        etSearch.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                adapter.filter(s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        // 취소 버튼
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        // 선택한 과목 추가 버튼
+        btnAddSelected.setOnClickListener(v -> {
+            List<sprout.app.sakmvp1.models.ReplacementRule.CourseInfo> selectedCourses =
+                adapter.getSelectedCourses();
+
+            if (selectedCourses.isEmpty()) {
+                Toast.makeText(this, "과목을 선택해주세요", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 선택한 과목들을 courseList에 추가
+            for (sprout.app.sakmvp1.models.ReplacementRule.CourseInfo courseInfo : selectedCourses) {
+                Course newCourse = new Course(
+                    courseInfo.getCategory(),
+                    courseInfo.getName(),
+                    courseInfo.getCredits()
+                );
+                courseList.add(newCourse);
+            }
+
+            updateCourseDisplay();
+            updateAnalyzeButtonState();
+
+            Toast.makeText(this, selectedCourses.size() + "개 과목이 추가되었습니다",
+                Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
+    /**
+     * 대체과목 선택 Adapter
+     */
+    class ReplacementCourseSelectionAdapter extends
+        androidx.recyclerview.widget.RecyclerView.Adapter<ReplacementCourseSelectionAdapter.ViewHolder> {
+
+        private List<sprout.app.sakmvp1.models.ReplacementRule> allRules;
+        private List<sprout.app.sakmvp1.models.ReplacementRule> filteredRules;
+        private List<sprout.app.sakmvp1.models.ReplacementRule.CourseInfo> selectedCourses = new ArrayList<>();
+
+        ReplacementCourseSelectionAdapter(List<sprout.app.sakmvp1.models.ReplacementRule> rules) {
+            this.allRules = new ArrayList<>(rules);
+            this.filteredRules = new ArrayList<>(rules);
+        }
+
+        public void filter(String query) {
+            if (query.isEmpty()) {
+                filteredRules = new ArrayList<>(allRules);
+            } else {
+                filteredRules = new ArrayList<>();
+                String lowerQuery = query.toLowerCase();
+                for (sprout.app.sakmvp1.models.ReplacementRule rule : allRules) {
+                    if (rule.getDiscontinuedCourse().getName().toLowerCase().contains(lowerQuery)) {
+                        filteredRules.add(rule);
+                        continue;
+                    }
+                    for (sprout.app.sakmvp1.models.ReplacementRule.CourseInfo course :
+                        rule.getReplacementCourses()) {
+                        if (course.getName().toLowerCase().contains(lowerQuery)) {
+                            filteredRules.add(rule);
+                            break;
+                        }
+                    }
+                }
+            }
+            notifyDataSetChanged();
+        }
+
+        public List<sprout.app.sakmvp1.models.ReplacementRule.CourseInfo> getSelectedCourses() {
+            return selectedCourses;
+        }
+
+        @androidx.annotation.NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@androidx.annotation.NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_replacement_course_selection, parent, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@androidx.annotation.NonNull ViewHolder holder, int position) {
+            sprout.app.sakmvp1.models.ReplacementRule rule = filteredRules.get(position);
+            holder.bind(rule);
+        }
+
+        @Override
+        public int getItemCount() {
+            return filteredRules.size();
+        }
+
+        class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+            TextView tvDiscontinuedName, tvDiscontinuedCategory, tvDiscontinuedCredits;
+            LinearLayout containerReplacementOptions;
+
+            ViewHolder(View itemView) {
+                super(itemView);
+                tvDiscontinuedName = itemView.findViewById(R.id.tv_discontinued_name);
+                tvDiscontinuedCategory = itemView.findViewById(R.id.tv_discontinued_category);
+                tvDiscontinuedCredits = itemView.findViewById(R.id.tv_discontinued_credits);
+                containerReplacementOptions = itemView.findViewById(R.id.container_replacement_options);
+            }
+
+            void bind(sprout.app.sakmvp1.models.ReplacementRule rule) {
+                // 폐강된 과목 정보 표시
+                sprout.app.sakmvp1.models.ReplacementRule.CourseInfo discontinued =
+                    rule.getDiscontinuedCourse();
+                tvDiscontinuedName.setText(discontinued.getName());
+                tvDiscontinuedCategory.setText(discontinued.getCategory());
+                tvDiscontinuedCredits.setText(discontinued.getCredits() + "학점");
+
+                // 대체 가능한 과목들 표시
+                containerReplacementOptions.removeAllViews();
+                for (sprout.app.sakmvp1.models.ReplacementRule.CourseInfo replacement :
+                    rule.getReplacementCourses()) {
+
+                    View optionView = LayoutInflater.from(itemView.getContext())
+                        .inflate(R.layout.item_replacement_option, containerReplacementOptions, false);
+
+                    com.google.android.material.checkbox.MaterialCheckBox cbSelect =
+                        optionView.findViewById(R.id.cb_select);
+                    TextView tvName = optionView.findViewById(R.id.tv_replacement_name);
+                    TextView tvCategory = optionView.findViewById(R.id.tv_replacement_category);
+                    TextView tvCredits = optionView.findViewById(R.id.tv_replacement_credits);
+
+                    tvName.setText(replacement.getName());
+                    tvCategory.setText(replacement.getCategory());
+                    tvCredits.setText(replacement.getCredits() + "학점");
+
+                    cbSelect.setChecked(selectedCourses.contains(replacement));
+
+                    cbSelect.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                        if (isChecked) {
+                            if (!selectedCourses.contains(replacement)) {
+                                selectedCourses.add(replacement);
+                            }
+                        } else {
+                            selectedCourses.remove(replacement);
+                        }
+                    });
+
+                    optionView.setOnClickListener(v -> cbSelect.setChecked(!cbSelect.isChecked()));
+
+                    containerReplacementOptions.addView(optionView);
+                }
+            }
+        }
     }
 }

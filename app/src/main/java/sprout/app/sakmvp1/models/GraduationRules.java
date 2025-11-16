@@ -71,7 +71,7 @@ public class GraduationRules {
         result.setTrack(track);
 
         // 1. 대체과목 적용
-        List<CourseInputActivity.Course> adjustedCourses = applyReplacementRules(takenCourses);
+        List<CourseInputActivity.Course> adjustedCourses = applyReplacementRules(takenCourses, result);
 
         // 2. 각 카테고리 분석
         Map<String, CategoryAnalysisResult> categoryResults = new HashMap<>();
@@ -141,7 +141,8 @@ public class GraduationRules {
      * - scope가 "document"이면 해당 문서(학번/학과/트랙)에만 적용
      * - scope가 "department"이면 같은 학부의 모든 문서에 적용
      */
-    private List<CourseInputActivity.Course> applyReplacementRules(List<CourseInputActivity.Course> takenCourses) {
+    private List<CourseInputActivity.Course> applyReplacementRules(List<CourseInputActivity.Course> takenCourses,
+                                                                    GraduationAnalysisResult result) {
         if (replacementRules == null || replacementRules.isEmpty()) {
             Log.d(TAG, "No replacement rules to apply");
             return takenCourses;
@@ -191,6 +192,11 @@ public class GraduationRules {
                         discontinuedCourse.getCredits()
                     );
                     adjustedCourses.add(virtualCourse);
+
+                    // 적용된 대체 규칙을 결과에 추가
+                    if (result != null) {
+                        result.addAppliedReplacement(rule);
+                    }
 
                     Log.d(TAG, "✓ Replacement applied:");
                     Log.d(TAG, "  Discontinued: " + discontinuedCourse.getName() + " (" + discontinuedCourse.getCategory() + ")");

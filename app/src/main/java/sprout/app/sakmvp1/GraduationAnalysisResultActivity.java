@@ -23,6 +23,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
@@ -102,6 +104,7 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
     private static List<CourseInputActivity.Course> staticCourseList;
     private static GraduationRequirements graduationRequirements;
     private static GraduationProgress graduationProgress;
+    private static sprout.app.sakmvp1.models.GraduationAnalysisResult graduationAnalysisResult;
     private static List<String> allMajorRequiredCourses;
     private static List<String> allMajorElectiveCourses;
     private static List<String> allMajorAdvancedCourses;
@@ -485,17 +488,17 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
                         Log.d(TAG, "졸업요건 데이터 로드 성공: " + rules.toString());
 
                         // 단일 분석 호출로 모든 졸업요건 분석
-                        sprout.app.sakmvp1.models.GraduationAnalysisResult analysisResult = rules.analyze(courseList);
+                        graduationAnalysisResult = rules.analyze(courseList);
 
                         Log.d(TAG, "========================================");
                         Log.d(TAG, "분석 결과:");
-                        Log.d(TAG, "총 학점: " + analysisResult.getTotalEarnedCredits() + "/" + analysisResult.getTotalRequiredCredits());
-                        Log.d(TAG, "졸업 가능: " + analysisResult.isGraduationReady());
-                        Log.d(TAG, "카테고리 수: " + analysisResult.getAllCategoryResults().size());
+                        Log.d(TAG, "총 학점: " + graduationAnalysisResult.getTotalEarnedCredits() + "/" + graduationAnalysisResult.getTotalRequiredCredits());
+                        Log.d(TAG, "졸업 가능: " + graduationAnalysisResult.isGraduationReady());
+                        Log.d(TAG, "카테고리 수: " + graduationAnalysisResult.getAllCategoryResults().size());
                         Log.d(TAG, "========================================");
 
                         // 분석 결과를 기존 형식으로 변환하여 Fragment에서 사용
-                        convertAnalysisResultToLegacyFormat(analysisResult);
+                        convertAnalysisResultToLegacyFormat(graduationAnalysisResult);
 
                         // UI 업데이트
                         setupTabs();
@@ -2047,6 +2050,9 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
 
             // 카테고리별 진행도 업데이트
             updateCategoryProgress(view, progress);
+
+            // 대체과목 정보 표시
+            displayReplacementCourses(view);
         }
 
         private void displayCreditRequirements(View view) {
@@ -2136,6 +2142,102 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         private boolean isOldCurriculum(String year) {
             return DepartmentConfig.isOldCurriculum(
                 GraduationAnalysisResultActivity.staticSelectedDepartment, year);
+        }
+
+        /**
+         * 대체과목 정보 표시
+         */
+        private void displayReplacementCourses(View view) {
+            LinearLayout sectionReplacement = view.findViewById(R.id.section_replacement_courses);
+            RecyclerView recyclerReplacement = view.findViewById(R.id.recycler_replacement_courses);
+
+            if (sectionReplacement == null || recyclerReplacement == null) {
+                return;
+            }
+
+            // graduationAnalysisResult에서 appliedReplacements 가져오기
+            if (graduationAnalysisResult != null &&
+                graduationAnalysisResult.getAppliedReplacements() != null &&
+                !graduationAnalysisResult.getAppliedReplacements().isEmpty()) {
+
+                List<sprout.app.sakmvp1.models.ReplacementRule> appliedRules =
+                    graduationAnalysisResult.getAppliedReplacements();
+
+                // RecyclerView 설정
+                ReplacementCoursesAdapter adapter = new ReplacementCoursesAdapter(appliedRules);
+                recyclerReplacement.setLayoutManager(new LinearLayoutManager(requireContext()));
+                recyclerReplacement.setAdapter(adapter);
+
+                // 섹션 표시
+                sectionReplacement.setVisibility(View.VISIBLE);
+
+                Log.d(TAG, "대체과목 " + appliedRules.size() + "개 표시");
+            } else {
+                // 대체과목이 없으면 숨김
+                sectionReplacement.setVisibility(View.GONE);
+                Log.d(TAG, "적용된 대체과목 없음");
+            }
+        }
+    }
+
+    /**
+     * 대체과목 RecyclerView Adapter
+     */
+    static class ReplacementCoursesAdapter extends RecyclerView.Adapter<ReplacementCoursesAdapter.ViewHolder> {
+        private List<sprout.app.sakmvp1.models.ReplacementRule> replacementRules;
+
+        ReplacementCoursesAdapter(List<sprout.app.sakmvp1.models.ReplacementRule> rules) {
+            this.replacementRules = rules;
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_replacement_course, parent, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            sprout.app.sakmvp1.models.ReplacementRule rule = replacementRules.get(position);
+
+            // 폐강된 과목 정보
+            sprout.app.sakmvp1.models.ReplacementRule.CourseInfo discontinued = rule.getDiscontinuedCourse();
+            if (discontinued != null) {
+                holder.tvDiscontinuedCourse.setText(discontinued.getName());
+                holder.tvDiscontinuedCategory.setText(discontinued.getCategory());
+                holder.tvDiscontinuedCredits.setText(discontinued.getCredits() + "학점");
+            }
+
+            // 대체 과목 정보 (실제 수강한 첫 번째 대체 과목)
+            List<sprout.app.sakmvp1.models.ReplacementRule.CourseInfo> replacementCourses =
+                rule.getReplacementCourses();
+            if (replacementCourses != null && !replacementCourses.isEmpty()) {
+                // 첫 번째 대체 과목 표시 (실제로는 수강한 과목을 찾아야 하지만 간단히 첫 번째로 표시)
+                sprout.app.sakmvp1.models.ReplacementRule.CourseInfo replacement = replacementCourses.get(0);
+                holder.tvReplacementCourse.setText(replacement.getName());
+                holder.tvReplacementCategory.setText(replacement.getCategory());
+            }
+        }
+
+        @Override
+        public int getItemCount() {
+            return replacementRules != null ? replacementRules.size() : 0;
+        }
+
+        static class ViewHolder extends RecyclerView.ViewHolder {
+            TextView tvDiscontinuedCourse, tvDiscontinuedCategory, tvDiscontinuedCredits;
+            TextView tvReplacementCourse, tvReplacementCategory;
+
+            ViewHolder(View itemView) {
+                super(itemView);
+                tvDiscontinuedCourse = itemView.findViewById(R.id.tv_discontinued_course);
+                tvDiscontinuedCategory = itemView.findViewById(R.id.tv_discontinued_category);
+                tvDiscontinuedCredits = itemView.findViewById(R.id.tv_discontinued_credits);
+                tvReplacementCourse = itemView.findViewById(R.id.tv_replacement_course);
+                tvReplacementCategory = itemView.findViewById(R.id.tv_replacement_category);
+            }
         }
     }
 

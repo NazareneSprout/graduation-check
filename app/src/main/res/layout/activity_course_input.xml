@@ -92,7 +92,18 @@
                     android:background="@drawable/button_primary"
                     android:drawableStart="@android:drawable/ic_input_add"
                     android:drawableTint="@color/white"
-                    android:gravity="center" />
+                    android:gravity="center"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- 대체과목 리스트 보기 버튼 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_view_replacement_courses"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔄 대체과목 리스트 보기"
+                    android:textSize="14sp"
+                    app:icon="@android:drawable/ic_menu_view"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
 
             </LinearLayout>
 

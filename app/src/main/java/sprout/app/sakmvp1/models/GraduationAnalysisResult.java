@@ -22,11 +22,13 @@ public class GraduationAnalysisResult {
     private Map<String, CategoryAnalysisResult> categoryResults;
     private List<String> warnings;
     private List<String> recommendations;
+    private List<ReplacementRule> appliedReplacements;  // 적용된 대체 규칙 목록
 
     public GraduationAnalysisResult() {
         this.categoryResults = new HashMap<>();
         this.warnings = new ArrayList<>();
         this.recommendations = new ArrayList<>();
+        this.appliedReplacements = new ArrayList<>();
     }
 
     /**
@@ -196,6 +198,21 @@ public class GraduationAnalysisResult {
         this.recommendations = recommendations;
     }
 
+    public List<ReplacementRule> getAppliedReplacements() {
+        return appliedReplacements;
+    }
+
+    public void setAppliedReplacements(List<ReplacementRule> appliedReplacements) {
+        this.appliedReplacements = appliedReplacements;
+    }
+
+    public void addAppliedReplacement(ReplacementRule rule) {
+        if (this.appliedReplacements == null) {
+            this.appliedReplacements = new ArrayList<>();
+        }
+        this.appliedReplacements.add(rule);
+    }
+
     @Override
     public String toString() {
         return "GraduationAnalysisResult{" +
@@ -204,6 +221,7 @@ public class GraduationAnalysisResult {
                 ", isGraduationReady=" + isGraduationReady +
                 ", categories=" + categoryResults.size() +
                 ", warnings=" + warnings.size() +
+                ", appliedReplacements=" + (appliedReplacements != null ? appliedReplacements.size() : 0) +
                 '}';
     }
 }

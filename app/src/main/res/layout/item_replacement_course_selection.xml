@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardElevation="2dp"
+    app:cardCornerRadius="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- 폐강된 과목 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="폐강"
+                android:textSize="11sp"
+                android:textColor="@android:color/white"
+                android:background="@color/md_theme_light_error"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tv_discontinued_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="IT개론"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnSurface"/>
+
+            <TextView
+                android:id="@+id/tv_discontinued_category"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="전공필수"
+                android:textSize="13sp"
+                android:textColor="?attr/colorPrimary"
+                android:layout_marginStart="8dp"/>
+
+            <TextView
+                android:id="@+id/tv_discontinued_credits"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="3학점"
+                android:textSize="13sp"
+                android:textColor="?attr/colorOnSurface"
+                android:layout_marginStart="4dp"/>
+
+        </LinearLayout>
+
+        <!-- 화살표 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="↓ 다음 과목으로 대체 가능"
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:gravity="center"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- 대체 가능한 과목들 -->
+        <LinearLayout
+            android:id="@+id/container_replacement_options"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"/>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

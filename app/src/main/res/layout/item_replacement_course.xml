@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="?attr/selectableItemBackground"
+    android:layout_marginBottom="8dp">
+
+    <!-- 폐강된 과목 정보 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="폐강"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:background="@color/md_theme_light_tertiary"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/tv_discontinued_course"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="C프로그래밍"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface" />
+
+        <TextView
+            android:id="@+id/tv_discontinued_category"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="전공필수"
+            android:textSize="13sp"
+            android:textColor="?attr/colorPrimary"
+            android:layout_marginStart="8dp" />
+
+        <TextView
+            android:id="@+id/tv_discontinued_credits"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="3학점"
+            android:textSize="13sp"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
+
+    <!-- 화살표 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="↓  대체됨"
+        android:textSize="12sp"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:gravity="center"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp" />
+
+    <!-- 대체 과목 정보 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="수강"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:background="@color/md_theme_light_secondary"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/tv_replacement_course"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="파이썬 프로그래밍"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface" />
+
+        <TextView
+            android:id="@+id/tv_replacement_category"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="전공선택"
+            android:textSize="13sp"
+            android:textColor="?attr/colorPrimary"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
+
+</LinearLayout>
