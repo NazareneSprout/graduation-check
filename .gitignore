@@ -27,6 +27,3 @@ app/build/
 # Claude settings
 .claude/settings.local.json
 
-# Firebase config (contains API keys)
-google-services.json
-app/google-services.json
