@@ -136,9 +136,9 @@ public class CampusMapFragment extends Fragment {
                 addMarker(POS_NAZARETH, "ATM (나사렛관 1층)");
 
             } else if (checkedId == R.id.rb_document_printer) {
-                // 서류초력기
-                addMarker(POS_SARANG, "서류초력기 (사랑관 2층 식당앞)");
-                addMarker(POS_NAZARETH, "서류초력기 (나사렛관 1층)");
+                // 서류출력기
+                addMarker(POS_SARANG, "서류출력기 (사랑관 2층 식당앞)");
+                addMarker(POS_NAZARETH, "서류출력기 (나사렛관 1층)");
 
             } else if (checkedId == R.id.rb_english_cafe) {
                 // English Cafe

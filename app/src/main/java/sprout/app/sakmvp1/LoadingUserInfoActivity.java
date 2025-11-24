@@ -249,8 +249,12 @@ public class LoadingUserInfoActivity extends BaseActivity {
                             credits = (Integer) creditsObj;
                         }
 
-                        // Course 생성자는 (category, name, credits) 순서임!
-                        CourseInputActivity.Course course = new CourseInputActivity.Course(category, name, credits);
+                        // groupId와 competency도 로드
+                        String groupId = (String) courseMap.get("groupId");
+                        String competency = (String) courseMap.get("competency");
+
+                        // Course 생성자는 (category, name, credits, groupId, competency) 순서
+                        CourseInputActivity.Course course = new CourseInputActivity.Course(category, name, credits, groupId, competency);
                         courseList.add(course);
                     }
                 }

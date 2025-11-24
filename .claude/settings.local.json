@@ -172,7 +172,14 @@
       "WebFetch(domain:stackoverflow.com)",
       "WebFetch(domain:gist.github.com)",
       "WebFetch(domain:medium.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(pip show:*)",
+      "Bash(python:*)",
+      "Bash(pyinstaller:*)",
+      "Bash(git reset:*)",
+      "Bash(git restore:*)",
+      "Bash(git rm:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

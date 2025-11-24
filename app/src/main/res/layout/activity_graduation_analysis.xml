@@ -1,242 +1,280 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    졸업 분석 화면 레이아웃
-
-    이 파일은 졸업 요건 분석의 첫 번째 단계인 학번/학부/트랙 선택 화면을 구성합니다.
-    사용자가 정확한 졸업 요건 분석을 받기 위해 필요한 기본 정보를 입력하는 화면입니다.
-
-    주요 구성 요소:
-    - 상단 툴바 (뒤로가기 포함)
-    - 학번 선택 스피너 (2자리 형식으로 표시, 내부적으로 4자리 변환)
-    - 학부 선택 스피너 (동적 로드)
-    - 트랙 선택 스피너 (학부 선택에 따라 동적 업데이트)
-    - 분석 시작 버튼
-    - 전체 화면 로딩 오버레이
-
-    특징:
-    - FrameLayout 기반으로 로딩 오버레이 지원
-    - Material Design 3 컴포넌트 사용
-    - 동적 데이터 로딩 중 사용자 피드백 제공
-    - 스크롤 가능한 콘텐츠로 작은 화면 대응
--->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
+    android:background="@color/md_theme_light_background"
     tools:context=".GraduationAnalysisActivity">
 
-    <!-- 메인 컨텐츠 레이어: 툴바와 콘텐츠를 포함하는 수직 레이아웃 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-    <!-- 상단 툴바 영역
-         - Material AppBarLayout으로 일관된 디자인 제공
-         - 뒤로가기 버튼과 화면 제목 포함 -->
-    <com.google.android.material.appbar.AppBarLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:theme="@style/ThemeOverlay.AppCompat.ActionBar">
-
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar_graduation_analysis"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
-            app:titleTextColor="@color/white"
-            app:navigationIcon="?attr/homeAsUpIndicator" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <!-- 스크롤 가능한 메인 콘텐츠 영역
-         - 작은 화면에서도 모든 콘텐츠 접근 가능
-         - fillViewport으로 빈 공간 활용 -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
-
-        <LinearLayout
+        <!-- 상단 툴바 -->
+        <com.google.android.material.appbar.AppBarLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp">
+            android:background="@android:color/transparent"
+            app:elevation="0dp">
 
-            <!-- 화면 제목: 졸업 요건 분석 -->
-            <TextView
+            <androidx.appcompat.widget.Toolbar
+                android:id="@+id/toolbar_graduation_analysis"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="졸업 요건 분석"
-                android:textAppearance="?attr/textAppearanceHeadlineMedium"
-                android:textColor="?attr/colorOnSurface"
-                android:gravity="center"
-                android:layout_marginBottom="32dp" />
+                android:layout_height="?attr/actionBarSize"
+                android:background="@android:color/transparent"
+                app:navigationIcon="@drawable/ic_arrow_back"
+                app:navigationIconTint="?attr/colorOnSurface"
+                app:title=""
+                app:titleTextColor="?attr/colorOnSurface" />
 
-            <!-- 사용자 안내 문구: 정보 선택 요청 -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="정확한 졸업 요건 분석을 위해\n아래 정보를 선택해주세요."
-                android:textSize="16sp"
-                android:textColor="?attr/colorOnSurface"
-                android:gravity="center"
-                android:layout_marginBottom="40dp" />
+        </com.google.android.material.appbar.AppBarLayout>
 
-            <!-- 학번 선택 -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="24dp">
+                android:paddingHorizontal="24dp"
+                android:paddingBottom="32dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <!-- 헤더 섹션 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="학번"
+                    android:orientation="vertical"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="32dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="졸업 요건 분석"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="정확한 분석을 위해 정보를 선택해주세요"
+                        android:textSize="15sp"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
+
+                <!-- 선택 카드 -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="?attr/colorOutlineVariant"
+                    app:cardBackgroundColor="?attr/colorSurface">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <!-- 학번 선택 -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="학번"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginBottom="8dp" />
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="20dp"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="1dp"
+                            app:strokeColor="?attr/colorOutline"
+                            app:cardBackgroundColor="?attr/colorSurfaceVariant">
+
+                            <Spinner
+                                android:id="@+id/spinner_student_id"
+                                android:layout_width="match_parent"
+                                android:layout_height="52dp"
+                                android:paddingHorizontal="16dp"
+                                android:background="@android:color/transparent" />
+
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- 학부 선택 -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="학부"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginBottom="8dp" />
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="20dp"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="1dp"
+                            app:strokeColor="?attr/colorOutline"
+                            app:cardBackgroundColor="?attr/colorSurfaceVariant">
+
+                            <Spinner
+                                android:id="@+id/spinner_department"
+                                android:layout_width="match_parent"
+                                android:layout_height="52dp"
+                                android:paddingHorizontal="16dp"
+                                android:background="@android:color/transparent" />
+
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- 트랙 선택 -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="트랙"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginBottom="8dp" />
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="1dp"
+                            app:strokeColor="?attr/colorOutline"
+                            app:cardBackgroundColor="?attr/colorSurfaceVariant">
+
+                            <Spinner
+                                android:id="@+id/spinner_track"
+                                android:layout_width="match_parent"
+                                android:layout_height="52dp"
+                                android:paddingHorizontal="16dp"
+                                android:background="@android:color/transparent" />
+
+                        </com.google.android.material.card.MaterialCardView>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 안내 메시지 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="24dp"
+                    android:paddingHorizontal="4dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_info"
+                        app:tint="?attr/colorOnSurfaceVariant" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="선택한 정보에 따라 졸업 요건이 다르게 적용됩니다"
+                        android:textSize="13sp"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
+
+                <!-- 분석 시작 버튼 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_start_analysis"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="분석 시작"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="8dp" />
-
-                <Spinner
-                    android:id="@+id/spinner_student_id"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:background="@drawable/spinner_background"
-                    android:padding="12dp" />
+                    app:cornerRadius="12dp"
+                    app:backgroundTint="?attr/colorPrimary" />
 
             </LinearLayout>
 
-            <!-- 학부 선택 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="24dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="학부"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="8dp" />
-
-                <Spinner
-                    android:id="@+id/spinner_department"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:background="@drawable/spinner_background"
-                    android:padding="12dp" />
-
-            </LinearLayout>
-
-            <!-- 트랙 선택 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="40dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="트랙"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="8dp" />
-
-                <Spinner
-                    android:id="@+id/spinner_track"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:background="@drawable/spinner_background"
-                    android:padding="12dp" />
-
-            </LinearLayout>
-
-
-            <!-- 분석 시작 버튼 -->
-            <Button
-                android:id="@+id/btn_start_analysis"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="졸업 요건 분석 시작"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/white"
-                android:background="@drawable/button_primary"
-                android:layout_marginTop="16dp" />
-
-        </LinearLayout>
-
-    </ScrollView>
+        </ScrollView>
 
     </LinearLayout>
 
-    <!-- 전체 화면 로딩 오버레이 (화면 절대 중앙에 배치) -->
+    <!-- 로딩 오버레이 -->
     <FrameLayout
         android:id="@+id/loading_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        android:background="#80000000">
 
-        <!-- 반투명 검은색 로딩 카드 -->
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
             android:layout_gravity="center"
-            android:padding="40dp"
-            android:background="@drawable/loading_card_background"
-            android:elevation="8dp"
-            android:minWidth="280dp">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp"
+            app:cardBackgroundColor="@color/white">
 
-            <!-- 로딩 애니메이션 -->
-            <ProgressBar
-                android:id="@+id/progress_bar"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:layout_gravity="center"
-                android:indeterminateTint="@color/white" />
-
-            <!-- 로딩 메시지 -->
-            <TextView
-                android:id="@+id/loading_text"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="데이터를 불러오는 중..."
-                android:textSize="18sp"
-                android:textColor="@color/white"
-                android:textStyle="bold"
-                android:layout_gravity="center"
-                android:gravity="center" />
-
-            <!-- 상세 로딩 설명 -->
-            <TextView
-                android:id="@+id/loading_description"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="학번, 학부, 트랙 정보를 가져오고 있어요"
-                android:textSize="14sp"
-                android:textColor="#CCFFFFFF"
-                android:layout_gravity="center"
+                android:orientation="vertical"
                 android:gravity="center"
-                android:maxWidth="240dp" />
+                android:padding="32dp"
+                android:minWidth="240dp">
 
-        </LinearLayout>
+                <ProgressBar
+                    android:id="@+id/progress_bar"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:indeterminateTint="?attr/colorPrimary" />
+
+                <TextView
+                    android:id="@+id/loading_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="데이터를 불러오는 중..."
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorOnSurface" />
+
+                <TextView
+                    android:id="@+id/loading_description"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="잠시만 기다려주세요"
+                    android:textSize="14sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:gravity="center" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
     </FrameLayout>
 

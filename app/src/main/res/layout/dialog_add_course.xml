@@ -55,6 +55,14 @@
                 android:text="교양"
                 android:textSize="16sp" />
 
+            <RadioButton
+                android:id="@+id/radio_custom"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="직접입력"
+                android:textSize="16sp" />
+
         </RadioGroup>
 
     </LinearLayout>
@@ -215,6 +223,107 @@
             android:padding="12dp"
             android:hint="학점을 입력하세요 (예: 3)"
             android:inputType="number" />
+
+    </LinearLayout>
+
+    <!-- 완전 직접 입력 (직접입력 선택시에만 표시) -->
+    <LinearLayout
+        android:id="@+id/layout_custom_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone">
+
+        <!-- 안내 텍스트 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📝 시스템에 없는 과목을 직접 입력할 수 있습니다."
+            android:textSize="13sp"
+            android:textColor="?attr/colorPrimary"
+            android:background="@drawable/spinner_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 분류 선택 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="분류 선택"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="8dp" />
+
+        <Spinner
+            android:id="@+id/spinner_custom_category"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/spinner_background"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- 강의명 입력 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="강의명"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/edit_custom_course_name"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/spinner_background"
+            android:padding="12dp"
+            android:hint="강의명을 입력하세요"
+            android:layout_marginBottom="12dp" />
+
+        <!-- 학점 입력 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="학점"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/edit_custom_course_credits"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/spinner_background"
+            android:padding="12dp"
+            android:hint="학점을 입력하세요 (예: 3)"
+            android:inputType="number"
+            android:layout_marginBottom="12dp" />
+
+        <!-- 역량 선택 (교양선택일 때만 표시) -->
+        <LinearLayout
+            android:id="@+id/layout_custom_competency"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="역량 (교양선택인 경우)"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurface"
+                android:layout_marginBottom="8dp" />
+
+            <Spinner
+                android:id="@+id/spinner_custom_competency"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/spinner_background"
+                android:padding="12dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

@@ -11,6 +11,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,7 +29,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -93,7 +95,7 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
     private static final String TAG = "GraduationResult";
 
     private TextView textViewStudentInfo;
-    private BottomNavigationView bottomNavigation;
+    private TabLayout tabLayout;
     private ViewPager2 viewPager;
     private Toolbar toolbar;
     private GraduationTabAdapter tabAdapter;
@@ -270,51 +272,31 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
 
     private void initViews() {
         textViewStudentInfo = findViewById(R.id.text_view_student_info);
-        bottomNavigation = findViewById(R.id.bottom_navigation);
+        tabLayout = findViewById(R.id.tab_layout);
         viewPager = findViewById(R.id.view_pager);
         toolbar = findViewById(R.id.toolbar_graduation_result);
-
-        setupBottomNavigation();
     }
 
     private void setupTabs() {
         tabAdapter = new GraduationTabAdapter(this, selectedYear);
         viewPager.setAdapter(tabAdapter);
-    }
 
-    private void setupBottomNavigation() {
-        bottomNavigation.setOnItemSelectedListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.nav_overview) {
-                viewPager.setCurrentItem(0);
-                return true;
-            } else if (itemId == R.id.nav_details) {
-                viewPager.setCurrentItem(1);
-                return true;
-            } else if (itemId == R.id.nav_others) {
-                viewPager.setCurrentItem(2);
-                return true;
-            }
-            return false;
-        });
-
-        // ViewPager2의 페이지 변경에 따라 하단 네비게이션 업데이트
-        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
+        // TabLayout과 ViewPager2 연결
+        new TabLayoutMediator(tabLayout, viewPager,
+            (tab, position) -> {
                 switch (position) {
                     case 0:
-                        bottomNavigation.setSelectedItemId(R.id.nav_overview);
+                        tab.setText("전체");
                         break;
                     case 1:
-                        bottomNavigation.setSelectedItemId(R.id.nav_details);
+                        tab.setText("세부");
                         break;
                     case 2:
-                        bottomNavigation.setSelectedItemId(R.id.nav_others);
+                        tab.setText("기타");
                         break;
                 }
             }
-        });
+        ).attach();
     }
 
     private void setupToolbar() {
@@ -340,6 +322,10 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         } else if (item.getItemId() == R.id.action_save) {
             // 저장 버튼 클릭 시 수동 저장 후 홈으로 이동
             saveGraduationCheckAndGoHome();
+            return true;
+        } else if (item.getItemId() == R.id.action_export) {
+            // 파일로 내보내기
+            exportResultToFile();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -458,6 +444,330 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         finish();
     }
 
+    /**
+     * 졸업요건 분석 결과를 텍스트 파일로 내보내기
+     */
+    private void exportResultToFile() {
+        StringBuilder sb = new StringBuilder();
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.KOREA);
+        String currentDate = sdf.format(new java.util.Date());
+
+        // 헤더
+        sb.append("═══════════════════════════════════════════════════════════\n");
+        sb.append("              졸업요건 분석 결과\n");
+        sb.append("═══════════════════════════════════════════════════════════\n\n");
+
+        // 학생 정보
+        sb.append("【 학생 정보 】\n");
+        sb.append("───────────────────────────────────────────────────────────\n");
+        sb.append("  학번: ").append(selectedYear).append("학번\n");
+        sb.append("  학과: ").append(selectedDepartment).append("\n");
+        sb.append("  트랙: ").append(selectedTrack).append("\n");
+        sb.append("  분석일시: ").append(currentDate).append("\n\n");
+
+        // 전체 진행도
+        if (graduationProgress != null) {
+            sb.append("【 전체 졸업 진행도 】\n");
+            sb.append("───────────────────────────────────────────────────────────\n");
+            sb.append("  총 이수학점: ").append(graduationProgress.totalEarned).append(" / ")
+              .append(graduationProgress.totalRequired).append(" 학점\n");
+            sb.append("  진행률: ").append(String.format("%.1f", graduationProgress.getOverallProgress())).append("%\n\n");
+
+            // 카테고리별 진행도
+            sb.append("【 카테고리별 이수현황 】\n");
+            sb.append("───────────────────────────────────────────────────────────\n");
+            appendCategoryProgress(sb, "전공필수", graduationProgress.majorRequired);
+            appendCategoryProgress(sb, "전공선택", graduationProgress.majorElective);
+            if (graduationProgress.majorAdvanced != null) {
+                appendCategoryProgress(sb, "전공심화", graduationProgress.majorAdvanced);
+            }
+            if (graduationProgress.departmentCommon != null) {
+                appendCategoryProgress(sb, "학부공통", graduationProgress.departmentCommon);
+            }
+            appendCategoryProgress(sb, "교양필수", graduationProgress.generalRequired);
+            appendCategoryProgress(sb, "교양선택", graduationProgress.generalElective);
+            appendCategoryProgress(sb, "소양", graduationProgress.liberalArts);
+            if (graduationProgress.generalSelection != null) {
+                appendCategoryProgress(sb, "일반선택", graduationProgress.generalSelection);
+            }
+            if (graduationProgress.remainingCredits != null) {
+                appendCategoryProgress(sb, "잔여학점", graduationProgress.remainingCredits);
+            }
+            sb.append("\n");
+        }
+
+        // 수강 과목 목록
+        sb.append("【 수강 과목 목록 】\n");
+        sb.append("───────────────────────────────────────────────────────────\n");
+        if (courseList != null && !courseList.isEmpty()) {
+            // 카테고리별로 그룹화
+            Map<String, java.util.List<Course>> coursesByCategory = new java.util.LinkedHashMap<>();
+            for (Course course : courseList) {
+                String category = course.getCategory();
+                if (!coursesByCategory.containsKey(category)) {
+                    coursesByCategory.put(category, new java.util.ArrayList<>());
+                }
+                coursesByCategory.get(category).add(course);
+            }
+
+            for (Map.Entry<String, java.util.List<Course>> entry : coursesByCategory.entrySet()) {
+                sb.append("\n  ▶ ").append(entry.getKey()).append(" (").append(entry.getValue().size()).append("과목)\n");
+                int categoryCredits = 0;
+                for (Course course : entry.getValue()) {
+                    sb.append("    • ").append(course.getName()).append(" (").append(course.getCredits()).append("학점)\n");
+                    categoryCredits += course.getCredits();
+                }
+                sb.append("    → 소계: ").append(categoryCredits).append("학점\n");
+            }
+        } else {
+            sb.append("  등록된 과목이 없습니다.\n");
+        }
+        sb.append("\n");
+
+        // 추가 요건
+        if (additionalRequirements != null) {
+            sb.append("【 추가 졸업요건 】\n");
+            sb.append("───────────────────────────────────────────────────────────\n");
+            sb.append("  TLC 이수: ").append(additionalRequirements.getTlcCount()).append("회\n");
+            sb.append("  채플 이수: ").append(additionalRequirements.getChapelCount()).append("학기\n");
+            sb.append("  마일리지: ").append(additionalRequirements.isMileageCompleted() ? "완료" : "미완료").append("\n");
+            sb.append("  추가요건: ").append(additionalRequirements.isExtraGradCompleted() ? "완료" : "미완료").append("\n");
+            sb.append("\n");
+        }
+
+        // 푸터
+        sb.append("═══════════════════════════════════════════════════════════\n");
+        sb.append("  본 문서는 졸업요건 분석 앱에서 자동 생성되었습니다.\n");
+        sb.append("═══════════════════════════════════════════════════════════\n");
+
+        // PDF 파일로 저장
+        saveToPdf();
+    }
+
+    private void appendCategoryProgress(StringBuilder sb, String categoryName, CategoryProgress progress) {
+        if (progress == null) return;
+        String status = progress.isCompleted ? "✓" : "○";
+        sb.append("  ").append(status).append(" ").append(categoryName).append(": ")
+          .append(progress.earned).append(" / ").append(progress.required).append(" 학점");
+        if (!progress.isCompleted && progress.remaining > 0) {
+            sb.append(" (").append(progress.remaining).append("학점 부족)");
+        }
+        sb.append("\n");
+    }
+
+    private void saveToPdf() {
+        try {
+            java.text.SimpleDateFormat fileSdf = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA);
+            String timestamp = fileSdf.format(new java.util.Date());
+            String fileName = "졸업요건분석_" + selectedYear + "학번_" + timestamp + ".pdf";
+
+            java.io.File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS);
+            java.io.File file = new java.io.File(downloadsDir, fileName);
+
+            // PDF 생성
+            com.itextpdf.kernel.pdf.PdfWriter writer = new com.itextpdf.kernel.pdf.PdfWriter(file);
+            com.itextpdf.kernel.pdf.PdfDocument pdf = new com.itextpdf.kernel.pdf.PdfDocument(writer);
+            com.itextpdf.layout.Document document = new com.itextpdf.layout.Document(pdf);
+
+            // 한글 폰트 설정
+            java.io.InputStream fontStream = getAssets().open("fonts/NanumGothic.ttf");
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = fontStream.read(buffer)) != -1) {
+                baos.write(buffer, 0, len);
+            }
+            fontStream.close();
+            byte[] fontBytes = baos.toByteArray();
+
+            com.itextpdf.kernel.font.PdfFont koreanFont = com.itextpdf.kernel.font.PdfFontFactory.createFont(
+                    fontBytes,
+                    com.itextpdf.io.font.PdfEncodings.IDENTITY_H,
+                    com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED
+            );
+            document.setFont(koreanFont);
+
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.KOREA);
+            String currentDate = sdf.format(new java.util.Date());
+
+            // 제목
+            com.itextpdf.layout.element.Paragraph title = new com.itextpdf.layout.element.Paragraph("졸업요건 분석 결과")
+                    .setFontSize(20)
+                    .setBold()
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setMarginBottom(20);
+            document.add(title);
+
+            // 학생 정보 섹션
+            addPdfSectionTitle(document, "학생 정보");
+            addPdfKeyValue(document, "학번", selectedYear + "학번");
+            addPdfKeyValue(document, "학과", selectedDepartment);
+            addPdfKeyValue(document, "트랙", selectedTrack);
+            addPdfKeyValue(document, "분석일시", currentDate);
+            document.add(new com.itextpdf.layout.element.Paragraph("").setMarginBottom(10));
+
+            // 전체 진행도 섹션
+            if (graduationProgress != null) {
+                addPdfSectionTitle(document, "전체 졸업 진행도");
+                addPdfKeyValue(document, "총 이수학점", graduationProgress.totalEarned + " / " + graduationProgress.totalRequired + " 학점");
+                addPdfKeyValue(document, "진행률", String.format("%.1f%%", graduationProgress.getOverallProgress()));
+                document.add(new com.itextpdf.layout.element.Paragraph("").setMarginBottom(10));
+
+                // 카테고리별 이수현황 테이블
+                addPdfSectionTitle(document, "카테고리별 이수현황");
+                com.itextpdf.layout.element.Table progressTable = new com.itextpdf.layout.element.Table(3)
+                        .useAllAvailableWidth()
+                        .setMarginBottom(15);
+
+                // 테이블 헤더
+                progressTable.addHeaderCell(createPdfCell("구분", true));
+                progressTable.addHeaderCell(createPdfCell("이수/요구", true));
+                progressTable.addHeaderCell(createPdfCell("상태", true));
+
+                // 카테고리 데이터
+                addPdfProgressRow(progressTable, "전공필수", graduationProgress.majorRequired);
+                addPdfProgressRow(progressTable, "전공선택", graduationProgress.majorElective);
+                if (graduationProgress.majorAdvanced != null) {
+                    addPdfProgressRow(progressTable, "전공심화", graduationProgress.majorAdvanced);
+                }
+                if (graduationProgress.departmentCommon != null) {
+                    addPdfProgressRow(progressTable, "학부공통", graduationProgress.departmentCommon);
+                }
+                addPdfProgressRow(progressTable, "교양필수", graduationProgress.generalRequired);
+                addPdfProgressRow(progressTable, "교양선택", graduationProgress.generalElective);
+                addPdfProgressRow(progressTable, "소양", graduationProgress.liberalArts);
+                if (graduationProgress.generalSelection != null) {
+                    addPdfProgressRow(progressTable, "일반선택", graduationProgress.generalSelection);
+                }
+                if (graduationProgress.remainingCredits != null) {
+                    addPdfProgressRow(progressTable, "잔여학점", graduationProgress.remainingCredits);
+                }
+                document.add(progressTable);
+            }
+
+            // 수강 과목 목록
+            addPdfSectionTitle(document, "수강 과목 목록");
+            if (courseList != null && !courseList.isEmpty()) {
+                Map<String, java.util.List<Course>> coursesByCategory = new java.util.LinkedHashMap<>();
+                for (Course course : courseList) {
+                    String category = course.getCategory();
+                    if (!coursesByCategory.containsKey(category)) {
+                        coursesByCategory.put(category, new java.util.ArrayList<>());
+                    }
+                    coursesByCategory.get(category).add(course);
+                }
+
+                for (Map.Entry<String, java.util.List<Course>> entry : coursesByCategory.entrySet()) {
+                    // 카테고리 제목
+                    document.add(new com.itextpdf.layout.element.Paragraph("▶ " + entry.getKey() + " (" + entry.getValue().size() + "과목)")
+                            .setBold()
+                            .setFontSize(11)
+                            .setMarginTop(10));
+
+                    // 과목 테이블
+                    com.itextpdf.layout.element.Table courseTable = new com.itextpdf.layout.element.Table(2)
+                            .useAllAvailableWidth()
+                            .setMarginBottom(10);
+                    courseTable.addHeaderCell(createPdfCell("과목명", true));
+                    courseTable.addHeaderCell(createPdfCell("학점", true));
+
+                    int categoryCredits = 0;
+                    for (Course course : entry.getValue()) {
+                        courseTable.addCell(createPdfCell(course.getName(), false));
+                        courseTable.addCell(createPdfCell(course.getCredits() + "학점", false));
+                        categoryCredits += course.getCredits();
+                    }
+                    // 소계
+                    courseTable.addCell(createPdfCell("소계", true));
+                    courseTable.addCell(createPdfCell(categoryCredits + "학점", true));
+                    document.add(courseTable);
+                }
+            }
+
+            // 추가 요건
+            if (additionalRequirements != null) {
+                addPdfSectionTitle(document, "추가 졸업요건");
+                addPdfKeyValue(document, "TLC 이수", additionalRequirements.getTlcCount() + "회");
+                addPdfKeyValue(document, "채플 이수", additionalRequirements.getChapelCount() + "학기");
+                addPdfKeyValue(document, "마일리지", additionalRequirements.isMileageCompleted() ? "완료" : "미완료");
+                addPdfKeyValue(document, "추가요건", additionalRequirements.isExtraGradCompleted() ? "완료" : "미완료");
+            }
+
+            document.close();
+
+            Toast.makeText(this, "PDF 저장 완료: " + fileName, Toast.LENGTH_LONG).show();
+            Log.d(TAG, "PDF 파일 저장 완료: " + file.getAbsolutePath());
+
+            showShareDialog(file, "application/pdf");
+
+        } catch (Exception e) {
+            Log.e(TAG, "PDF 파일 저장 실패", e);
+            Toast.makeText(this, "PDF 저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void addPdfSectionTitle(com.itextpdf.layout.Document document, String title) {
+        document.add(new com.itextpdf.layout.element.Paragraph("【 " + title + " 】")
+                .setBold()
+                .setFontSize(14)
+                .setMarginTop(15)
+                .setMarginBottom(5));
+    }
+
+    private void addPdfKeyValue(com.itextpdf.layout.Document document, String key, String value) {
+        document.add(new com.itextpdf.layout.element.Paragraph("  " + key + ": " + value)
+                .setFontSize(11));
+    }
+
+    private com.itextpdf.layout.element.Cell createPdfCell(String text, boolean isHeader) {
+        com.itextpdf.layout.element.Cell cell = new com.itextpdf.layout.element.Cell()
+                .add(new com.itextpdf.layout.element.Paragraph(text))
+                .setFontSize(10)
+                .setPadding(5);
+        if (isHeader) {
+            cell.setBold()
+                .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY);
+        }
+        return cell;
+    }
+
+    private void addPdfProgressRow(com.itextpdf.layout.element.Table table, String category, CategoryProgress progress) {
+        if (progress == null) return;
+        table.addCell(createPdfCell(category, false));
+        table.addCell(createPdfCell(progress.earned + " / " + progress.required + " 학점", false));
+        String status = progress.isCompleted ? "✓ 완료" : "○ " + progress.remaining + "학점 부족";
+        table.addCell(createPdfCell(status, false));
+    }
+
+    private void showShareDialog(java.io.File file, String mimeType) {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("파일 저장 완료")
+                .setMessage("파일이 다운로드 폴더에 저장되었습니다.\n\n" + file.getName())
+                .setPositiveButton("공유", (dialog, which) -> {
+                    shareFile(file, mimeType);
+                })
+                .setNegativeButton("확인", null)
+                .show();
+    }
+
+    private void shareFile(java.io.File file, String mimeType) {
+        try {
+            android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                    this,
+                    getPackageName() + ".fileprovider",
+                    file);
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(mimeType);
+            shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(shareIntent, "파일 공유"));
+        } catch (Exception e) {
+            Log.e(TAG, "파일 공유 실패", e);
+            Toast.makeText(this, "파일 공유 실패", Toast.LENGTH_SHORT).show();
+        }
+    }
 
     private void performGraduationAnalysis() {
         // 학생 정보 표시
@@ -597,13 +907,32 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         graduationProgress.totalEarned = result.getTotalEarnedCredits();
         graduationProgress.totalRequired = result.getTotalRequiredCredits();
 
-        // 카테고리별 진행도 생성
+        // 넘치는 학점 계산을 위한 변수
+        int totalOverflow = 0;
+        // 학번에 따라 넘침 목적지 결정 (20-22: 일반선택, 23-25: 잔여학점)
+        boolean isOldCurriculum = DepartmentConfig.isOldCurriculum(staticSelectedDepartment, staticSelectedYear);
+        String overflowDestination = isOldCurriculum ? "일반선택" : "잔여학점";
+
+        // 카테고리별 진행도 생성 (넘치는 학점 처리 포함)
         for (sprout.app.sakmvp1.models.CategoryAnalysisResult categoryResult : result.getAllCategoryResults()) {
             String categoryName = categoryResult.getCategoryName();
-            CategoryProgress progress = new CategoryProgress(
-                    categoryResult.getEarnedCredits(),
-                    categoryResult.getRequiredCredits()
-            );
+            int earned = categoryResult.getEarnedCredits();
+            int required = categoryResult.getRequiredCredits();
+
+            // 넘치는 학점 계산 (일반선택/자율선택/잔여학점 제외)
+            int overflow = 0;
+            boolean isOverflowCategory = "일반선택".equals(categoryName) ||
+                                        "자율선택".equals(categoryName) ||
+                                        "잔여학점".equals(categoryName);
+
+            if (!isOverflowCategory && required > 0 && earned > required) {
+                overflow = earned - required;
+                totalOverflow += overflow;
+                earned = required;  // earned를 required로 제한
+                Log.d(TAG, categoryName + " 넘침 처리: " + overflow + "학점 (표시: " + earned + "/" + required + ")");
+            }
+
+            CategoryProgress progress = new CategoryProgress(earned, required);
 
             switch (categoryName) {
                 case "전공필수":
@@ -633,6 +962,37 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
                     break;
                 case "잔여학점":
                     graduationProgress.remainingCredits = progress;
+                    break;
+            }
+        }
+
+        // 넘치는 학점을 목적지 카테고리에 추가
+        if (totalOverflow > 0 && overflowDestination != null) {
+            Log.d(TAG, "총 넘침 학점: " + totalOverflow + " -> " + overflowDestination + "에 추가");
+
+            CategoryProgress targetProgress = null;
+            int currentEarned = 0;
+            int targetRequired = 0;
+
+            switch (overflowDestination) {
+                case "일반선택":
+                case "자율선택":
+                    if (graduationProgress.generalSelection != null) {
+                        currentEarned = graduationProgress.generalSelection.earned;
+                        targetRequired = graduationProgress.generalSelection.required;
+                    } else {
+                        targetRequired = creditRequirements != null ? creditRequirements.freeElective : 0;
+                    }
+                    graduationProgress.generalSelection = new CategoryProgress(currentEarned + totalOverflow, targetRequired);
+                    break;
+                case "잔여학점":
+                    if (graduationProgress.remainingCredits != null) {
+                        currentEarned = graduationProgress.remainingCredits.earned;
+                        targetRequired = graduationProgress.remainingCredits.required;
+                    } else {
+                        targetRequired = creditRequirements != null ? creditRequirements.freeElective : 0;
+                    }
+                    graduationProgress.remainingCredits = new CategoryProgress(currentEarned + totalOverflow, targetRequired);
                     break;
             }
         }
@@ -1015,23 +1375,23 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         GraduationTabAdapter newAdapter = new GraduationTabAdapter(this, selectedYear);
         viewPager.setAdapter(newAdapter);
 
-        // 하단 네비게이션과 연결
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        if (bottomNav != null) {
-            bottomNav.setOnItemSelectedListener(item -> {
-                int itemId = item.getItemId();
-                if (itemId == R.id.nav_overview) {
-                    viewPager.setCurrentItem(0);
-                    return true;
-                } else if (itemId == R.id.nav_details) {
-                    viewPager.setCurrentItem(1);
-                    return true;
-                } else if (itemId == R.id.nav_others) {
-                    viewPager.setCurrentItem(2);
-                    return true;
+        // TabLayout과 ViewPager2 재연결
+        if (tabLayout != null) {
+            new TabLayoutMediator(tabLayout, viewPager,
+                (tab, position) -> {
+                    switch (position) {
+                        case 0:
+                            tab.setText("전체");
+                            break;
+                        case 1:
+                            tab.setText("세부");
+                            break;
+                        case 2:
+                            tab.setText("기타");
+                            break;
+                    }
                 }
-                return false;
-            });
+            ).attach();
         }
     }
 
@@ -2048,8 +2408,8 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
             // 졸업이수학점 정보 표시
             displayCreditRequirements(view);
 
-            // 카테고리별 진행도 업데이트
-            updateCategoryProgress(view, progress);
+            // 카테고리별 아코디언 생성
+            setupCategoryAccordions(view, progress);
 
             // 대체과목 정보 표시
             displayReplacementCourses(view);
@@ -2063,80 +2423,146 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
             Log.d(TAG, "졸업이수학점 정보 적용 완료: " + creditReqs.toString());
         }
 
-        private void updateCategoryProgress(View view, GraduationProgress progress) {
+        private void setupCategoryAccordions(View view, GraduationProgress progress) {
+            LinearLayout container = view.findViewById(R.id.category_accordion_container);
+            if (container == null) return;
+
+            container.removeAllViews();
             boolean isOld = isOldCurriculum(selectedYear);
 
-            // 컨테이너 visibility 제어
-            View departmentCommonContainer = view.findViewById(R.id.container_department_common);
-            View generalSelectionContainer = view.findViewById(R.id.container_general_selection);
-            View majorAdvancedContainer = view.findViewById(R.id.container_major_advanced);
-            View remainingCreditsContainer = view.findViewById(R.id.container_remaining_credits);
+            // 카테고리 순서대로 아코디언 추가
+            addCategoryAccordion(container, "전공필수", progress.majorRequired, "전공필수");
+            addCategoryAccordion(container, "전공선택", progress.majorElective, "전공선택");
 
             if (isOld) {
-                // 구 교육과정: 학부공통, 일반선택 표시
-                if (departmentCommonContainer != null) departmentCommonContainer.setVisibility(View.VISIBLE);
-                if (generalSelectionContainer != null) generalSelectionContainer.setVisibility(View.VISIBLE);
-                if (majorAdvancedContainer != null) majorAdvancedContainer.setVisibility(View.GONE);
-                if (remainingCreditsContainer != null) remainingCreditsContainer.setVisibility(View.GONE);
-
-                updateCategoryUI(view, "department_common", progress.departmentCommon);
-                updateCategoryUI(view, "general_selection", progress.generalSelection);
+                // 구 교육과정: 학부공통, 일반선택
+                addCategoryAccordion(container, "학부공통", progress.departmentCommon, "학부공통");
             } else {
-                // 신 교육과정: 전공심화, 잔여학점 표시
-                if (departmentCommonContainer != null) departmentCommonContainer.setVisibility(View.GONE);
-                if (generalSelectionContainer != null) generalSelectionContainer.setVisibility(View.GONE);
-                if (majorAdvancedContainer != null) majorAdvancedContainer.setVisibility(View.VISIBLE);
-                if (remainingCreditsContainer != null) remainingCreditsContainer.setVisibility(View.VISIBLE);
-
-                updateCategoryUI(view, "major_advanced", progress.majorAdvanced);
-                updateCategoryUI(view, "remaining_credits", progress.remainingCredits);
+                // 신 교육과정: 전공심화
+                addCategoryAccordion(container, "전공심화", progress.majorAdvanced, "전공심화");
             }
 
-            updateCategoryUI(view, "major_required", progress.majorRequired);
-            updateCategoryUI(view, "major_elective", progress.majorElective);
-            updateCategoryUI(view, "general_required", progress.generalRequired);
-            updateCategoryUI(view, "general_elective", progress.generalElective);
-            updateCategoryUI(view, "liberal_arts", progress.liberalArts);
+            addCategoryAccordion(container, "교양필수", progress.generalRequired, "교양필수");
+            addCategoryAccordion(container, "교양선택", progress.generalElective, "교양선택");
+            addCategoryAccordion(container, "소양", progress.liberalArts, "소양");
+
+            if (isOld) {
+                addCategoryAccordion(container, "일반선택", progress.generalSelection, "일반선택");
+            } else {
+                addCategoryAccordion(container, "잔여학점", progress.remainingCredits, "잔여학점");
+            }
         }
 
-        private void updateCategoryUI(View view, String category, CategoryProgress progress) {
-            if (progress == null) {
-                Log.w(TAG, "updateCategoryUI: CategoryProgress is null for " + category);
-                return;
-            }
+        private void addCategoryAccordion(LinearLayout container, String categoryName, CategoryProgress progress, String filterCategory) {
+            if (progress == null) return;
 
-            Log.d(TAG, "updateCategoryUI: " + category + " = " + progress.earned + "/" + progress.required + " 학점");
+            LayoutInflater inflater = LayoutInflater.from(requireContext());
+            View accordionView = inflater.inflate(R.layout.item_category_accordion, container, false);
 
-            // 요약 텍스트 업데이트
-            int summaryId = getResources().getIdentifier("text_" + category + "_summary", "id", requireContext().getPackageName());
-            TextView summaryText = view.findViewById(summaryId);
-            if (summaryText != null) {
-                String newText = String.format("%d/%d 학점", progress.earned, progress.required);
-                summaryText.setText(newText);
-                Log.d(TAG, "updateCategoryUI: Updated " + category + " summary to: " + newText);
+            // 카테고리명
+            TextView nameText = accordionView.findViewById(R.id.text_category_name);
+            nameText.setText(categoryName);
+
+            // 학점 요약
+            TextView summaryText = accordionView.findViewById(R.id.text_credit_summary);
+            summaryText.setText(String.format("%d/%d 학점", progress.earned, progress.required));
+
+            // 상태
+            TextView statusText = accordionView.findViewById(R.id.text_status);
+            if (progress.isCompleted) {
+                statusText.setText("완료");
+                statusText.setTextColor(0xFF4CAF50);
             } else {
-                Log.w(TAG, "updateCategoryUI: TextView not found for " + category + "_summary (ID: " + summaryId + ")");
+                statusText.setText(progress.remaining + "학점 부족");
+                statusText.setTextColor(0xFFFF5722);
             }
 
-            // 상태 텍스트 업데이트
-            int statusId = getResources().getIdentifier("text_" + category + "_status", "id", requireContext().getPackageName());
-            TextView statusText = view.findViewById(statusId);
-            if (statusText != null) {
-                if (progress.isCompleted) {
-                    statusText.setText("완료");
-                    statusText.setTextColor(0xFF4CAF50); // Green
+            // 진행바
+            android.widget.ProgressBar progressBar = accordionView.findViewById(R.id.progress_bar);
+            progressBar.setProgress((int) progress.percentage);
+            if (progress.isCompleted) {
+                progressBar.setProgressTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
+            }
+
+            // 펼치기/접기 아이콘
+            ImageView expandIcon = accordionView.findViewById(R.id.icon_expand);
+            LinearLayout contentLayout = accordionView.findViewById(R.id.content_layout);
+            LinearLayout headerLayout = accordionView.findViewById(R.id.header_layout);
+
+            // 과목 목록 채우기
+            LinearLayout courseListContainer = accordionView.findViewById(R.id.course_list_container);
+            TextView noCourses = accordionView.findViewById(R.id.text_no_courses);
+
+            List<Course> categoryCourses = getCoursesForCategory(filterCategory);
+            if (categoryCourses != null && !categoryCourses.isEmpty()) {
+                noCourses.setVisibility(View.GONE);
+                for (Course course : categoryCourses) {
+                    View courseItem = createCourseItemView(course);
+                    courseListContainer.addView(courseItem);
+                }
+            } else {
+                noCourses.setVisibility(View.VISIBLE);
+            }
+
+            // 헤더 클릭 시 펼치기/접기
+            headerLayout.setOnClickListener(v -> {
+                if (contentLayout.getVisibility() == View.GONE) {
+                    contentLayout.setVisibility(View.VISIBLE);
+                    expandIcon.setRotation(180);
                 } else {
-                    statusText.setText(progress.remaining + "학점 부족");
-                    statusText.setTextColor(0xFFFF5722); // Red/Orange
+                    contentLayout.setVisibility(View.GONE);
+                    expandIcon.setRotation(0);
+                }
+            });
+
+            container.addView(accordionView);
+        }
+
+        private List<Course> getCoursesForCategory(String category) {
+            List<Course> courses = staticCourseList;
+            if (courses == null) return null;
+
+            List<Course> filtered = new java.util.ArrayList<>();
+            for (Course course : courses) {
+                if (category.equals(course.getCategory())) {
+                    filtered.add(course);
                 }
             }
+            return filtered;
+        }
 
-            // 진행바 업데이트
-            int progressId = getResources().getIdentifier("progress_" + category, "id", requireContext().getPackageName());
-            android.widget.ProgressBar progressBar = view.findViewById(progressId);
-            if (progressBar != null) {
-                progressBar.setProgress((int) progress.percentage);
-            }
+        private View createCourseItemView(Course course) {
+            LinearLayout itemLayout = new LinearLayout(requireContext());
+            itemLayout.setOrientation(LinearLayout.HORIZONTAL);
+            itemLayout.setPadding(0, 8, 0, 8);
+            itemLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+            // 체크 아이콘
+            ImageView checkIcon = new ImageView(requireContext());
+            checkIcon.setImageResource(android.R.drawable.checkbox_on_background);
+            LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(48, 48);
+            iconParams.setMarginEnd(12);
+            checkIcon.setLayoutParams(iconParams);
+
+            // 과목명
+            TextView nameText = new TextView(requireContext());
+            nameText.setText(course.getName());
+            nameText.setTextSize(13);
+            nameText.setTextColor(requireContext().getResources().getColor(android.R.color.black, null));
+            LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+            nameText.setLayoutParams(nameParams);
+
+            // 학점
+            TextView creditText = new TextView(requireContext());
+            creditText.setText(course.getCredits() + "학점");
+            creditText.setTextSize(13);
+            creditText.setTextColor(0xFF757575);
+
+            itemLayout.addView(checkIcon);
+            itemLayout.addView(nameText);
+            itemLayout.addView(creditText);
+
+            return itemLayout;
         }
 
         private boolean isOldCurriculum(String year) {
@@ -2398,7 +2824,7 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
                 // 미이수 과목이 없을 경우
                 if (progress.majorRequired.isCompleted) {
                     TextView completedText = new TextView(getContext());
-                    completedText.setText("✅ 모든 전공필수 과목을 이수했습니다!");
+                    completedText.setText("✅ 전공필수 학점을 충족했습니다!");
                     completedText.setTextSize(14);
                     completedText.setTypeface(null, android.graphics.Typeface.BOLD);
                     completedText.setTextColor(0xFF4CAF50); // Green
@@ -2771,21 +3197,6 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
                 }
             }
 
-            // 상태 텍스트 업데이트
-            TextView statusText = view.findViewById(R.id.text_general_required_status);
-            if (statusText != null) {
-                int earned = progress.generalRequired.earned;
-                int required = progress.generalRequired.required;
-
-                if (progress.generalRequired.isCompleted) {
-                    statusText.setText(earned + "/" + required + " 학점");
-                    statusText.setTextColor(0xFF4CAF50);
-                } else {
-                    statusText.setText(earned + "/" + required + " 학점");
-                    statusText.setTextColor(0xFFFF5722);
-                }
-            }
-
             // 콘텐츠 업데이트
             LinearLayout contentLayout = view.findViewById(R.id.card_general_required_content);
             if (contentLayout != null) {
@@ -2886,21 +3297,6 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
                 }
 
                 headerText.setText(headerMessage);
-            }
-
-            // 상태 텍스트 업데이트
-            TextView statusText = view.findViewById(R.id.text_general_elective_status);
-            if (statusText != null) {
-                int taken = calculateTotalCreditsByCategory(analysis.takenGeneralElective, "교양선택");
-                int required = progress.generalElective.required;
-
-                if (taken >= required) {
-                    statusText.setText(taken + "/" + required + " 학점");
-                    statusText.setTextColor(0xFF4CAF50);
-                } else {
-                    statusText.setText(taken + "/" + required + " 학점");
-                    statusText.setTextColor(0xFFFF9800);
-                }
             }
 
             // 콘텐츠 업데이트
@@ -3105,21 +3501,6 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
                     headerText.setText("🎨 소양 (" + remaining + "학점 부족)");
                 } else {
                     headerText.setText("🎨 소양 (완료)");
-                }
-            }
-
-            // 상태 텍스트 업데이트
-            TextView statusText = view.findViewById(R.id.text_liberal_arts_status);
-            if (statusText != null) {
-                int taken = calculateTotalCreditsByCategory(analysis.takenLiberalArts, "소양");
-                int required = progress.liberalArts.required;
-
-                if (taken >= required) {
-                    statusText.setText(taken + "/" + required + " 학점");
-                    statusText.setTextColor(0xFF4CAF50);
-                } else {
-                    statusText.setText(taken + "/" + required + " 학점");
-                    statusText.setTextColor(0xFFFF9800);
                 }
             }
 

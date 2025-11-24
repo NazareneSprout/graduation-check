@@ -6,23 +6,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="?attr/colorSurface"
+    android:background="@color/md_theme_light_background"
     tools:context=".CourseInputActivity">
 
-    <!-- 툴바 -->
+    <!-- 상단 툴바 -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:theme="@style/ThemeOverlay.AppCompat.ActionBar">
+        android:background="@android:color/transparent"
+        app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar_course_input"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
-            app:titleTextColor="@color/white"
-            app:navigationIcon="?attr/homeAsUpIndicator" />
+            android:background="@android:color/transparent"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:navigationIconTint="?attr/colorOnSurface"
+            app:title="수강 강의 입력"
+            app:titleTextColor="?attr/colorOnSurface"
+            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -30,296 +33,299 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="24dp">
 
-            <!-- 학생 정보 표시 -->
-            <TextView
-                android:id="@+id/text_view_student_info"
+            <!-- 학생 정보 카드 -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="2023학번 IT학부 멀티미디어"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="?attr/colorOnSurface"
-                android:gravity="center"
-                android:background="@drawable/spinner_background"
-                android:padding="16dp"
-                android:layout_marginBottom="32dp" />
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorPrimaryContainer">
 
-            <!-- 강의 추가 섹션 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/spinner_background"
-                android:padding="24dp"
-                android:layout_marginBottom="24dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="📚 수강 강의 추가"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:gravity="center"
-                    android:layout_marginBottom="12dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="전공/교양 강의를 선택하여 졸업요건을 확인하세요"
-                    android:textSize="14sp"
-                    android:textColor="@android:color/darker_gray"
-                    android:gravity="center"
-                    android:layout_marginBottom="20dp" />
-
-                <!-- 강의 추가 버튼 -->
-                <Button
-                    android:id="@+id/btn_add_course"
-                    android:layout_width="match_parent"
-                    android:layout_height="60dp"
-                    android:text="+ 강의 추가"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/white"
-                    android:background="@drawable/button_primary"
-                    android:drawableStart="@android:drawable/ic_input_add"
-                    android:drawableTint="@color/white"
-                    android:gravity="center"
-                    android:layout_marginBottom="12dp" />
-
-                <!-- 대체과목 리스트 보기 버튼 -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_view_replacement_courses"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="🔄 대체과목 리스트 보기"
-                    android:textSize="14sp"
-                    app:icon="@android:drawable/ic_menu_view"
-                    style="@style/Widget.Material3.Button.OutlinedButton" />
-
-            </LinearLayout>
-
-            <!-- 등록된 강의 목록 헤더 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="16dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="📋 등록된 강의 목록"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="16dp" />
-
-                <!-- 전공/교양 전환 버튼 컨테이너 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:gravity="center"
-                    android:background="@drawable/spinner_background"
-                    android:padding="8dp">
+                    android:gravity="center_vertical"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:src="@drawable/ic_graduation"
+                        app:tint="?attr/colorOnPrimaryContainer" />
 
                     <TextView
-                        android:id="@+id/btn_major_group"
+                        android:id="@+id/text_view_student_info"
                         android:layout_width="0dp"
-                        android:layout_height="44dp"
+                        android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="전공 ▼"
+                        android:layout_marginStart="12dp"
+                        android:text="2023학번 IT학부 멀티미디어"
                         android:textSize="15sp"
                         android:textStyle="bold"
-                        android:background="@drawable/button_primary"
-                        android:textColor="@color/white"
-                        android:gravity="center"
-                        android:layout_marginEnd="4dp" />
-
-                    <TextView
-                        android:id="@+id/btn_general_group"
-                        android:layout_width="0dp"
-                        android:layout_height="44dp"
-                        android:layout_weight="1"
-                        android:text="교양 ▷"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:background="@drawable/spinner_background"
-                        android:textColor="?attr/colorOnSurface"
-                        android:gravity="center"
-                        android:layout_marginStart="4dp" />
+                        android:textColor="?attr/colorOnPrimaryContainer" />
 
                 </LinearLayout>
 
-            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            <!-- 강의 목록 (탭 방식) -->
-            <LinearLayout
+            <!-- 강의 추가 섹션 -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/spinner_background"
-                android:padding="16dp"
-                android:layout_marginBottom="32dp">
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurface">
 
-
-                <!-- 전공 탭들 -->
-                <HorizontalScrollView
-                    android:id="@+id/major_tabs_container"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:visibility="visible">
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/tab_major_required"
-                            android:layout_width="wrap_content"
-                            android:layout_height="48dp"
-                            android:text="전공필수"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:background="@drawable/folder_tab_active"
-                            android:textColor="@color/white"
-                            android:layout_marginEnd="4dp"
-                            android:paddingHorizontal="16dp"
-                            android:paddingTop="12dp"
-                            android:gravity="center_horizontal|top"
-                            android:minWidth="80dp" />
-
-                        <TextView
-                            android:id="@+id/tab_major_elective"
-                            android:layout_width="wrap_content"
-                            android:layout_height="48dp"
-                            android:text="전공선택"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:background="@drawable/folder_tab_inactive"
-                            android:textColor="?attr/colorOnSurface"
-                            android:layout_marginEnd="4dp"
-                            android:paddingHorizontal="16dp"
-                            android:paddingTop="12dp"
-                            android:gravity="center_horizontal|top"
-                            android:minWidth="80dp" />
-
-                        <TextView
-                            android:id="@+id/tab_major_advanced"
-                            android:layout_width="wrap_content"
-                            android:layout_height="48dp"
-                            android:text="전공심화"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:background="@drawable/folder_tab_inactive"
-                            android:textColor="?attr/colorOnSurface"
-                            android:paddingHorizontal="16dp"
-                            android:paddingTop="12dp"
-                            android:gravity="center_horizontal|top"
-                            android:minWidth="80dp" />
-
-                    </LinearLayout>
-
-                </HorizontalScrollView>
-
-                <!-- 교양 탭들 -->
-                <HorizontalScrollView
-                    android:id="@+id/general_tabs_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:visibility="gone">
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/tab_general_required"
-                            android:layout_width="wrap_content"
-                            android:layout_height="48dp"
-                            android:text="교양필수"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:background="@drawable/folder_tab_active"
-                            android:textColor="@color/white"
-                            android:layout_marginEnd="4dp"
-                            android:paddingHorizontal="16dp"
-                            android:paddingTop="12dp"
-                            android:gravity="center_horizontal|top"
-                            android:minWidth="80dp" />
-
-                        <TextView
-                            android:id="@+id/tab_general_elective"
-                            android:layout_width="wrap_content"
-                            android:layout_height="48dp"
-                            android:text="교양선택"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:background="@drawable/folder_tab_inactive"
-                            android:textColor="?attr/colorOnSurface"
-                            android:paddingHorizontal="16dp"
-                            android:paddingTop="12dp"
-                            android:gravity="center_horizontal|top"
-                            android:minWidth="80dp" />
-
-                    </LinearLayout>
-
-                </HorizontalScrollView>
-
-                <!-- 선택된 카테고리의 강의 목록 -->
-                <ScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="280dp"
-                    android:layout_marginTop="8dp"
-                    android:background="#F8F9FA"
+                    android:orientation="vertical"
                     android:padding="20dp">
 
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="수강 강의 추가"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="전공/교양 강의를 선택하여 졸업요건을 확인하세요"
+                        android:textSize="13sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- 강의 추가 버튼 -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_add_course"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:text="강의 추가"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:icon="@android:drawable/ic_input_add"
+                        app:iconGravity="textStart"
+                        app:cornerRadius="12dp"
+                        app:backgroundTint="?attr/colorPrimary" />
+
+                    <!-- 대체과목 리스트 보기 버튼 -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_view_replacement_courses"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="8dp"
+                        android:text="대체과목 리스트 보기"
+                        android:textSize="13sp"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        app:cornerRadius="10dp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 등록된 강의 목록 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="등록된 강의 목록"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        android:layout_marginBottom="12dp" />
+
+                    <!-- 전공/교양 세그먼트 버튼 -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="?attr/colorSurfaceVariant">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="4dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_major_group"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:text="전공"
+                                android:textSize="14sp"
+                                app:cornerRadius="10dp"
+                                app:backgroundTint="?attr/colorPrimary" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_general_group"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:text="교양"
+                                android:textSize="14sp"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                style="@style/Widget.Material3.Button.TextButton"
+                                app:cornerRadius="10dp"
+                                app:backgroundTint="@android:color/transparent" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- 전공 탭들 -->
+                    <HorizontalScrollView
+                        android:id="@+id/major_tabs_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="visible">
+
+                        <com.google.android.material.chip.ChipGroup
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:singleSelection="true"
+                            app:selectionRequired="true">
+
+                            <com.google.android.material.chip.Chip
+                                android:id="@+id/tab_major_required"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="전공필수"
+                                android:textSize="13sp"
+                                android:checked="true"
+                                style="@style/Widget.Material3.Chip.Filter" />
+
+                            <com.google.android.material.chip.Chip
+                                android:id="@+id/tab_major_elective"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="전공선택"
+                                android:textSize="13sp"
+                                style="@style/Widget.Material3.Chip.Filter" />
+
+                            <com.google.android.material.chip.Chip
+                                android:id="@+id/tab_major_advanced"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="전공심화"
+                                android:textSize="13sp"
+                                style="@style/Widget.Material3.Chip.Filter" />
+
+                        </com.google.android.material.chip.ChipGroup>
+
+                    </HorizontalScrollView>
+
+                    <!-- 교양 탭들 -->
+                    <HorizontalScrollView
+                        android:id="@+id/general_tabs_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="gone">
+
+                        <com.google.android.material.chip.ChipGroup
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:singleSelection="true"
+                            app:selectionRequired="true">
+
+                            <com.google.android.material.chip.Chip
+                                android:id="@+id/tab_general_required"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="교양필수"
+                                android:textSize="13sp"
+                                android:checked="true"
+                                style="@style/Widget.Material3.Chip.Filter" />
+
+                            <com.google.android.material.chip.Chip
+                                android:id="@+id/tab_general_elective"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="교양선택"
+                                android:textSize="13sp"
+                                style="@style/Widget.Material3.Chip.Filter" />
+
+                        </com.google.android.material.chip.ChipGroup>
+
+                    </HorizontalScrollView>
+
+                    <!-- 선택된 카테고리의 강의 목록 -->
                     <LinearLayout
                         android:id="@+id/layout_selected_category_courses"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:orientation="vertical"
+                        android:minHeight="120dp">
 
                         <TextView
+                            android:id="@+id/text_empty_courses"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="📖 강의를 추가해주세요"
-                            android:textSize="16sp"
-                            android:textColor="@android:color/darker_gray"
+                            android:text="강의를 추가해주세요"
+                            android:textSize="14sp"
+                            android:textColor="?attr/colorOnSurfaceVariant"
                             android:gravity="center"
-                            android:padding="40dp"
-                            android:id="@+id/text_empty_courses" />
+                            android:padding="40dp" />
 
                     </LinearLayout>
 
-                </ScrollView>
+                </LinearLayout>
 
-            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- 졸업요건 분석 버튼 -->
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_analyze_graduation"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="강의를 입력해주세요"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
-                android:textColor="@color/white"
-                android:background="@drawable/button_primary"
-                android:enabled="false" />
+                android:enabled="false"
+                app:cornerRadius="12dp"
+                app:backgroundTint="?attr/colorPrimary" />
 
         </LinearLayout>
 

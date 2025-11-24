@@ -94,17 +94,17 @@ public class CourseInputActivity extends BaseActivity {
     private Toolbar toolbar;
 
     // 그룹 전환 버튼들
-    private TextView btnMajorGroup;
-    private TextView btnGeneralGroup;
+    private com.google.android.material.button.MaterialButton btnMajorGroup;
+    private com.google.android.material.button.MaterialButton btnGeneralGroup;
     private View majorTabsContainer;
     private View generalTabsContainer;
 
-    // 탭 버튼들
-    private TextView tabMajorRequired;
-    private TextView tabMajorElective;
-    private TextView tabMajorAdvanced;
-    private TextView tabGeneralRequired;
-    private TextView tabGeneralElective;
+    // 탭 버튼들 (Chip)
+    private com.google.android.material.chip.Chip tabMajorRequired;
+    private com.google.android.material.chip.Chip tabMajorElective;
+    private com.google.android.material.chip.Chip tabMajorAdvanced;
+    private com.google.android.material.chip.Chip tabGeneralRequired;
+    private com.google.android.material.chip.Chip tabGeneralElective;
 
     // 현재 선택 상태
     private boolean isMajorGroupSelected = true;
@@ -363,16 +363,25 @@ public class CourseInputActivity extends BaseActivity {
         RadioGroup radioGroupCourseType = dialogView.findViewById(R.id.radio_group_course_type);
         RadioButton radioMajor = dialogView.findViewById(R.id.radio_major);
         RadioButton radioGeneral = dialogView.findViewById(R.id.radio_general);
+        RadioButton radioCustom = dialogView.findViewById(R.id.radio_custom);
         LinearLayout layoutMajorCourses = dialogView.findViewById(R.id.layout_major_courses);
         LinearLayout layoutGeneralManualInput = dialogView.findViewById(R.id.layout_general_manual_input);
         LinearLayout layoutManualInput = dialogView.findViewById(R.id.layout_manual_input);
+        LinearLayout layoutCustomInput = dialogView.findViewById(R.id.layout_custom_input);
+        LinearLayout layoutCustomCompetency = dialogView.findViewById(R.id.layout_custom_competency);
+        // 세부 분류 LinearLayout을 직접 찾음 (spinner_course_category의 부모)
+        LinearLayout layoutCategorySection = (LinearLayout) dialogView.findViewById(R.id.spinner_course_category).getParent();
         Spinner spinnerMajorCourses = dialogView.findViewById(R.id.spinner_major_courses);
         Spinner spinnerCourseCategory = dialogView.findViewById(R.id.spinner_course_category);
+        Spinner spinnerCustomCategory = dialogView.findViewById(R.id.spinner_custom_category);
+        Spinner spinnerCustomCompetency = dialogView.findViewById(R.id.spinner_custom_competency);
         EditText editGeneralCourseName = dialogView.findViewById(R.id.edit_general_course_name);
         EditText editGeneralCourseCredits = dialogView.findViewById(R.id.edit_general_course_credits);
         Spinner spinnerGeneralCompetency = dialogView.findViewById(R.id.spinner_general_competency);
         EditText editCourseName = dialogView.findViewById(R.id.edit_course_name);
         EditText editCourseCredits = dialogView.findViewById(R.id.edit_course_credits);
+        EditText editCustomCourseName = dialogView.findViewById(R.id.edit_custom_course_name);
+        EditText editCustomCourseCredits = dialogView.findViewById(R.id.edit_custom_course_credits);
         Button btnCancel = dialogView.findViewById(R.id.btn_cancel);
         Button btnAdd = dialogView.findViewById(R.id.btn_add);
 
@@ -392,48 +401,104 @@ public class CourseInputActivity extends BaseActivity {
         generalCompetencyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerGeneralCompetency.setAdapter(generalCompetencyAdapter);
 
+        // 직접 입력용 카테고리 어댑터 (모든 카테고리 포함)
+        CleanArrayAdapter<String> customCategoryAdapter =
+                new CleanArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        customCategoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerCustomCategory.setAdapter(customCategoryAdapter);
+        updateCustomCategorySpinner(customCategoryAdapter);
+
+        // 직접 입력용 역량 어댑터
+        CleanArrayAdapter<String> customCompetencyAdapter =
+                new CleanArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        customCompetencyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerCustomCompetency.setAdapter(customCompetencyAdapter);
+        updateCompetencySpinner(customCompetencyAdapter);
+
         // 저장된 다이얼로그 상태 복원
         restoreDialogState(
                 radioMajor, radioGeneral, categoryAdapter, generalCompetencyAdapter, majorCoursesAdapter,
                 layoutMajorCourses, layoutGeneralManualInput, layoutManualInput, spinnerCourseCategory, spinnerGeneralCompetency
         );
 
-        // 전공/교양 전환
+        // 세부 분류 영역 참조 (final 처리)
+        final LinearLayout finalLayoutCategorySection = layoutCategorySection;
+
+        // 직접입력용 카테고리 선택 시 역량 표시 여부 결정
+        spinnerCustomCategory.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                String selectedCategory = customCategoryAdapter.getItem(position);
+                if ("교양선택".equals(selectedCategory)) {
+                    layoutCustomCompetency.setVisibility(View.VISIBLE);
+                } else {
+                    layoutCustomCompetency.setVisibility(View.GONE);
+                }
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+
+        // 전공/교양/직접입력 전환
         radioGroupCourseType.setOnCheckedChangeListener((group, checkedId) -> {
             boolean isMajor = (checkedId == R.id.radio_major);
+            boolean isGeneral = (checkedId == R.id.radio_general);
+            boolean isCustom = (checkedId == R.id.radio_custom);
             lastSelectedIsMajor = isMajor; // 상태 저장
 
-            if (isMajor) {
+            if (isCustom) {
+                // 직접 입력 모드
+                layoutMajorCourses.setVisibility(View.GONE);
+                layoutGeneralManualInput.setVisibility(View.GONE);
+                layoutManualInput.setVisibility(View.GONE);
+                layoutCustomInput.setVisibility(View.VISIBLE);
+                if (finalLayoutCategorySection != null) {
+                    finalLayoutCategorySection.setVisibility(View.GONE);
+                }
+                // 입력 필드 초기화
+                editCustomCourseName.setText("");
+                editCustomCourseCredits.setText("");
+                if (customCategoryAdapter.getCount() > 0) spinnerCustomCategory.setSelection(0);
+            } else if (isMajor) {
                 layoutMajorCourses.setVisibility(View.VISIBLE);
                 layoutGeneralManualInput.setVisibility(View.GONE);
                 layoutManualInput.setVisibility(View.GONE);
+                layoutCustomInput.setVisibility(View.GONE);
+                if (finalLayoutCategorySection != null) {
+                    finalLayoutCategorySection.setVisibility(View.VISIBLE);
+                }
             } else {
                 // 교양 선택 시: 기본은 교양필수 방식(UI 동일)
                 layoutMajorCourses.setVisibility(View.VISIBLE);
                 layoutGeneralManualInput.setVisibility(View.GONE);
                 layoutManualInput.setVisibility(View.GONE);
+                layoutCustomInput.setVisibility(View.GONE);
+                if (finalLayoutCategorySection != null) {
+                    finalLayoutCategorySection.setVisibility(View.VISIBLE);
+                }
             }
 
-            updateCategorySpinner(categoryAdapter, isMajor);
-            clearCourseSpinner(majorCoursesAdapter);
+            if (!isCustom) {
+                updateCategorySpinner(categoryAdapter, isMajor);
+                clearCourseSpinner(majorCoursesAdapter);
 
-            if (categoryAdapter.getCount() > 0) spinnerCourseCategory.setSelection(0);
-            if (majorCoursesAdapter.getCount() > 0) spinnerMajorCourses.setSelection(0);
+                if (categoryAdapter.getCount() > 0) spinnerCourseCategory.setSelection(0);
+                if (majorCoursesAdapter.getCount() > 0) spinnerMajorCourses.setSelection(0);
 
-            if (!isMajor) {
-                editGeneralCourseName.setText("");
-                editGeneralCourseCredits.setText("");
-                if (generalCompetencyAdapter.getCount() > 0) spinnerGeneralCompetency.setSelection(0);
-            }
-            editCourseName.setText("");
-            editCourseCredits.setText("");
+                if (!isMajor) {
+                    editGeneralCourseName.setText("");
+                    editGeneralCourseCredits.setText("");
+                    if (generalCompetencyAdapter.getCount() > 0) spinnerGeneralCompetency.setSelection(0);
+                }
+                editCourseName.setText("");
+                editCourseCredits.setText("");
 
-            // 기본 카테고리 자동 로드(교양선택 제외) - 지연 제거
-            if (categoryAdapter.getCount() > 0) {
-                String selectedCategory = categoryAdapter.getItem(0);
-                Log.d(TAG, "라디오 전환 후 자동 로드: " + selectedCategory + " (전공? " + isMajor + ")");
-                if (!"교양선택".equals(selectedCategory)) {
-                    loadCoursesForCategory(selectedCategory, majorCoursesAdapter);
+                // 기본 카테고리 자동 로드(교양선택 제외) - 지연 제거
+                if (categoryAdapter.getCount() > 0) {
+                    String selectedCategory = categoryAdapter.getItem(0);
+                    Log.d(TAG, "라디오 전환 후 자동 로드: " + selectedCategory + " (전공? " + isMajor + ")");
+                    if (!"교양선택".equals(selectedCategory)) {
+                        loadCoursesForCategory(selectedCategory, majorCoursesAdapter);
+                    }
                 }
             }
         });
@@ -477,9 +542,18 @@ public class CourseInputActivity extends BaseActivity {
 
         // 추가
         btnAdd.setOnClickListener(v -> {
-            boolean isMajor = radioGroupCourseType.getCheckedRadioButtonId() == R.id.radio_major;
+            int checkedId = radioGroupCourseType.getCheckedRadioButtonId();
+            boolean isMajor = (checkedId == R.id.radio_major);
+            boolean isCustom = (checkedId == R.id.radio_custom);
 
-            if (isMajor) {
+            if (isCustom) {
+                // 직접 입력 모드
+                if (addCourseFromCustomInput(spinnerCustomCategory, editCustomCourseName, editCustomCourseCredits,
+                        spinnerCustomCompetency, customCategoryAdapter, customCompetencyAdapter, layoutCustomCompetency)) {
+                    resetLoadingState();
+                    dialog.dismiss();
+                }
+            } else if (isMajor) {
                 // 전공: 스피너 선택 우선, 없으면 수동
                 if (spinnerMajorCourses.getSelectedItemPosition() >= 0 && majorCoursesAdapter.getCount() > 0) {
                     if (addCourseFromDialog(spinnerCourseCategory, spinnerMajorCourses, categoryAdapter, majorCoursesAdapter)) {
@@ -583,6 +657,118 @@ public class CourseInputActivity extends BaseActivity {
         competencyAdapter.add("5역량");
         competencyAdapter.add("소양");
         competencyAdapter.notifyDataSetChanged();
+    }
+
+    /** 직접 입력용 모든 카테고리 스피너 구성 */
+    private void updateCustomCategorySpinner(CleanArrayAdapter<String> categoryAdapter) {
+        categoryAdapter.clear();
+        String departmentCommonCategory = DepartmentConfig.getDepartmentCommonCategoryName(selectedDepartment, selectedYear);
+
+        // 전공 카테고리
+        categoryAdapter.add("전공필수");
+        categoryAdapter.add("전공선택");
+        categoryAdapter.add(departmentCommonCategory); // 학부공통 또는 전공심화
+
+        // 교양 카테고리
+        categoryAdapter.add("교양필수");
+        categoryAdapter.add("교양선택");
+        categoryAdapter.add("소양");
+
+        // 기타 카테고리
+        if (DepartmentConfig.isOldCurriculum(selectedDepartment, selectedYear)) {
+            categoryAdapter.add("일반선택");
+        } else {
+            categoryAdapter.add("잔여학점");
+        }
+
+        categoryAdapter.notifyDataSetChanged();
+    }
+
+    /** 직접 입력용 역량 스피너 구성 */
+    private void updateCompetencySpinner(CleanArrayAdapter<String> competencyAdapter) {
+        competencyAdapter.clear();
+        competencyAdapter.add("없음");
+        competencyAdapter.add("1역량");
+        competencyAdapter.add("2역량");
+        competencyAdapter.add("3역량");
+        competencyAdapter.add("4역량");
+        competencyAdapter.add("5역량");
+        competencyAdapter.notifyDataSetChanged();
+    }
+
+    /** 직접 입력 모드에서 과목 추가 */
+    private boolean addCourseFromCustomInput(Spinner spinnerCategory, EditText editName, EditText editCredits,
+                                              Spinner spinnerCompetency, CleanArrayAdapter<String> categoryAdapter,
+                                              CleanArrayAdapter<String> competencyAdapter, LinearLayout layoutCompetency) {
+        // 카테고리 선택 확인
+        if (spinnerCategory.getSelectedItemPosition() < 0 || categoryAdapter.getCount() == 0) {
+            Toast.makeText(this, "분류를 선택해주세요", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        // 강의명 확인
+        String courseName = editName.getText().toString().trim();
+        if (courseName.isEmpty()) {
+            Toast.makeText(this, "강의명을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        // 학점 확인
+        String creditsStr = editCredits.getText().toString().trim();
+        if (creditsStr.isEmpty()) {
+            Toast.makeText(this, "학점을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        int credits;
+        try {
+            credits = Integer.parseInt(creditsStr);
+            if (credits <= 0 || credits > 10) {
+                Toast.makeText(this, "올바른 학점을 입력해주세요 (1-10)", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "올바른 학점을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        String category = categoryAdapter.getItem(spinnerCategory.getSelectedItemPosition());
+
+        // 중복 체크
+        for (Course c : courseList) {
+            if (c.getName().equals(courseName)) {
+                Toast.makeText(this, "이미 추가된 강의입니다", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+        }
+
+        // 역량 처리 (교양선택인 경우)
+        String competency = null;
+        if ("교양선택".equals(category) && layoutCompetency.getVisibility() == View.VISIBLE) {
+            if (spinnerCompetency.getSelectedItemPosition() >= 0 && competencyAdapter.getCount() > 0) {
+                String selectedCompetency = competencyAdapter.getItem(spinnerCompetency.getSelectedItemPosition());
+                if (!"없음".equals(selectedCompetency)) {
+                    competency = selectedCompetency;
+                    // 소양인 경우 카테고리 변경
+                    if ("소양".equals(competency)) {
+                        category = "소양";
+                    }
+                }
+            }
+        }
+
+        // 과목 추가
+        Course newCourse = new Course(category, courseName, credits, null, competency);
+        courseList.add(newCourse);
+
+        Log.d(TAG, "직접 입력 과목 추가: " + courseName + " (" + credits + "학점, " + category +
+                (competency != null ? ", " + competency : "") + ")");
+
+        Toast.makeText(this, courseName + " 추가됨", Toast.LENGTH_SHORT).show();
+        updateCourseDisplay();
+        updateAnalyzeButtonState();
+
+        return true;
     }
 
     /** 카테고리별 강의 로드(중복/과한 요청 방지 포함) */
@@ -845,34 +1031,25 @@ public class CourseInputActivity extends BaseActivity {
     // ─────────────────────────────────────────────────────────────────────────
     // 탭/그룹 UI
     // ─────────────────────────────────────────────────────────────────────────
-    private void switchTab(String tabName, TextView ignored) {
+    private void switchTab(String tabName, com.google.android.material.chip.Chip ignored) {
         currentSelectedTab = tabName;
         updateTabDisplay();
         updateCourseDisplay();
     }
 
     private void updateTabDisplay() {
-        resetTabButton(tabMajorRequired);
-        resetTabButton(tabMajorElective);
-        resetTabButton(tabMajorAdvanced);
-        resetTabButton(tabGeneralRequired);
-        resetTabButton(tabGeneralElective);
+        // Chip의 체크 상태로 활성화 관리
+        tabMajorRequired.setChecked(false);
+        tabMajorElective.setChecked(false);
+        tabMajorAdvanced.setChecked(false);
+        tabGeneralRequired.setChecked(false);
+        tabGeneralElective.setChecked(false);
 
-        TextView active = getTabButton(currentSelectedTab);
-        if (active != null) setActiveTabButton(active);
+        com.google.android.material.chip.Chip active = getTabChip(currentSelectedTab);
+        if (active != null) active.setChecked(true);
     }
 
-    private void resetTabButton(TextView btn) {
-        btn.setBackgroundResource(R.drawable.folder_tab_inactive);
-        btn.setTextColor(ContextCompat.getColor(this, android.R.color.black));
-    }
-
-    private void setActiveTabButton(TextView btn) {
-        btn.setBackgroundResource(R.drawable.folder_tab_active);
-        btn.setTextColor(ContextCompat.getColor(this, android.R.color.white));
-    }
-
-    private TextView getTabButton(String tabName) {
+    private com.google.android.material.chip.Chip getTabChip(String tabName) {
         switch (tabName) {
             case "전공필수": return tabMajorRequired;
             case "전공선택": return tabMajorElective;
@@ -888,13 +1065,16 @@ public class CourseInputActivity extends BaseActivity {
     private void switchToMajorGroup() {
         isMajorGroupSelected = true;
 
-        btnMajorGroup.setText("전공 ▼");
-        btnMajorGroup.setBackgroundResource(R.drawable.button_primary);
+        // MaterialButton 스타일 변경
+        btnMajorGroup.setText("전공");
+        btnMajorGroup.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(this, com.google.android.material.R.color.design_default_color_primary)));
         btnMajorGroup.setTextColor(ContextCompat.getColor(this, android.R.color.white));
 
-        btnGeneralGroup.setText("교양 ▷");
-        btnGeneralGroup.setBackgroundResource(R.drawable.spinner_background);
-        btnGeneralGroup.setTextColor(ContextCompat.getColor(this, android.R.color.black));
+        btnGeneralGroup.setText("교양");
+        btnGeneralGroup.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(this, android.R.color.transparent)));
+        btnGeneralGroup.setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
 
         majorTabsContainer.setVisibility(View.VISIBLE);
         generalTabsContainer.setVisibility(View.GONE);
@@ -906,13 +1086,16 @@ public class CourseInputActivity extends BaseActivity {
     private void switchToGeneralGroup() {
         isMajorGroupSelected = false;
 
-        btnGeneralGroup.setText("교양 ▼");
-        btnGeneralGroup.setBackgroundResource(R.drawable.button_primary);
+        // MaterialButton 스타일 변경
+        btnGeneralGroup.setText("교양");
+        btnGeneralGroup.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(this, com.google.android.material.R.color.design_default_color_primary)));
         btnGeneralGroup.setTextColor(ContextCompat.getColor(this, android.R.color.white));
 
-        btnMajorGroup.setText("전공 ▷");
-        btnMajorGroup.setBackgroundResource(R.drawable.spinner_background);
-        btnMajorGroup.setTextColor(ContextCompat.getColor(this, android.R.color.black));
+        btnMajorGroup.setText("전공");
+        btnMajorGroup.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(this, android.R.color.transparent)));
+        btnMajorGroup.setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
 
         majorTabsContainer.setVisibility(View.GONE);
         generalTabsContainer.setVisibility(View.VISIBLE);
@@ -958,27 +1141,33 @@ public class CourseInputActivity extends BaseActivity {
 
     /** 개별 강의 카드 뷰 생성 */
     private void createCourseItemView(Course course) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.HORIZONTAL);
-        card.setPadding(20, 16, 20, 16);
-        card.setBackground(ContextCompat.getDrawable(this, R.drawable.spinner_background));
-        card.setElevation(4);
-
+        // Material Card 스타일 적용
+        com.google.android.material.card.MaterialCardView card = new com.google.android.material.card.MaterialCardView(this);
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cardParams.setMargins(0, 0, 0, 12);
+        cardParams.setMargins(0, 0, 0, (int) (8 * getResources().getDisplayMetrics().density));
         card.setLayoutParams(cardParams);
+        card.setRadius((int) (12 * getResources().getDisplayMetrics().density));
+        card.setCardElevation(0);
+        card.setStrokeWidth((int) (1 * getResources().getDisplayMetrics().density));
+        card.setStrokeColor(android.graphics.Color.parseColor("#E0E0E0"));
+        card.setCardBackgroundColor(ContextCompat.getColor(this, android.R.color.white));
+
+        LinearLayout cardContent = new LinearLayout(this);
+        cardContent.setOrientation(LinearLayout.HORIZONTAL);
+        cardContent.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        cardContent.setPadding(padding, (int) (12 * getResources().getDisplayMetrics().density), padding, (int) (12 * getResources().getDisplayMetrics().density));
 
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
-        info.setPadding(0, 2, 0, 2);
         LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         info.setLayoutParams(infoParams);
 
         TextView name = new TextView(this);
         name.setText(course.getName());
-        name.setTextSize(16);
+        name.setTextSize(15);
         name.setTextColor(ContextCompat.getColor(this, android.R.color.black));
         name.setTypeface(null, android.graphics.Typeface.BOLD);
 
@@ -986,36 +1175,32 @@ public class CourseInputActivity extends BaseActivity {
         credits.setText(String.format("%d학점", course.getCredits()));
         credits.setTextSize(13);
         credits.setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
+        credits.setPadding(0, (int) (2 * getResources().getDisplayMetrics().density), 0, 0);
 
         info.addView(name);
         info.addView(credits);
 
-        Button delete = new Button(this);
-        delete.setText("✕");
-        delete.setTextSize(16);
-        delete.setTypeface(null, android.graphics.Typeface.BOLD);
-        delete.setTextColor(ContextCompat.getColor(this, android.R.color.white));
-
-        LinearLayout.LayoutParams delParams = new LinearLayout.LayoutParams(80, 80);
-        delParams.setMargins(12, 0, 0, 0);
-        delParams.gravity = android.view.Gravity.CENTER_VERTICAL;
+        // Material IconButton 스타일 삭제 버튼
+        android.widget.ImageButton delete = new android.widget.ImageButton(this);
+        int btnSize = (int) (36 * getResources().getDisplayMetrics().density);
+        LinearLayout.LayoutParams delParams = new LinearLayout.LayoutParams(btnSize, btnSize);
+        delParams.setMargins((int) (8 * getResources().getDisplayMetrics().density), 0, 0, 0);
         delete.setLayoutParams(delParams);
-
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(ContextCompat.getColor(this, android.R.color.holo_red_light));
-        bg.setStroke(2, ContextCompat.getColor(this, android.R.color.holo_red_dark));
-        delete.setBackground(bg);
+        delete.setImageResource(android.R.drawable.ic_delete);
+        delete.setColorFilter(ContextCompat.getColor(this, android.R.color.holo_red_light));
+        delete.setBackgroundResource(android.R.color.transparent);
+        delete.setContentDescription("삭제");
 
         delete.setOnClickListener(v -> {
             courseList.remove(course);
             updateCourseDisplay();
             updateAnalyzeButtonState();
-            Toast.makeText(this, course.getName() + " 강의가 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, course.getName() + " 삭제됨", Toast.LENGTH_SHORT).show();
         });
 
-        card.addView(info);
-        card.addView(delete);
+        cardContent.addView(info);
+        cardContent.addView(delete);
+        card.addView(cardContent);
         layoutSelectedCategoryCourses.addView(card);
     }
 
@@ -1271,7 +1456,7 @@ public class CourseInputActivity extends BaseActivity {
             switchToGeneralGroup();
         }
         // 저장된 탭으로 재전환(그룹 전환에서 덮어쓴 기본 탭을 다시 설정)
-        switchTab(currentSelectedTab, getTabButton(currentSelectedTab));
+        switchTab(currentSelectedTab, getTabChip(currentSelectedTab));
 
         // 목록/버튼 상태 갱신
         updateCourseDisplay();

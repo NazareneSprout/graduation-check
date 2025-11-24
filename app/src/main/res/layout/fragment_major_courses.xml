@@ -3,7 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/md_theme_light_background">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -16,14 +17,16 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Firestore에서 불러오기 버튼 -->
+            <!-- 기존 문서에서 불러오기 카드 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:cardBackgroundColor="#FFF3E0">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#FFCC80"
+                app:cardBackgroundColor="#FFF8E1">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -31,24 +34,38 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="📂 기존 전공 문서에서 불러오기"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
-                        android:textColor="#E65100"
-                        android:layout_marginBottom="8dp"/>
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="8dp">
+
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="20dp"
+                            android:background="#FF6B35" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:text="기존 전공 문서에서 불러오기"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="#E65100" />
+
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tv_current_document"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="현재 문서: 선택되지 않음"
-                        android:textSize="14sp"
-                        android:textColor="#5D4037"
+                        android:textSize="13sp"
+                        android:textColor="#BF360C"
                         android:textStyle="bold"
-                        android:layout_marginBottom="8dp"/>
+                        android:layout_marginBottom="4dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -56,16 +73,16 @@
                         android:text="다른 학번의 전공 과목을 불러와서 일부만 수정할 수 있습니다"
                         android:textSize="12sp"
                         android:textColor="#8D6E63"
-                        android:layout_marginBottom="12dp"/>
+                        android:layout_marginBottom="12dp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_load_from_firestore"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_height="40dp"
                         android:text="다른 문서 선택"
-                        android:textSize="14sp"
-                        app:icon="@android:drawable/ic_menu_search"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        android:textSize="13sp"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        app:cornerRadius="10dp" />
 
                 </LinearLayout>
 
@@ -75,9 +92,12 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -92,25 +112,28 @@
                         android:gravity="center_vertical"
                         android:layout_marginBottom="12dp">
 
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="20dp"
+                            android:background="#D32F2F" />
+
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="🎯 전공필수"
+                            android:layout_marginStart="12dp"
+                            android:text="전공필수"
                             android:textSize="16sp"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary"/>
+                            android:textColor="?attr/colorOnSurface" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_add_major_required"
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
-                            android:text="+ 과목 추가"
+                            android:text="+ 추가"
                             android:textSize="12sp"
-                            android:minWidth="0dp"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.Material3.Button.TonalButton"
                             app:cornerRadius="8dp" />
 
                     </LinearLayout>
@@ -120,14 +143,15 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:nestedScrollingEnabled="false"
-                        android:minHeight="100dp" />
+                        android:minHeight="60dp" />
 
                     <TextView
                         android:id="@+id/tv_empty_major_required"
                         android:layout_width="match_parent"
-                        android:layout_height="100dp"
-                        android:text="과목이 없습니다\n위의 버튼으로 추가하거나\nFirestore에서 불러오세요"
+                        android:layout_height="80dp"
+                        android:text="과목이 없습니다"
                         android:gravity="center"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:visibility="visible" />
 
@@ -139,9 +163,12 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -156,25 +183,28 @@
                         android:gravity="center_vertical"
                         android:layout_marginBottom="12dp">
 
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="20dp"
+                            android:background="#1976D2" />
+
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="📝 전공선택"
+                            android:layout_marginStart="12dp"
+                            android:text="전공선택"
                             android:textSize="16sp"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary"/>
+                            android:textColor="?attr/colorOnSurface" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_add_major_elective"
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
-                            android:text="+ 과목 추가"
+                            android:text="+ 추가"
                             android:textSize="12sp"
-                            android:minWidth="0dp"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.Material3.Button.TonalButton"
                             app:cornerRadius="8dp" />
 
                     </LinearLayout>
@@ -184,14 +214,15 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:nestedScrollingEnabled="false"
-                        android:minHeight="100dp" />
+                        android:minHeight="60dp" />
 
                     <TextView
                         android:id="@+id/tv_empty_major_elective"
                         android:layout_width="match_parent"
-                        android:layout_height="100dp"
-                        android:text="과목이 없습니다\n위의 버튼으로 추가하거나\nFirestore에서 불러오세요"
+                        android:layout_height="80dp"
+                        android:text="과목이 없습니다"
                         android:gravity="center"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:visibility="visible" />
 
@@ -204,8 +235,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -220,26 +254,29 @@
                         android:gravity="center_vertical"
                         android:layout_marginBottom="12dp">
 
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="20dp"
+                            android:background="#7B1FA2" />
+
                         <TextView
                             android:id="@+id/tv_dept_common_title"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="🔗 학부공통"
+                            android:layout_marginStart="12dp"
+                            android:text="학부공통"
                             android:textSize="16sp"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary"/>
+                            android:textColor="?attr/colorOnSurface" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_add_dept_common"
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
-                            android:text="+ 과목 추가"
+                            android:text="+ 추가"
                             android:textSize="12sp"
-                            android:minWidth="0dp"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.Material3.Button.TonalButton"
                             app:cornerRadius="8dp" />
 
                     </LinearLayout>
@@ -249,14 +286,15 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:nestedScrollingEnabled="false"
-                        android:minHeight="100dp" />
+                        android:minHeight="60dp" />
 
                     <TextView
                         android:id="@+id/tv_empty_dept_common"
                         android:layout_width="match_parent"
-                        android:layout_height="100dp"
-                        android:text="과목이 없습니다\n위의 버튼으로 추가하거나\nFirestore에서 불러오세요"
+                        android:layout_height="80dp"
+                        android:text="과목이 없습니다"
                         android:gravity="center"
+                        android:textSize="14sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:visibility="visible" />
 

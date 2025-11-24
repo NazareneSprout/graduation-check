@@ -4,8 +4,10 @@ import android.util.Log;
 import sprout.app.sakmvp1.CourseInputActivity;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 졸업요건 카테고리 (전공필수, 교양필수 등)
@@ -120,6 +122,23 @@ public class RequirementCategory {
                 } else {
                     Log.d(TAG, "  - Missing (optional): " + req.getName());
                 }
+            }
+        }
+
+        // 추가: 카테고리가 일치하지만 등록된 과목 목록에 없는 직접 입력 과목도 학점 인정
+        Set<String> registeredCourseNames = new HashSet<>();
+        for (CourseRequirement req : courses) {
+            registeredCourseNames.add(req.getName());
+        }
+
+        for (CourseInputActivity.Course course : takenCourses) {
+            // 카테고리가 일치하고, 등록된 과목이 아닌 경우 (직접 입력 과목)
+            if (name.equals(course.getCategory()) && !registeredCourseNames.contains(course.getName())) {
+                earnedCredits += course.getCredits();
+                earnedCourses++;
+                result.addCompletedCourse(course.getName());
+                result.addCourseCredit(course.getName(), course.getCredits());
+                Log.d(TAG, "  ✓ Custom input course: " + course.getName() + " (" + course.getCredits() + "학점)");
             }
         }
 

@@ -269,7 +269,7 @@ public class RecommendationResultActivity extends BaseActivity {
 
         // 각 카테고리별로 미이수 과목 추출
         for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
-            String categoryName = categoryResult.getCategoryName();
+            String categoryName = normalizeCategoryName(categoryResult.getCategoryName());
             int earnedCredits = categoryResult.getEarnedCredits();
             int requiredCredits = categoryResult.getRequiredCredits();
             int remainingCredits = Math.max(0, requiredCredits - earnedCredits);
@@ -598,11 +598,11 @@ public class RecommendationResultActivity extends BaseActivity {
             Log.d(TAG, "    소양 표시 여부: " + shouldShowSoyang + " (현재 학기: " + currentSemester + ")");
 
             for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
-                String categoryName = categoryResult.getCategoryName();
+                String categoryName = normalizeCategoryName(categoryResult.getCategoryName());
 
-                // 과목이 없는 카테고리: 교양선택, 소양, 잔여학점, 일반선택, 자율선택
+                // 과목이 없는 카테고리: 교양선택, 소양, 잔여학점, 일반선택
                 if ("교양선택".equals(categoryName) || "소양".equals(categoryName) ||
-                    "잔여학점".equals(categoryName) || "일반선택".equals(categoryName) || "자율선택".equals(categoryName)) {
+                    "잔여학점".equals(categoryName) || "일반선택".equals(categoryName)) {
 
                     // 소양인 경우 2학년 1학기 미만이면 스킵
                     if ("소양".equals(categoryName) && !shouldShowSoyang) {
@@ -634,13 +634,33 @@ public class RecommendationResultActivity extends BaseActivity {
         Log.d(TAG, ">>> 카테고리 표시 시작");
         for (String category : categoryOrder) {
             List<RecommendedCourse> categoryCourses = categoryGroups.get(category);
-            // 과목 데이터가 없는 카테고리는 빈 리스트여도 표시 (교양선택, 소양, 잔여학점 등)
+
+            // 해당 카테고리의 부족 학점 확인 (0이면 표시하지 않음)
+            int remainingCredits = 0;
+            if (analysisResult != null) {
+                for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
+                    String normalizedName = normalizeCategoryName(categoryResult.getCategoryName());
+                    if (category.equals(normalizedName)) {
+                        remainingCredits = Math.max(0,
+                            categoryResult.getRequiredCredits() - categoryResult.getEarnedCredits());
+                        break;
+                    }
+                }
+            }
+
+            // 부족 학점이 0이면 스킵
+            if (remainingCredits == 0) {
+                Log.d(TAG, "    " + category + ": 부족 학점 0 - 스킵");
+                continue;
+            }
+
+            // 과목 데이터가 없는 카테고리는 빈 리스트여도 표시 (교양선택, 소양, 잔여학점, 일반선택)
             boolean isEmptyButShowable = ("교양선택".equals(category) || "소양".equals(category) ||
-                                         "잔여학점".equals(category) || "일반선택".equals(category) || "자율선택".equals(category))
+                                         "잔여학점".equals(category) || "일반선택".equals(category))
                                         && categoryCourses != null;
 
             if (categoryCourses != null) {
-                Log.d(TAG, "    " + category + ": 과목 수=" + categoryCourses.size() + ", isEmptyButShowable=" + isEmptyButShowable);
+                Log.d(TAG, "    " + category + ": 과목 수=" + categoryCourses.size() + ", isEmptyButShowable=" + isEmptyButShowable + ", 부족=" + remainingCredits);
             }
 
             if (categoryCourses != null && (!categoryCourses.isEmpty() || isEmptyButShowable)) {
@@ -668,7 +688,7 @@ public class RecommendationResultActivity extends BaseActivity {
      * 우선순위 모드에 따른 카테고리 표시 순서 반환
      */
     private List<String> getCategoryOrderByPriorityMode(Map<String, List<RecommendedCourse>> categoryGroups) {
-        // 기본 카테고리 리스트
+        // 기본 카테고리 리스트 (자율선택은 학번에 따라 일반선택/잔여학점으로 정규화되므로 제외)
         List<String> allCategories = new ArrayList<>();
         allCategories.add("교양필수");
         allCategories.add("전공필수");
@@ -677,7 +697,6 @@ public class RecommendationResultActivity extends BaseActivity {
         allCategories.add("전공선택");
         allCategories.add("교양선택");
         allCategories.add("소양");
-        allCategories.add("자율선택");
         allCategories.add("일반선택");
         allCategories.add("잔여학점");
 
@@ -704,7 +723,7 @@ public class RecommendationResultActivity extends BaseActivity {
             final Map<String, Integer> categoryRemainingCredits = new HashMap<>();
             if (analysisResult != null) {
                 for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
-                    String categoryName = categoryResult.getCategoryName();
+                    String categoryName = normalizeCategoryName(categoryResult.getCategoryName());
                     int remainingCredits = Math.max(0,
                         categoryResult.getRequiredCredits() - categoryResult.getEarnedCredits());
                     categoryRemainingCredits.put(categoryName, remainingCredits);
@@ -735,7 +754,7 @@ public class RecommendationResultActivity extends BaseActivity {
         final Map<String, Integer> categoryRemainingCredits = new HashMap<>();
         if (analysisResult != null) {
             for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
-                String categoryName = categoryResult.getCategoryName();
+                String categoryName = normalizeCategoryName(categoryResult.getCategoryName());
                 int remainingCredits = Math.max(0,
                     categoryResult.getRequiredCredits() - categoryResult.getEarnedCredits());
                 categoryRemainingCredits.put(categoryName, remainingCredits);
@@ -778,7 +797,8 @@ public class RecommendationResultActivity extends BaseActivity {
         if (analysisResult != null) {
             // 분석 결과에서 부족한 학점 가져오기
             for (CategoryAnalysisResult categoryResult : analysisResult.getAllCategoryResults()) {
-                if (category.equals(categoryResult.getCategoryName())) {
+                String normalizedCategoryName = normalizeCategoryName(categoryResult.getCategoryName());
+                if (category.equals(normalizedCategoryName)) {
                     int earnedCredits = categoryResult.getEarnedCredits();
                     int requiredCredits = categoryResult.getRequiredCredits();
                     int remainingCredits = Math.max(0, requiredCredits - earnedCredits);
@@ -795,7 +815,8 @@ public class RecommendationResultActivity extends BaseActivity {
                                 }
                             }
                         }
-                        tvCourseCount.setText(" · 부족 " + remainingCredits + "학점 · " + completedCompetencies + "/5 역량");
+                        // 5개 역량 중 3종류 이상 이수해야 하므로 N/3으로 표시
+                        tvCourseCount.setText(" · 부족 " + remainingCredits + "학점 · " + completedCompetencies + "/3 역량");
                     } else {
                         // 다른 모든 카테고리: 과목 수와 부족 학점 표시
                         if (courses.isEmpty()) {
@@ -845,7 +866,6 @@ public class RecommendationResultActivity extends BaseActivity {
                 return "🌟 5개의 역량 중 최소 3종류 이상의 역량을 이수해야 합니다";
             case "소양":
                 return "⚠️ 3학점이 요구되므로 2학점짜리 과목을 주의하세요";
-            case "자율선택":
             case "일반선택":
             case "잔여학점":
                 return "📝 자유롭게 수강할 수 있는 학점입니다";
@@ -873,7 +893,6 @@ public class RecommendationResultActivity extends BaseActivity {
                 return Color.parseColor("#FFA726"); // 밝은 주황색
             case "소양":
                 return Color.parseColor("#26C6DA"); // 청록색
-            case "자율선택":
             case "일반선택":
             case "잔여학점":
                 return Color.parseColor("#9E9E9E"); // 회색
@@ -889,6 +908,18 @@ public class RecommendationResultActivity extends BaseActivity {
         // 색상의 밝기 계산
         double darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
         return darkness < 0.5 ? Color.BLACK : Color.WHITE;
+    }
+
+    /**
+     * 카테고리 이름 정규화 (자율선택 -> 일반선택/잔여학점)
+     * Firestore에는 "자율선택"으로 저장되어 있지만, 학번에 따라 다른 이름으로 표시해야 함
+     */
+    private String normalizeCategoryName(String categoryName) {
+        if ("자율선택".equals(categoryName)) {
+            // 학번에 따라 일반선택 또는 잔여학점으로 변환
+            return DepartmentConfig.getOverflowDestination(userDepartment, userYear);
+        }
+        return categoryName;
     }
 
     private void showError(String message) {
