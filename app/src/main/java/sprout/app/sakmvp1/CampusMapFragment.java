@@ -21,6 +21,7 @@ import androidx.fragment.app.Fragment;
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
+import org.osmdroid.util.BoundingBox; // BoundingBox 임포트
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.compass.CompassOverlay;
@@ -31,8 +32,7 @@ import java.util.ArrayList;
 
 /**
  * 캠퍼스 지도 Fragment
- * (최종 수정) 사용자가 제공한 정확한 좌표로 업데이트됨
- * (참고) '믿음관', '창학관' 좌표는 누락되어 핀 표시에서 제외됨
+ * (최종 수정) 지도 스크롤 가능 범위를 사용자가 지정한 정확한 캠퍼스 영역으로 제한함
  */
 public class CampusMapFragment extends Fragment {
 
@@ -45,23 +45,35 @@ public class CampusMapFragment extends Fragment {
     private MyLocationNewOverlay myLocationOverlay;
 
     // ---------------------------------------------------
-    // [수정됨] 사용자가 제공한 정확한 건물 좌표
+    // 건물 좌표
     // ---------------------------------------------------
     // (임의) 지도의 초기 중심을 '사랑관'으로 설정
     private static final GeoPoint NAZARETH_UNIVERSITY_CENTER = new GeoPoint(36.795471, 127.118576);
 
     // --- 사용자가 제공한 좌표 ---
     private static final GeoPoint POS_JALIP_TONGHAP = new GeoPoint(36.796837, 127.118747); // 자립통합학습 생활관
-    // private static final GeoPoint POS_OWEN = new GeoPoint(36.796218, 127.118565); // 오온수 기념관 (시설 없음)
     private static final GeoPoint POS_SARANG = new GeoPoint(36.795471, 127.118576); // 사랑관
     private static final GeoPoint POS_NAZARETH = new GeoPoint(36.794681, 127.118790); // 나사렛관
-    // private static final GeoPoint POS_BRIDGE = new GeoPoint(36.794148, 127.119327); // 브리지관 (시설 없음)
-    // private static final GeoPoint POS_CHANGHAK_2 = new GeoPoint(36.793899, 127.118554); // 제2창학관 (시설 없음)
     private static final GeoPoint POS_GUKJE = new GeoPoint(36.795230, 127.119766); // 국제관
 
     // --- 이미지 기반 계산 좌표 ---
-    // (English Cafe: "나사렛관에서 국제관으로 향하는 계단 우측" -> 두 건물의 중간)
     private static final GeoPoint POS_ENG_CAFE = new GeoPoint(36.794955, 127.119278);
+
+    // ---------------------------------------------------
+    // [업데이트됨] 지도의 스크롤 가능 영역 경계 설정 (사용자 요청 반영)
+    // ---------------------------------------------------
+    private static final double NAZARETH_NORTH = 36.799208; // 북위 (최대 위도)
+    private static final double NAZARETH_SOUTH = 36.793667;  // 남위 (최소 위도)
+    private static final double NAZARETH_EAST = 127.122706;   // 동경 (최대 경도)
+    private static final double NAZARETH_WEST = 127.117020;    // 서경 (최소 경도)
+
+    // BoundingBox 객체 생성: BoundingBox(북위, 동경, 남위, 서경)
+    private final BoundingBox CAMPUS_BOUNDING_BOX = new BoundingBox(
+            NAZARETH_NORTH,
+            NAZARETH_EAST,
+            NAZARETH_SOUTH,
+            NAZARETH_WEST
+    );
 
 
     @Override
@@ -88,27 +100,33 @@ public class CampusMapFragment extends Fragment {
         mapView.setMultiTouchControls(true);
         mapView.setBuiltInZoomControls(true);
 
-        // 2. 지도 컨트롤러 설정 및 초기 위치 이동 (사랑관 기준)
-        mapView.getController().setZoom(18.0); // 줌 레벨을 조금 더 당깁니다.
+        // 최소/최대 줌 레벨 제한
+        mapView.setMinZoomLevel(15.0);
+        mapView.setMaxZoomLevel(20.0);
+
+        // 2. 지도 컨트롤러 설정 및 초기 위치 이동
+        mapView.getController().setZoom(18.0);
         mapView.getController().setCenter(NAZARETH_UNIVERSITY_CENTER);
 
-        // 3. 나침반 오버레이 추가
+        // 3. [업데이트] 스크롤 가능 영역 제한 (BoundingBox 사용)
+        // 지도가 이 경계 밖으로 움직이지 않습니다.
+        mapView.setScrollableAreaLimitDouble(CAMPUS_BOUNDING_BOX);
+
+        // 4. 나침반 오버레이 추가
         CompassOverlay compassOverlay = new CompassOverlay(requireContext(), mapView);
         compassOverlay.enableCompass();
         mapView.getOverlays().add(compassOverlay);
 
-        // 4. 권한 확인 및 현재 위치 오버레이 추가
+        // 5. 권한 확인 및 현재 위치 오버레이 추가
         checkAndRequestPermissions();
 
-        // 5. 라디오 버튼 리스너 설정
+        // 6. 라디오 버튼 리스너 설정
         radioGroupFacilities = view.findViewById(R.id.radio_group_facilities);
         setupRadioButtonListener();
-
-        // (수정) 핀 클릭 시 이동하는 기능은 삭제 (이전 대화에서 삭제함)
     }
 
     /**
-     * 라디오 버튼 리스너 설정 (수정된 좌표 기준)
+     * 라디오 버튼 리스너 설정
      */
     private void setupRadioButtonListener() {
         radioGroupFacilities.setOnCheckedChangeListener((group, checkedId) -> {
@@ -117,7 +135,6 @@ public class CampusMapFragment extends Fragment {
 
             if (checkedId == R.id.rb_copier) {
                 // 복사기
-                // [!] '믿음관'과 '창학관' 좌표가 없어서 해당 핀은 제외되었습니다.
                 addMarker(POS_JALIP_TONGHAP, "복사기 (자립통합생활관 1층)");
                 addMarker(POS_NAZARETH, "복사기 (나사렛관 3층)");
 
@@ -131,7 +148,6 @@ public class CampusMapFragment extends Fragment {
 
             } else if (checkedId == R.id.rb_atm) {
                 // ATM기기
-                // [!] '창학관' 좌표가 없어서 해당 핀은 제외되었습니다.
                 addMarker(POS_JALIP_TONGHAP, "ATM (자립통합생활관 1층)");
                 addMarker(POS_NAZARETH, "ATM (나사렛관 1층)");
 
@@ -144,8 +160,6 @@ public class CampusMapFragment extends Fragment {
                 // English Cafe
                 addMarker(POS_ENG_CAFE, "English Cafe (나사렛관-국제관 사이)");
             }
-
-            // 'rb_none'이 선택되면 아무것도 호출되지 않아 마커가 모두 지워진 상태가 됨
         });
     }
 
@@ -166,9 +180,6 @@ public class CampusMapFragment extends Fragment {
         currentMarkers.add(marker);
 
         mapView.invalidate(); // 지도 새로고침
-
-        // (수정) 핀 클릭 시 이동하는 기능은 삭제 (이전 대화에서 삭제함)
-        // mapView.getController().animateTo(position);
     }
 
     /**
@@ -212,10 +223,7 @@ public class CampusMapFragment extends Fragment {
         if (mapView == null) return;
 
         myLocationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(requireContext()), mapView);
-        myLocationOverlay.enableMyLocation(); // 1. 내 위치에 파란 점 '표시' (이건 둡니다)
-
-        // ⬇️ 2. 지도가 내 위치를 '따라가도록' 설정 (이 줄을 삭제하거나 주석 처리하세요!)
-        // myLocationOverlay.enableFollowLocation();
+        myLocationOverlay.enableMyLocation(); // 내 위치에 파란 점 표시
 
         mapView.getOverlays().add(myLocationOverlay);
         mapView.invalidate();
