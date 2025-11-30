@@ -4,7 +4,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -126,30 +125,55 @@ public class ChecklistFragment extends Fragment {
         String userId = mAuth.getCurrentUser().getUid();
         List<ChecklistItem> items = new ArrayList<>();
 
-        // 선택된 날짜의 요일 가져오기
+        // 선택된 날짜의 요일 가져오기 (0=월, 1=화, 2=수, 3=목, 4=금, 5=토, 6=일)
         int dayOfWeek = selectedDate.get(Calendar.DAY_OF_WEEK);
-        String dayName = getDayName(dayOfWeek);
+        int targetDayIndex = getDayIndex(dayOfWeek);
+
+        android.util.Log.d("ChecklistFragment", "Loading data for dayIndex: " + targetDayIndex + " (" + getDayName(dayOfWeek) + ")");
 
         // 1. 시간표에서 해당 요일의 수업 가져오기
         db.collection("users").document(userId)
                 .collection("timetables")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
+                    android.util.Log.d("ChecklistFragment", "Found " + queryDocumentSnapshots.size() + " timetables");
+
                     for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
                         if (doc.contains("schedules")) {
                             List<Map<String, Object>> schedules = (List<Map<String, Object>>) doc.get("schedules");
                             if (schedules != null) {
+                                android.util.Log.d("ChecklistFragment", "Found " + schedules.size() + " schedules in timetable");
+
                                 for (Map<String, Object> schedule : schedules) {
-                                    String day = (String) schedule.get("day");
-                                    if (dayName.equals(day)) {
+                                    // dayIndex는 숫자 (0=월, 1=화...)
+                                    Long dayIndexLong = (Long) schedule.get("dayIndex");
+                                    int scheduleDayIndex = dayIndexLong != null ? dayIndexLong.intValue() : -1;
+
+                                    android.util.Log.d("ChecklistFragment", "Schedule dayIndex: " + scheduleDayIndex + ", target: " + targetDayIndex);
+
+                                    if (scheduleDayIndex == targetDayIndex) {
                                         ChecklistItem item = new ChecklistItem();
                                         item.type = ChecklistItem.TYPE_CLASS;
-                                        item.title = (String) schedule.get("courseName");
-                                        item.startTime = (String) schedule.get("startTime");
-                                        item.endTime = (String) schedule.get("endTime");
+                                        item.title = (String) schedule.get("subjectName");
+
+                                        // 시간 변환 (숫자 -> 문자열)
+                                        Long startHour = (Long) schedule.get("startHour");
+                                        Long startMinute = (Long) schedule.get("startMinute");
+                                        Long endHour = (Long) schedule.get("endHour");
+                                        Long endMinute = (Long) schedule.get("endMinute");
+
+                                        if (startHour != null && startMinute != null) {
+                                            item.startTime = String.format(Locale.getDefault(), "%02d:%02d", startHour.intValue(), startMinute.intValue());
+                                        }
+                                        if (endHour != null && endMinute != null) {
+                                            item.endTime = String.format(Locale.getDefault(), "%02d:%02d", endHour.intValue(), endMinute.intValue());
+                                        }
+
                                         item.description = (String) schedule.get("location");
                                         item.isChecked = false;
                                         items.add(item);
+
+                                        android.util.Log.d("ChecklistFragment", "Added class: " + item.title);
                                     }
                                 }
                             }
@@ -160,9 +184,24 @@ public class ChecklistFragment extends Fragment {
                     loadCustomTasks(items);
                 })
                 .addOnFailureListener(e -> {
+                    android.util.Log.e("ChecklistFragment", "Failed to load timetables", e);
                     Toast.makeText(requireContext(), "데이터 로드 실패", Toast.LENGTH_SHORT).show();
                     showEmptyState(true);
                 });
+    }
+
+    // Calendar.DAY_OF_WEEK를 dayIndex(0=월, 1=화...)로 변환
+    private int getDayIndex(int calendarDayOfWeek) {
+        switch (calendarDayOfWeek) {
+            case Calendar.MONDAY: return 0;
+            case Calendar.TUESDAY: return 1;
+            case Calendar.WEDNESDAY: return 2;
+            case Calendar.THURSDAY: return 3;
+            case Calendar.FRIDAY: return 4;
+            case Calendar.SATURDAY: return 5;
+            case Calendar.SUNDAY: return 6;
+            default: return -1;
+        }
     }
 
     private void loadCustomTasks(List<ChecklistItem> items) {
@@ -458,28 +497,37 @@ public class ChecklistFragment extends Fragment {
             }
 
             // 체크박스 설정 (그룹 일정과 시간표 수업은 체크 불가)
+            // 중요: 리스너를 먼저 제거한 후 setChecked를 호출해야 함 (RecyclerView 재활용 문제 방지)
+            holder.checkbox.setOnCheckedChangeListener(null);
+
             if (item.type == ChecklistItem.TYPE_TASK) {
                 holder.checkbox.setEnabled(true);
                 holder.checkbox.setChecked(item.isChecked);
                 holder.checkbox.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                    item.isChecked = isChecked;
-                    if (item.id != null) {
-                        updateTaskCheckStatus(item.id, isChecked);
+                    // 사용자 클릭으로 인한 변경만 처리 (프로그래밍 방식 변경은 무시)
+                    if (buttonView.isPressed()) {
+                        item.isChecked = isChecked;
+                        if (item.id != null) {
+                            updateTaskCheckStatus(item.id, isChecked);
+                        }
                     }
                 });
             } else {
                 holder.checkbox.setEnabled(false);
                 holder.checkbox.setChecked(false);
-                holder.checkbox.setOnCheckedChangeListener(null);
             }
 
-            // 타입별 아이콘
+            // 타입별 라벨 텍스트 설정
             if (item.type == ChecklistItem.TYPE_CLASS) {
-                holder.ivTypeIcon.setImageResource(R.drawable.ic_calendar);
+                holder.tvTypeLabel.setText("수업");
+                holder.tvTypeLabel.getBackground().setTint(0xFF2196F3);  // 파란색
             } else if (item.type == ChecklistItem.TYPE_GROUP_EVENT) {
-                holder.ivTypeIcon.setImageResource(android.R.drawable.ic_menu_myplaces);
+                // 그룹 일정은 그룹명 표시
+                holder.tvTypeLabel.setText(item.groupName != null ? item.groupName : "그룹");
+                holder.tvTypeLabel.getBackground().setTint(0xFF4CAF50);  // 초록색
             } else {
-                holder.ivTypeIcon.setImageResource(R.drawable.ic_recommend);
+                holder.tvTypeLabel.setText("개인");
+                holder.tvTypeLabel.getBackground().setTint(0xFF6200EE);  // 보라색
             }
         }
 
@@ -493,7 +541,7 @@ public class ChecklistFragment extends Fragment {
             TextView tvTime;
             TextView tvTitle;
             TextView tvDescription;
-            ImageView ivTypeIcon;
+            TextView tvTypeLabel;
 
             ViewHolder(@NonNull View itemView) {
                 super(itemView);
@@ -501,7 +549,7 @@ public class ChecklistFragment extends Fragment {
                 tvTime = itemView.findViewById(R.id.tv_time);
                 tvTitle = itemView.findViewById(R.id.tv_title);
                 tvDescription = itemView.findViewById(R.id.tv_description);
-                ivTypeIcon = itemView.findViewById(R.id.iv_type_icon);
+                tvTypeLabel = itemView.findViewById(R.id.tv_type_label);
             }
         }
     }

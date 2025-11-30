@@ -199,6 +199,10 @@ public class GraduationRequirementEditActivity extends BaseActivity {
             // 참조 문서가 없으면 졸업요건 문서 자체의 학점 정보만 사용
             graduationRules = convertV1ToGraduationRules(gradReqDoc);
             graduationRules.setSourceDocumentName(documentId);
+
+            // 대체과목 규칙을 replacement_courses 컬렉션에서 별도 로드
+            loadReplacementRulesFromSeparateCollection();
+
             bindDataToFragments();
             showLoading(false);
             return;
@@ -353,8 +357,48 @@ public class GraduationRequirementEditActivity extends BaseActivity {
         }
 
         Log.d(TAG, "참조 문서 병합 완료: " + documentId);
+
+        // 대체과목 규칙을 replacement_courses 컬렉션에서 별도 로드
+        loadReplacementRulesFromSeparateCollection();
+
         bindDataToFragments();
         showLoading(false);
+    }
+
+    /**
+     * replacement_courses 컬렉션에서 대체과목 규칙 로드
+     */
+    private void loadReplacementRulesFromSeparateCollection() {
+        Log.d(TAG, "replacement_courses 컬렉션에서 대체과목 규칙 로드 시도: " + documentId);
+
+        db.collection("replacement_courses")
+            .document(documentId)
+            .get()
+            .addOnSuccessListener(doc -> {
+                if (doc.exists()) {
+                    Object rulesObj = doc.get("rules");
+                    if (rulesObj instanceof java.util.List) {
+                        java.util.List<sprout.app.sakmvp1.models.ReplacementRule> replacementRules =
+                            parseReplacementRules((java.util.List<?>) rulesObj);
+
+                        if (graduationRules != null) {
+                            graduationRules.setReplacementRules(replacementRules);
+                            Log.d(TAG, "replacement_courses에서 대체과목 규칙 로드 성공: " + replacementRules.size() + "개");
+
+                            // 프래그먼트가 이미 생성되어 있다면 데이터 갱신
+                            if (pagerAdapter != null && pagerAdapter.getReplacementFragment() != null) {
+                                pagerAdapter.getReplacementFragment().bindData(graduationRules);
+                            }
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "replacement_courses 문서 없음 - 대체과목 규칙 없음");
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "replacement_courses 로드 실패", e);
+                // 실패해도 계속 진행 (대체과목은 선택사항)
+            });
     }
 
     /**
@@ -895,42 +939,8 @@ public class GraduationRequirementEditActivity extends BaseActivity {
             majorUpdateData.put("rules", rulesMap);
         }
 
-        // 대체과목 규칙 업데이트
-        if (graduationRules.getReplacementRules() != null && !graduationRules.getReplacementRules().isEmpty()) {
-            java.util.List<java.util.Map<String, Object>> rulesList = new java.util.ArrayList<>();
-            for (sprout.app.sakmvp1.models.ReplacementRule rule : graduationRules.getReplacementRules()) {
-                java.util.Map<String, Object> ruleMap = new java.util.HashMap<>();
-
-                // discontinuedCourse 변환
-                if (rule.getDiscontinuedCourse() != null) {
-                    java.util.Map<String, Object> discontinuedCourseMap = new java.util.HashMap<>();
-                    discontinuedCourseMap.put("name", rule.getDiscontinuedCourse().getName());
-                    discontinuedCourseMap.put("category", rule.getDiscontinuedCourse().getCategory());
-                    discontinuedCourseMap.put("credits", rule.getDiscontinuedCourse().getCredits());
-                    ruleMap.put("discontinuedCourse", discontinuedCourseMap);
-                }
-
-                // replacementCourses 변환
-                if (rule.getReplacementCourses() != null && !rule.getReplacementCourses().isEmpty()) {
-                    java.util.List<java.util.Map<String, Object>> replacementCoursesList = new java.util.ArrayList<>();
-                    for (sprout.app.sakmvp1.models.ReplacementRule.CourseInfo course : rule.getReplacementCourses()) {
-                        java.util.Map<String, Object> courseMap = new java.util.HashMap<>();
-                        courseMap.put("name", course.getName());
-                        courseMap.put("category", course.getCategory());
-                        courseMap.put("credits", course.getCredits());
-                        replacementCoursesList.add(courseMap);
-                    }
-                    ruleMap.put("replacementCourses", replacementCoursesList);
-                }
-
-                // scope 필드 저장
-                ruleMap.put("scope", rule.getScope() != null ? rule.getScope() : "document");
-
-                rulesList.add(ruleMap);
-            }
-            majorUpdateData.put("replacementRules", rulesList);
-            Log.d(TAG, "대체과목 규칙 저장: " + rulesList.size() + "개");
-        }
+        // 대체과목 규칙은 별도 컬렉션(replacement_courses)에 저장
+        // graduation_requirements 문서에는 저장하지 않음
 
         // 전공 문서 참조 정보 저장
         MajorCoursesFragment majorFragment = pagerAdapter.getMajorFragment();
@@ -967,6 +977,9 @@ public class GraduationRequirementEditActivity extends BaseActivity {
                     Log.d(TAG, "전공 문서 저장 성공: " + documentId);
                     hasUnsavedChanges = false;  // 저장 성공 시 플래그 초기화
 
+                    // 대체과목 규칙을 별도 컬렉션에 저장
+                    saveReplacementRulesToSeparateCollection();
+
                     // 교양 문서 저장
                     saveGeneralEducationDocument(finalGeneralDocId);
                 })
@@ -975,6 +988,69 @@ public class GraduationRequirementEditActivity extends BaseActivity {
                     Log.e(TAG, "전공 문서 저장 실패", e);
                     Toast.makeText(this, "저장 실패: " + e.getMessage(),
                             Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * 대체과목 규칙을 replacement_courses 컬렉션에 별도 저장
+     */
+    private void saveReplacementRulesToSeparateCollection() {
+        if (graduationRules == null || graduationRules.getReplacementRules() == null ||
+            graduationRules.getReplacementRules().isEmpty()) {
+            Log.d(TAG, "대체과목 규칙 없음 - 저장 스킵");
+            return;
+        }
+
+        // 대체과목 규칙을 Map으로 변환
+        java.util.List<java.util.Map<String, Object>> rulesList = new java.util.ArrayList<>();
+        for (sprout.app.sakmvp1.models.ReplacementRule rule : graduationRules.getReplacementRules()) {
+            java.util.Map<String, Object> ruleMap = new java.util.HashMap<>();
+
+            // discontinuedCourse 변환
+            if (rule.getDiscontinuedCourse() != null) {
+                java.util.Map<String, Object> discontinuedCourseMap = new java.util.HashMap<>();
+                discontinuedCourseMap.put("name", rule.getDiscontinuedCourse().getName());
+                discontinuedCourseMap.put("category", rule.getDiscontinuedCourse().getCategory());
+                discontinuedCourseMap.put("credits", rule.getDiscontinuedCourse().getCredits());
+                ruleMap.put("discontinuedCourse", discontinuedCourseMap);
+            }
+
+            // replacementCourses 변환
+            if (rule.getReplacementCourses() != null && !rule.getReplacementCourses().isEmpty()) {
+                java.util.List<java.util.Map<String, Object>> replacementCoursesList = new java.util.ArrayList<>();
+                for (sprout.app.sakmvp1.models.ReplacementRule.CourseInfo course : rule.getReplacementCourses()) {
+                    java.util.Map<String, Object> courseMap = new java.util.HashMap<>();
+                    courseMap.put("name", course.getName());
+                    courseMap.put("category", course.getCategory());
+                    courseMap.put("credits", course.getCredits());
+                    replacementCoursesList.add(courseMap);
+                }
+                ruleMap.put("replacementCourses", replacementCoursesList);
+            }
+
+            // scope 필드 저장
+            ruleMap.put("scope", rule.getScope() != null ? rule.getScope() : "document");
+
+            rulesList.add(ruleMap);
+        }
+
+        // replacement_courses 컬렉션에 저장할 데이터 준비
+        java.util.Map<String, Object> replacementData = new java.util.HashMap<>();
+        replacementData.put("rules", rulesList);
+        replacementData.put("updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+
+        Log.d(TAG, "대체과목 규칙을 replacement_courses 컬렉션에 저장 시작: " + documentId + " (" + rulesList.size() + "개)");
+
+        // replacement_courses 컬렉션에 저장 (문서 ID는 graduation_requirements와 동일)
+        db.collection("replacement_courses")
+                .document(documentId)
+                .set(replacementData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "대체과목 규칙 저장 성공: replacement_courses/" + documentId);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "대체과목 규칙 저장 실패: " + e.getMessage(), e);
+                    // 실패해도 전체 저장은 계속 진행 (대체과목은 선택사항)
                 });
     }
 

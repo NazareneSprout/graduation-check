@@ -17,6 +17,7 @@ import java.util.List;
  */
 public class ReplacementRuleEditAdapter extends RecyclerView.Adapter<ReplacementRuleEditAdapter.ViewHolder> {
 
+    private static final String TAG = "ReplaceRuleEditAdapter";
     private List<ReplacementRule> rules;
     private OnRuleActionListener listener;
 
@@ -29,8 +30,10 @@ public class ReplacementRuleEditAdapter extends RecyclerView.Adapter<Replacement
     }
 
     public void setRules(List<ReplacementRule> rules) {
+        android.util.Log.d(TAG, "setRules 호출 - 규칙 개수: " + (rules != null ? rules.size() : "null"));
         this.rules = rules != null ? rules : new ArrayList<>();
         notifyDataSetChanged();
+        android.util.Log.d(TAG, "notifyDataSetChanged 완료 - getItemCount(): " + getItemCount());
     }
 
     public void setOnRuleActionListener(OnRuleActionListener listener) {
@@ -63,6 +66,7 @@ public class ReplacementRuleEditAdapter extends RecyclerView.Adapter<Replacement
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        android.util.Log.d(TAG, "onBindViewHolder 호출 - position: " + position);
         ReplacementRule rule = rules.get(position);
 
         // 폐지된 과목 표시
@@ -71,6 +75,7 @@ public class ReplacementRuleEditAdapter extends RecyclerView.Adapter<Replacement
             String discontinuedText = discontinuedCourse.getName() +
                 " (" + discontinuedCourse.getCredits() + "학점)";
             holder.tvDiscontinuedCourse.setText(discontinuedText);
+            android.util.Log.d(TAG, "  폐지과목: " + discontinuedText);
         }
 
         // 대체 과목들 표시
@@ -82,8 +87,10 @@ public class ReplacementRuleEditAdapter extends RecyclerView.Adapter<Replacement
                 sb.append(replacementCourses.get(i).getName());
             }
             holder.tvReplacementCourses.setText(sb.toString());
+            android.util.Log.d(TAG, "  대체과목: " + sb.toString());
         } else {
             holder.tvReplacementCourses.setText("→ (대체과목 없음)");
+            android.util.Log.d(TAG, "  대체과목: 없음");
         }
 
         holder.btnDelete.setOnClickListener(v -> {

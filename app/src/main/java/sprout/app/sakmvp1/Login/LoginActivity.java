@@ -250,6 +250,7 @@ public class LoginActivity extends BaseActivity {
      * Firestore에서 접근성 설정을 로드한 후 메인 화면으로 이동
      *
      * 로그인 성공 후 호출되어 사용자의 색약 모드 설정을 불러옵니다.
+     * 학적정보가 없는 경우 입력을 권유하는 Dialog를 표시합니다.
      * 로컬 SharedPreferences에 저장하여 앱 전체에서 사용할 수 있도록 합니다.
      */
     private void loadAccessibilitySettingsAndNavigate() {
@@ -275,17 +276,64 @@ public class LoginActivity extends BaseActivity {
                                 .apply();
 
                         Log.d("LoginActivity", "접근성 설정 로드 완료: color_blind_mode = " + colorBlindMode);
-                    }
 
-                    // 설정 로드 완료 후 메인 화면으로 이동
-                    startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
-                    finish();
+                        // 학적정보 확인
+                        String name = documentSnapshot.getString("name");
+                        String studentYear = documentSnapshot.getString("studentYear");
+                        String department = documentSnapshot.getString("department");
+                        String track = documentSnapshot.getString("track");
+
+                        boolean hasAcademicInfo = (name != null && !name.isEmpty()) &&
+                                                  (studentYear != null && !studentYear.isEmpty()) &&
+                                                  (department != null && !department.isEmpty()) &&
+                                                  (track != null && !track.isEmpty());
+
+                        if (!hasAcademicInfo) {
+                            // 학적정보가 없으면 입력 권유 Dialog 표시
+                            showAcademicInfoDialog();
+                        } else {
+                            // 학적정보가 있으면 바로 메인 화면으로 이동
+                            navigateToMain();
+                        }
+                    } else {
+                        // 문서가 없으면 학적정보 입력 권유
+                        showAcademicInfoDialog();
+                    }
                 })
                 .addOnFailureListener(e -> {
                     // 로드 실패 시에도 메인 화면으로 이동 (기본값 사용)
                     Log.w("LoginActivity", "접근성 설정 로드 실패 - 기본값 사용", e);
-                    startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
-                    finish();
+                    navigateToMain();
                 });
+    }
+
+    /**
+     * 학적정보 입력을 권유하는 Dialog 표시
+     */
+    private void showAcademicInfoDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("학적정보 입력")
+                .setMessage("졸업 요건 분석과 수강과목 추천 기능을 사용하려면\n학적정보(이름, 학번, 학부, 트랙)를 입력해야 합니다.\n\n지금 입력하시겠습니까?")
+                .setCancelable(false)
+                .setPositiveButton("입력하기", (dialog, which) -> {
+                    // UserInfoActivity로 이동 (로그인 직후 플래그 전달)
+                    Intent intent = new Intent(LoginActivity.this, sprout.app.sakmvp1.UserInfoActivity.class);
+                    intent.putExtra("from_login", true);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("나중에", (dialog, which) -> {
+                    // 메인 화면으로 이동
+                    navigateToMain();
+                })
+                .show();
+    }
+
+    /**
+     * 메인 화면으로 이동
+     */
+    private void navigateToMain() {
+        startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
+        finish();
     }
 }

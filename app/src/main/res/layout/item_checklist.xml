@@ -62,15 +62,18 @@
 
         </LinearLayout>
 
-        <!-- 타입 아이콘 (수업/일정 구분) -->
-        <ImageView
-            android:id="@+id/iv_type_icon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+        <!-- 타입 표시 (개인/팀명) -->
+        <TextView
+            android:id="@+id/tv_type_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:src="@drawable/ic_calendar"
-            app:tint="?attr/colorPrimary"
-            android:contentDescription="타입 아이콘" />
+            android:text="개인"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:background="@drawable/bg_type_label"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp" />
 
     </LinearLayout>
 

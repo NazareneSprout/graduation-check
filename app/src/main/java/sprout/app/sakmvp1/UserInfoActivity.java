@@ -1,5 +1,6 @@
 package sprout.app.sakmvp1;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -266,11 +267,13 @@ public class UserInfoActivity extends BaseActivity {
      * 사용자 정보를 Firebase에 저장
      */
     private void saveUserInfo() {
-        String userId = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
-        if (userId == null) {
+        if (auth.getCurrentUser() == null) {
             Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        String userId = auth.getCurrentUser().getUid();
+        String userEmail = auth.getCurrentUser().getEmail(); // Firebase Auth에서 email 가져오기
 
         // 선택된 값 가져오기
         String selectedYearDisplay = (String) spinnerStudentId.getSelectedItem();
@@ -287,19 +290,33 @@ public class UserInfoActivity extends BaseActivity {
 
         showLoading("저장 중...");
 
-        // Firebase에 저장
+        // Firebase에 저장 (기존 필드를 유지하면서 학적 정보 + email 업데이트)
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("studentYear", selectedYear);
         userInfo.put("department", selectedDepartment);
         userInfo.put("track", selectedTrack);
         userInfo.put("updatedAt", System.currentTimeMillis());
 
+        // email 복구 (Firebase Auth의 email을 Firestore에 저장)
+        if (userEmail != null && !userEmail.isEmpty()) {
+            userInfo.put("email", userEmail);
+        }
+
         db.collection("users").document(userId)
-                .set(userInfo)
+                .set(userInfo, com.google.firebase.firestore.SetOptions.merge())  // merge 옵션으로 기존 필드 유지
                 .addOnSuccessListener(aVoid -> {
                     hideLoading();
                     Toast.makeText(this, "저장되었습니다", Toast.LENGTH_SHORT).show();
                     Log.d(TAG, "사용자 정보 저장 완료: " + selectedYear + "/" + selectedDepartment + "/" + selectedTrack);
+
+                    // 로그인 직후 UserInfoActivity로 온 경우 메인 화면으로 이동
+                    boolean fromLogin = getIntent().getBooleanExtra("from_login", false);
+                    if (fromLogin) {
+                        Intent intent = new Intent(this, MainActivityNew.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                    }
+
                     finish();
                 })
                 .addOnFailureListener(e -> {

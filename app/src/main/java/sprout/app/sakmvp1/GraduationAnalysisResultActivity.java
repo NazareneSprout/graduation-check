@@ -570,10 +570,10 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
             com.itextpdf.kernel.pdf.PdfDocument pdf = new com.itextpdf.kernel.pdf.PdfDocument(writer);
             com.itextpdf.layout.Document document = new com.itextpdf.layout.Document(pdf);
 
-            // 한글 폰트 설정
+            // 한글 폰트 설정 - assets 폴더의 폰트 사용
             java.io.InputStream fontStream = getAssets().open("fonts/NanumGothic.ttf");
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
             int len;
             while ((len = fontStream.read(buffer)) != -1) {
                 baos.write(buffer, 0, len);

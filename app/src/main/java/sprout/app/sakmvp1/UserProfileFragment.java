@@ -118,37 +118,57 @@ public class UserProfileFragment extends Fragment {
             return;
         }
 
-        String displayName = user.getDisplayName();
         String email = user.getEmail();
-
-        tvUserName.setText(displayName != null ? displayName : "사용자");
         tvUserEmail.setText(email != null ? email : "");
 
-        loadAcademicInfo(user.getUid());
+        // Firestore에서 사용자 이름 및 학적 정보 불러오기
+        loadUserProfile(user.getUid());
     }
 
-    private void loadAcademicInfo(String userId) {
+    private void loadUserProfile(String userId) {
+        Log.d(TAG, "loadUserProfile 시작: userId = " + userId);
+
         db.collection("users").document(userId).get()
                 .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists() &&
-                        documentSnapshot.contains("studentYear") &&
-                        documentSnapshot.contains("department") &&
-                        documentSnapshot.contains("track")) {
+                    Log.d(TAG, "Firestore 조회 성공");
+                    Log.d(TAG, "문서 존재 여부: " + documentSnapshot.exists());
 
-                        String year = documentSnapshot.getString("studentYear");
-                        String department = documentSnapshot.getString("department");
-                        String track = documentSnapshot.getString("track");
+                    if (documentSnapshot.exists()) {
+                        // 모든 필드 로깅
+                        Log.d(TAG, "문서 데이터: " + documentSnapshot.getData());
 
-                        showAcademicInfo(year, department, track);
+                        // 이름 설정 (Firestore의 name 필드)
+                        String name = documentSnapshot.getString("name");
+                        Log.d(TAG, "name 필드 값: " + (name != null ? name : "NULL"));
+
+                        tvUserName.setText(name != null && !name.isEmpty() ? name : "사용자");
+
+                        // 학적 정보 설정
+                        if (documentSnapshot.contains("studentYear") &&
+                            documentSnapshot.contains("department") &&
+                            documentSnapshot.contains("track")) {
+
+                            String year = documentSnapshot.getString("studentYear");
+                            String department = documentSnapshot.getString("department");
+                            String track = documentSnapshot.getString("track");
+
+                            showAcademicInfo(year, department, track);
+                        } else {
+                            showNoAcademicInfo();
+                        }
                     } else {
+                        Log.w(TAG, "Firestore 문서가 존재하지 않음");
+                        tvUserName.setText("사용자");
                         showNoAcademicInfo();
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "학적 정보 로딩 실패", e);
+                    Log.e(TAG, "사용자 프로필 로딩 실패", e);
+                    tvUserName.setText("사용자");
                     showNoAcademicInfo();
                 });
     }
+
 
     private void showAcademicInfo(String year, String department, String track) {
         tvNoUserInfo.setVisibility(View.GONE);
@@ -476,7 +496,7 @@ public class UserProfileFragment extends Fragment {
         super.onResume();
         FirebaseUser user = auth.getCurrentUser();
         if (user != null) {
-            loadAcademicInfo(user.getUid());
+            loadUserProfile(user.getUid());
         }
     }
 }

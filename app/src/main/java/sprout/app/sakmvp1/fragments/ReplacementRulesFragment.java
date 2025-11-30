@@ -45,17 +45,20 @@ public class ReplacementRulesFragment extends Fragment {
     private GraduationRules graduationRules;
     private FirebaseFirestore db;
     private FirebaseAuth auth;
+    private boolean isDataBound = false;  // 데이터가 한 번 바인딩되었는지 여부
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
+        android.util.Log.d(TAG, "onCreateView 호출");
         return inflater.inflate(R.layout.fragment_replacement_rules, container, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        android.util.Log.d(TAG, "onViewCreated 호출");
 
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
@@ -92,9 +95,10 @@ public class ReplacementRulesFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        android.util.Log.d(TAG, "onResume 호출");
-        // Activity로부터 데이터 가져와서 바인딩
-        if (getActivity() instanceof GraduationRequirementEditActivity) {
+        android.util.Log.d(TAG, "onResume 호출, isDataBound=" + isDataBound);
+
+        // 처음 한 번만 Activity로부터 데이터 가져와서 바인딩
+        if (!isDataBound && getActivity() instanceof GraduationRequirementEditActivity) {
             GraduationRules rules = ((GraduationRequirementEditActivity) getActivity()).getGraduationRules();
             android.util.Log.d(TAG, "Activity로부터 데이터 가져옴: " + (rules != null ? "존재" : "null"));
             if (rules != null) {
@@ -109,6 +113,9 @@ public class ReplacementRulesFragment extends Fragment {
      * Firestore에서 문서 선택 다이얼로그 표시
      */
     private void showLoadDocumentDialog() {
+        android.util.Log.d(TAG, "불러오기 다이얼로그 표시 시작");
+
+        // graduation_requirements 컬렉션에서 불러오기 (기존 데이터 호환)
         db.collection("graduation_requirements")
             .get()
             .addOnSuccessListener(queryDocumentSnapshots -> {
@@ -117,20 +124,32 @@ public class ReplacementRulesFragment extends Fragment {
 
                 for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                     String docId = document.getId();
-                    docIds.add(docId);
 
-                    // 표시용 이름 생성
-                    // 문서 ID 형식: "학부_트랙_학번" (예: "IT학부_멀티미디어_2023")
-                    String[] parts = docId.split("_");
-                    String displayName = docId;
-                    if (parts.length >= 3) {
-                        String department = parts[0];
-                        String track = parts[1];
-                        String cohort = parts[2];
-                        displayName = cohort + "학번 " + department + " (" + track + ")";
+                    // replacementRules 필드가 있는 문서만 추가
+                    boolean hasRules = document.contains("replacementRules") &&
+                        document.get("replacementRules") instanceof java.util.List &&
+                        !((java.util.List<?>) document.get("replacementRules")).isEmpty();
+
+                    if (hasRules) {
+                        docIds.add(docId);
+
+                        // 표시용 이름 생성
+                        String[] parts = docId.split("_");
+                        String displayName = docId;
+                        if (parts.length >= 3) {
+                            String department = parts[0];
+                            String track = parts[1];
+                            String cohort = parts[2];
+                            displayName = cohort + "학번 " + department + " (" + track + ")";
+                        } else if (docId.startsWith("졸업요건_") && parts.length >= 4) {
+                            displayName = parts[3] + "학번 " + parts[1] + " (" + parts[2] + ")";
+                        }
+                        displayNames.add(displayName);
+                        android.util.Log.d(TAG, "대체과목 규칙 있는 문서 발견: " + docId);
                     }
-                    displayNames.add(displayName);
                 }
+
+                android.util.Log.d(TAG, "총 " + docIds.size() + "개 문서에 대체과목 규칙 존재");
 
                 if (docIds.isEmpty()) {
                     Toast.makeText(getContext(), "불러올 문서가 없습니다", Toast.LENGTH_SHORT).show();
@@ -146,6 +165,7 @@ public class ReplacementRulesFragment extends Fragment {
                     .show();
             })
             .addOnFailureListener(e -> {
+                android.util.Log.e(TAG, "문서 목록 로드 실패", e);
                 Toast.makeText(getContext(), "문서 목록 로드 실패: " + e.getMessage(),
                     Toast.LENGTH_SHORT).show();
             });
@@ -155,6 +175,8 @@ public class ReplacementRulesFragment extends Fragment {
      * Firestore에서 대체과목 규칙 데이터 로드
      */
     private void loadReplacementRulesFromDocument(String docId) {
+        android.util.Log.d(TAG, "문서에서 대체과목 규칙 로드: " + docId);
+
         db.collection("graduation_requirements")
             .document(docId)
             .get()
@@ -164,8 +186,21 @@ public class ReplacementRulesFragment extends Fragment {
                     return;
                 }
 
-                // v1 형식에서 replacementRules 파싱
+                android.util.Log.d(TAG, "replacement_courses 문서 로드 성공: " + docId);
+                android.util.Log.d(TAG, "문서 데이터 키: " + documentSnapshot.getData().keySet());
+
+                // v1 형식에서 replacementRules 파싱 (먼저 시도)
                 Object replacementRulesObj = documentSnapshot.get("replacementRules");
+
+                // replacementRules가 없으면 rules 필드 확인
+                if (replacementRulesObj == null) {
+                    android.util.Log.d(TAG, "replacementRules 필드 없음, rules 필드 확인");
+                    replacementRulesObj = documentSnapshot.get("rules");
+                }
+
+                android.util.Log.d(TAG, "대체과목 데이터 타입: " +
+                    (replacementRulesObj != null ? replacementRulesObj.getClass().getSimpleName() : "null"));
+
                 if (replacementRulesObj instanceof java.util.List) {
                     java.util.List<ReplacementRule> replacementRules = parseReplacementRules((java.util.List<?>) replacementRulesObj);
 
@@ -460,6 +495,8 @@ public class ReplacementRulesFragment extends Fragment {
     private void loadCoursesFromOtherDocument(String docId, List<ReplacementRule.CourseInfo> courses,
                                               List<ReplacementRule.CourseInfo> displayedCourses,
                                               CourseSelectionAdapter adapter) {
+        android.util.Log.d(TAG, "다른 학번 과목 불러오기 시작: " + docId);
+
         db.collection("graduation_requirements")
             .document(docId)
             .get()
@@ -471,46 +508,63 @@ public class ReplacementRulesFragment extends Fragment {
 
                 List<ReplacementRule.CourseInfo> newCourses = new ArrayList<>();
 
-                // 문서에서 categories 가져오기
-                Object categoriesObj = documentSnapshot.get("categories");
-                if (categoriesObj instanceof List) {
-                    List<?> categoriesList = (List<?>) categoriesObj;
-                    for (Object categoryObj : categoriesList) {
-                        if (categoryObj instanceof java.util.Map) {
-                            java.util.Map<String, Object> categoryMap = (java.util.Map<String, Object>) categoryObj;
-                            String categoryName = (String) categoryMap.get("name");
+                // v1 형식: rules.{학기}.{카테고리} 구조에서 과목 추출
+                Object rulesObj = documentSnapshot.get("rules");
+                android.util.Log.d(TAG, "rules 필드 존재: " + (rulesObj != null));
 
-                            Object coursesObj = categoryMap.get("courses");
-                            if (coursesObj instanceof List) {
-                                List<?> coursesList = (List<?>) coursesObj;
-                                for (Object courseObj : coursesList) {
-                                    if (courseObj instanceof java.util.Map) {
-                                        java.util.Map<String, Object> courseMap = (java.util.Map<String, Object>) courseObj;
-                                        String courseName = (String) courseMap.get("name");
-                                        Object creditsObj = courseMap.get("credits");
-                                        int credits = 0;
-                                        if (creditsObj instanceof Number) {
-                                            credits = ((Number) creditsObj).intValue();
-                                        }
+                if (rulesObj instanceof java.util.Map) {
+                    java.util.Map<String, Object> rulesMap = (java.util.Map<String, Object>) rulesObj;
+                    android.util.Log.d(TAG, "rules 하위 키: " + rulesMap.keySet());
 
-                                        if (courseName != null && !courseName.isEmpty()) {
-                                            ReplacementRule.CourseInfo courseInfo = new ReplacementRule.CourseInfo(
-                                                courseName,
-                                                categoryName,
-                                                credits
-                                            );
+                    // 각 학기 순회
+                    for (java.util.Map.Entry<String, Object> semesterEntry : rulesMap.entrySet()) {
+                        String semesterKey = semesterEntry.getKey();
+                        Object semesterObj = semesterEntry.getValue();
 
-                                            // 중복 체크
-                                            boolean isDuplicate = false;
-                                            for (ReplacementRule.CourseInfo existing : courses) {
-                                                if (existing.getName().equals(courseName)) {
-                                                    isDuplicate = true;
-                                                    break;
-                                                }
+                        if (semesterObj instanceof java.util.Map) {
+                            java.util.Map<String, Object> semesterMap = (java.util.Map<String, Object>) semesterObj;
+
+                            // 각 카테고리 순회 (전공필수, 전공선택, 학부공통 등)
+                            for (java.util.Map.Entry<String, Object> categoryEntry : semesterMap.entrySet()) {
+                                String categoryName = categoryEntry.getKey();
+                                Object categoryCoursesObj = categoryEntry.getValue();
+
+                                if (categoryCoursesObj instanceof java.util.List) {
+                                    java.util.List<?> categoryCoursesRaw = (java.util.List<?>) categoryCoursesObj;
+
+                                    for (Object courseObj : categoryCoursesRaw) {
+                                        if (courseObj instanceof java.util.Map) {
+                                            java.util.Map<String, Object> courseMap = (java.util.Map<String, Object>) courseObj;
+                                            String courseName = (String) courseMap.get("name");
+                                            Object creditsObj = courseMap.get("credit");
+                                            if (creditsObj == null) {
+                                                creditsObj = courseMap.get("credits");
                                             }
 
-                                            if (!isDuplicate) {
-                                                newCourses.add(courseInfo);
+                                            int credits = 0;
+                                            if (creditsObj instanceof Number) {
+                                                credits = ((Number) creditsObj).intValue();
+                                            }
+
+                                            if (courseName != null && !courseName.isEmpty()) {
+                                                // 중복 체크
+                                                boolean isDuplicate = false;
+                                                for (ReplacementRule.CourseInfo existing : courses) {
+                                                    if (existing.getName().equals(courseName)) {
+                                                        isDuplicate = true;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (!isDuplicate) {
+                                                    ReplacementRule.CourseInfo courseInfo = new ReplacementRule.CourseInfo(
+                                                        courseName,
+                                                        categoryName,
+                                                        credits
+                                                    );
+                                                    newCourses.add(courseInfo);
+                                                    android.util.Log.d(TAG, "과목 추가: " + courseName + " (" + categoryName + ", " + credits + "학점)");
+                                                }
                                             }
                                         }
                                     }
@@ -519,6 +573,8 @@ public class ReplacementRulesFragment extends Fragment {
                         }
                     }
                 }
+
+                android.util.Log.d(TAG, "총 추가된 과목 수: " + newCourses.size());
 
                 if (newCourses.isEmpty()) {
                     Toast.makeText(getContext(), "추가할 과목이 없습니다", Toast.LENGTH_SHORT).show();
@@ -530,6 +586,7 @@ public class ReplacementRulesFragment extends Fragment {
                 }
             })
             .addOnFailureListener(e -> {
+                android.util.Log.e(TAG, "과목 로드 실패", e);
                 Toast.makeText(getContext(), "과목 로드 실패: " + e.getMessage(),
                     Toast.LENGTH_SHORT).show();
             });
@@ -789,7 +846,18 @@ public class ReplacementRulesFragment extends Fragment {
             .setTitle("규칙 삭제")
             .setMessage("이 대체과목 규칙을 삭제하시겠습니까?")
             .setPositiveButton("삭제", (dialog, which) -> {
+                // 어댑터에서 제거
                 adapter.removeRule(position);
+
+                // Activity의 GraduationRules 객체에서도 제거
+                if (getActivity() instanceof GraduationRequirementEditActivity) {
+                    GraduationRules rules = ((GraduationRequirementEditActivity) getActivity()).getGraduationRules();
+                    if (rules != null && rules.getReplacementRules() != null && position < rules.getReplacementRules().size()) {
+                        rules.getReplacementRules().remove(position);
+                        android.util.Log.d(TAG, "GraduationRules에서 규칙 제거: position=" + position);
+                    }
+                }
+
                 updateEmptyState();
                 Toast.makeText(getContext(), "규칙이 삭제되었습니다", Toast.LENGTH_SHORT).show();
             })
@@ -825,12 +893,28 @@ public class ReplacementRulesFragment extends Fragment {
 
         if (replacementRules != null) {
             android.util.Log.d(TAG, "대체과목 규칙 " + replacementRules.size() + "개 바인딩");
+            // 상세 로그 추가
+            for (int i = 0; i < replacementRules.size(); i++) {
+                ReplacementRule rule = replacementRules.get(i);
+                ReplacementRule.CourseInfo discontinued = rule.getDiscontinuedCourse();
+                List<ReplacementRule.CourseInfo> replacements = rule.getReplacementCourses();
+                android.util.Log.d(TAG, "  규칙 #" + (i+1) + ": " +
+                    (discontinued != null ? discontinued.getName() : "null") +
+                    " → " + (replacements != null ? replacements.size() + "개" : "null"));
+            }
             adapter.setRules(replacementRules);
+            android.util.Log.d(TAG, "adapter.getItemCount() = " + adapter.getItemCount());
         } else {
             android.util.Log.d(TAG, "대체과목 규칙 없음");
+            adapter.setRules(new ArrayList<>());
         }
 
         updateEmptyState();
+        android.util.Log.d(TAG, "updateEmptyState 완료 - RecyclerView visible: " +
+            (rvReplacementRules.getVisibility() == View.VISIBLE));
+
+        // 데이터 바인딩 완료 플래그 설정
+        isDataBound = true;
     }
 
     /**

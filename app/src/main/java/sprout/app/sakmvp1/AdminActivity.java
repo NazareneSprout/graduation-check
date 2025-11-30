@@ -14,7 +14,7 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
- * 교수/조교 전용 학사 관리 시스템 Activity
+ * 교수/조교 전용 어플 관리 시스템 Activity
  * 졸업요건, 대체과목, 학생 데이터, 필요서류 관리 기능 제공
  */
 public class AdminActivity extends BaseActivity {
