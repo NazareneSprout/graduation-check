@@ -23,6 +23,7 @@ public class AdminActivity extends BaseActivity {
     private MaterialCardView cardGraduationRequirements;
     private MaterialCardView cardStudentData, cardDocuments, cardBannerManagement;
     private MaterialCardView cardMajorDocument, cardGeneralDocument, cardCertificateManagement;
+    private MaterialCardView cardOtherRequirements;
     private MaterialButton btnLogout;
 
     private FirebaseFirestore db;
@@ -68,6 +69,7 @@ public class AdminActivity extends BaseActivity {
         cardGeneralDocument = findViewById(R.id.card_general_document);
         cardBannerManagement = findViewById(R.id.card_banner_management);
         cardCertificateManagement = findViewById(R.id.card_certificate_management);
+        cardOtherRequirements = findViewById(R.id.card_other_requirements);
 
         // 버튼들
         btnLogout = findViewById(R.id.btn_logout);
@@ -126,6 +128,12 @@ public class AdminActivity extends BaseActivity {
         // 자격증 관리
         cardCertificateManagement.setOnClickListener(v -> {
             Intent intent = new Intent(this, CertificateManagementActivity.class);
+            startActivity(intent);
+        });
+
+        // 기타 졸업요건 관리
+        cardOtherRequirements.setOnClickListener(v -> {
+            Intent intent = new Intent(this, OtherRequirementsManageActivity.class);
             startActivity(intent);
         });
 

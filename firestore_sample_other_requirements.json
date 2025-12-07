@@ -1,0 +1,122 @@
+{
+  "comment": "Firestore 기타 졸업요건 샘플 데이터",
+  "collection": "other_requirements_groups",
+  "documents": [
+    {
+      "documentId": "2020_컴퓨터공학부_일반",
+      "data": {
+        "studentYear": "2020",
+        "department": "컴퓨터공학부",
+        "track": "일반",
+        "requirements": [
+          {
+            "name": "봉사활동",
+            "description": "30시간 이상"
+          },
+          {
+            "name": "채플",
+            "description": "P학점 6회 이상"
+          },
+          {
+            "name": "인성교육",
+            "description": "P학점 2회 이상"
+          }
+        ],
+        "timestamp": 1700000000000
+      }
+    },
+    {
+      "documentId": "2021_컴퓨터공학부_일반",
+      "data": {
+        "studentYear": "2021",
+        "department": "컴퓨터공학부",
+        "track": "일반",
+        "requirements": [
+          {
+            "name": "봉사활동",
+            "description": "30시간 이상"
+          },
+          {
+            "name": "채플",
+            "description": "P학점 6회 이상"
+          },
+          {
+            "name": "인성교육",
+            "description": "P학점 2회 이상"
+          },
+          {
+            "name": "전공 관련 자격증",
+            "description": "1개 이상 (정보처리기사, SQLD 등)"
+          }
+        ],
+        "timestamp": 1700000000000
+      }
+    },
+    {
+      "documentId": "2020_재활복지학부_일반",
+      "data": {
+        "studentYear": "2020",
+        "department": "재활복지학부",
+        "track": "일반",
+        "requirements": [
+          {
+            "name": "봉사활동",
+            "description": "40시간 이상"
+          },
+          {
+            "name": "채플",
+            "description": "P학점 6회 이상"
+          },
+          {
+            "name": "인성교육",
+            "description": "P학점 2회 이상"
+          },
+          {
+            "name": "현장실습",
+            "description": "120시간 이상"
+          }
+        ],
+        "timestamp": 1700000000000
+      }
+    },
+    {
+      "documentId": "2022_컴퓨터공학부_일반",
+      "data": {
+        "studentYear": "2022",
+        "department": "컴퓨터공학부",
+        "track": "일반",
+        "requirements": [
+          {
+            "name": "봉사활동",
+            "description": "30시간 이상"
+          },
+          {
+            "name": "채플",
+            "description": "P학점 6회 이상"
+          },
+          {
+            "name": "인성교육",
+            "description": "P학점 2회 이상"
+          },
+          {
+            "name": "전공 관련 자격증",
+            "description": "1개 이상"
+          },
+          {
+            "name": "캡스톤 디자인",
+            "description": "필수 이수"
+          }
+        ],
+        "timestamp": 1700000000000
+      }
+    }
+  ],
+  "instructions": {
+    "1": "Firebase Console에 접속합니다 (https://console.firebase.google.com)",
+    "2": "프로젝트를 선택합니다",
+    "3": "Firestore Database로 이동합니다",
+    "4": "컬렉션 'other_requirements_groups'를 만듭니다",
+    "5": "각 문서를 위의 documentId와 data 내용대로 수동으로 추가합니다",
+    "note": "requirements 필드는 배열(Array) 타입으로, 각 요소는 맵(Map) 타입입니다"
+  }
+}

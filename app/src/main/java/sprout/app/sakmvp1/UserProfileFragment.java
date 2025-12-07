@@ -53,6 +53,8 @@ public class UserProfileFragment extends Fragment {
     private ImageView ivExpandIcon;
     private LinearLayout btnShortcutCalendar;
     private LinearLayout btnShortcutNotice;
+    private LinearLayout btnMealNotification;
+    private com.google.android.material.materialswitch.MaterialSwitch switchMealNotification;
 
     private boolean isLinksExpanded = false;
 
@@ -104,6 +106,8 @@ public class UserProfileFragment extends Fragment {
         ivExpandIcon = view.findViewById(R.id.ivExpandIcon);
         btnShortcutCalendar = view.findViewById(R.id.btnShortcutCalendar);
         btnShortcutNotice = view.findViewById(R.id.btnShortcutNotice);
+        btnMealNotification = view.findViewById(R.id.btnMealNotification);
+        switchMealNotification = view.findViewById(R.id.switchMealNotification);
     }
 
     private void initFirebase() {
@@ -253,6 +257,22 @@ public class UserProfileFragment extends Fragment {
             Intent intent = new Intent(requireContext(), WebViewActivity.class);
             intent.putExtra("url", "https://www.kornu.ac.kr/mbs/kornukr/jsp/board/list.jsp?boardId=21&id=kornukr_080103000000");
             startActivity(intent);
+        });
+
+        // 학식 메뉴 알림 설정 로드
+        boolean mealNotificationEnabled = sprout.app.sakmvp1.workers.MealMenuCheckWorker.isNotificationEnabled(requireContext());
+        switchMealNotification.setChecked(mealNotificationEnabled);
+
+        // 학식 메뉴 알림 스위치 변경 리스너
+        switchMealNotification.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            sprout.app.sakmvp1.workers.MealMenuCheckWorker.setNotificationEnabled(requireContext(), isChecked);
+            String message = isChecked ? "학식 메뉴 알림이 활성화되었습니다" : "학식 메뉴 알림이 비활성화되었습니다";
+            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+        });
+
+        // 학식 메뉴 알림 버튼 클릭 시 스위치 토글
+        btnMealNotification.setOnClickListener(v -> {
+            switchMealNotification.setChecked(!switchMealNotification.isChecked());
         });
     }
 

@@ -21,11 +21,12 @@
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
-                android:background="?android:attr/colorBackground"
+                android:background="@color/transparent"
                 android:elevation="0dp"
                 app:title="@string/app_name"
-                app:titleTextColor="?android:attr/textColorPrimary"
-                app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge">
+                app:titleTextColor="@color/appbar_text_color"
+                app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge"
+                app:theme="@style/TransparentAppBarTheme">
 
                 <!-- 누구나 쉽게 보이는 배려 모드 버튼 -->
                 <com.google.android.material.button.MaterialButton

@@ -74,5 +74,16 @@
         <item name="labelStyle">@style/Widget.Material3.Tooltip</item>
     </style>
 
+    <!-- 투명 AppBar 스타일 -->
+    <style name="TransparentAppBarTheme" parent="ThemeOverlay.Material3.Toolbar.Surface">
+        <item name="android:background">@color/transparent</item>
+        <item name="background">@color/transparent</item>
+        <item name="elevation">0dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="titleTextColor">@color/appbar_text_color</item>
+        <item name="subtitleTextColor">@color/appbar_text_color</item>
+        <item name="colorControlNormal">@color/appbar_text_color</item>
+        <item name="colorOnSurface">@color/appbar_text_color</item>
+    </style>
 
 </resources>

@@ -84,4 +84,8 @@
 
     <color name="soft_purple">#7E57C2</color>
     <color name="switch_off_gray">#B0B0B0</color>
+
+    <!-- Transparent AppBar Colors -->
+    <color name="transparent">#00000000</color>
+    <color name="appbar_text_color">#000000</color>
 </resources>

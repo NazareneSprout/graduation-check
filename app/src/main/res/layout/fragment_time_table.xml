@@ -8,13 +8,18 @@
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="@color/transparent"
+        android:elevation="0dp"
+        app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary">
+            android:background="@color/transparent"
+            android:elevation="0dp"
+            app:theme="@style/TransparentAppBarTheme">
 
             <RelativeLayout
                 android:layout_width="match_parent"
@@ -30,7 +35,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_calendar"
                     android:contentDescription="이전 시간표 조회"
-                    app:tint="@android:color/white" />
+                    app:tint="@color/appbar_text_color" />
 
                 <!-- 중앙 시간표 텍스트 -->
                 <TextView
@@ -39,7 +44,7 @@
                     android:layout_height="wrap_content"
                     android:layout_centerInParent="true"
                     android:text="시간표"
-                    android:textColor="@android:color/white"
+                    android:textColor="@color/appbar_text_color"
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
@@ -53,7 +58,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_menu_edit"
                     android:contentDescription="시간표 메뉴"
-                    app:tint="@android:color/white" />
+                    app:tint="@color/appbar_text_color" />
 
             </RelativeLayout>
 

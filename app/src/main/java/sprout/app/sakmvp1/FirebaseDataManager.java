@@ -1921,6 +1921,49 @@ public class FirebaseDataManager {
                 });
     }
 
+    // 기타 졸업요건 그룹 조회 인터페이스 (새로운 구조)
+    public interface OnOtherRequirementsLoadedListener {
+        void onSuccess(sprout.app.sakmvp1.models.OtherRequirementGroup group);
+        void onFailure(Exception e);
+    }
+
+    /**
+     * 학번/학부/트랙 조합에 해당하는 기타 졸업요건 로드
+     * other_requirements_groups 컬렉션에서 조회
+     */
+    public void loadOtherRequirements(String studentYear, String department, String track,
+                                      OnOtherRequirementsLoadedListener listener) {
+        Log.d(TAG, "기타 졸업요건 조회 시작: " + studentYear + "/" + department + "/" + track);
+
+        // 문서 ID 형식: {학번}_{학부}_{트랙}
+        String docId = studentYear + "_" + department + "_" + track;
+
+        db.collection("other_requirements_groups")
+                .document(docId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        sprout.app.sakmvp1.models.OtherRequirementGroup group =
+                                documentSnapshot.toObject(sprout.app.sakmvp1.models.OtherRequirementGroup.class);
+                        if (group != null) {
+                            group.setId(documentSnapshot.getId());
+                            Log.d(TAG, "기타 졸업요건 로드 성공: " + group.getRequirements().size() + "개 요건");
+                            listener.onSuccess(group);
+                        } else {
+                            Log.d(TAG, "기타 졸업요건 데이터 파싱 실패");
+                            listener.onSuccess(null);
+                        }
+                    } else {
+                        Log.d(TAG, "기타 졸업요건 문서 없음: " + docId);
+                        listener.onSuccess(null);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "기타 졸업요건 로드 실패: " + docId, e);
+                    listener.onFailure(e);
+                });
+    }
+
     // 총 학점 조회 (graduation_meta/catalog/departments/{department}의 '총 학점' 필드)
     public void loadTotalCredits(String department, OnTotalCreditsLoadedListener listener) {
         Log.d(TAG, "=== 총 학점 조회 시작: " + department + " ===");

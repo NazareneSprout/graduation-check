@@ -25,6 +25,18 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
 import com.google.firebase.auth.FirebaseAuthInvalidUserException;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
+
+import java.util.concurrent.TimeUnit;
+import java.util.Calendar;
+
+import sprout.app.sakmvp1.workers.MealMenuCheckWorker;
+
 /**
  * 로그인 화면 액티비티
  *
@@ -100,6 +112,9 @@ public class LoginActivity extends BaseActivity {
         // 로그인 화면을 건너뛰고 바로 메인으로 진입
         // - getCurrentUser()!=null 은 토큰이 유효하고 세션이 남아있음을 의미
         if (autoLogin && mAuth.getCurrentUser() != null) {
+            // 학식 메뉴 확인 백그라운드 작업 예약 (자동 로그인 시에도)
+            scheduleMealMenuCheck();
+
             startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
             finish(); // 로그인 화면을 백스택에서 제거
         }
@@ -199,6 +214,9 @@ public class LoginActivity extends BaseActivity {
                                 .putBoolean(KEY_AUTO_LOGIN, cbAutoLogin.isChecked())
                                 .putBoolean("is_admin", isAdmin)
                                 .apply();
+
+                        // 학식 메뉴 확인 백그라운드 작업 예약
+                        scheduleMealMenuCheck();
 
                         // Firestore에서 접근성 설정 로드 후 메인 화면으로 이동
                         loadAccessibilitySettingsAndNavigate();
@@ -335,5 +353,90 @@ public class LoginActivity extends BaseActivity {
     private void navigateToMain() {
         startActivity(new Intent(LoginActivity.this, MainActivityNew.class));
         finish();
+    }
+
+    /**
+     * 학식 메뉴 확인 백그라운드 작업 예약
+     *
+     * 로그인 성공 시 호출되어 매주 월요일 오전 8시, 9시, 10시, 11시, 12시에 학식 메뉴 업데이트를 확인하는 작업을 예약합니다.
+     * WorkManager를 사용하여 1주일마다 반복 실행됩니다.
+     */
+    private void scheduleMealMenuCheck() {
+        Calendar now = Calendar.getInstance();
+        int currentDay = now.get(Calendar.DAY_OF_WEEK);
+        int currentHour = now.get(Calendar.HOUR_OF_DAY);
+
+        // 월요일 = Calendar.MONDAY = 2
+        // 다음 월요일까지 남은 일수 계산
+        int daysUntilMonday;
+        if (currentDay == Calendar.MONDAY && currentHour < 8) {
+            // 오늘이 월요일이고 아직 8시 전이면 오늘
+            daysUntilMonday = 0;
+        } else if (currentDay <= Calendar.MONDAY) {
+            // 월요일 이전이거나 월요일 8시 이후
+            daysUntilMonday = Calendar.MONDAY - currentDay;
+            if (daysUntilMonday < 0) daysUntilMonday += 7;
+        } else {
+            // 월요일 이후 (화~일)
+            daysUntilMonday = (7 - currentDay) + Calendar.MONDAY;
+        }
+
+        // 네트워크 제약 조건 설정
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+
+        // 월요일 오전 8시, 9시, 10시, 11시, 12시 작업 예약
+        scheduleWorkAtTime(constraints, daysUntilMonday, 8, "meal_menu_check_8am");
+        scheduleWorkAtTime(constraints, daysUntilMonday, 9, "meal_menu_check_9am");
+        scheduleWorkAtTime(constraints, daysUntilMonday, 10, "meal_menu_check_10am");
+        scheduleWorkAtTime(constraints, daysUntilMonday, 11, "meal_menu_check_11am");
+        scheduleWorkAtTime(constraints, daysUntilMonday, 12, "meal_menu_check_12pm");
+
+        Log.d("LoginActivity", "학식 메뉴 확인 백그라운드 작업 예약 완료 (월요일 8시, 9시, 10시, 11시, 12시)");
+    }
+
+    /**
+     * 특정 시간에 실행되는 작업 예약
+     *
+     * @param constraints 네트워크 제약 조건
+     * @param daysUntilMonday 다음 월요일까지 남은 일수
+     * @param hour 실행할 시간 (0-23)
+     * @param workName 작업 고유 이름
+     */
+    private void scheduleWorkAtTime(Constraints constraints, int daysUntilMonday, int hour, String workName) {
+        Calendar now = Calendar.getInstance();
+        Calendar targetTime = Calendar.getInstance();
+
+        // 다음 월요일 설정
+        targetTime.add(Calendar.DAY_OF_YEAR, daysUntilMonday);
+        targetTime.set(Calendar.HOUR_OF_DAY, hour);
+        targetTime.set(Calendar.MINUTE, 0);
+        targetTime.set(Calendar.SECOND, 0);
+
+        // 만약 목표 시간이 이미 지났으면 다음 주로
+        if (targetTime.getTimeInMillis() <= now.getTimeInMillis()) {
+            targetTime.add(Calendar.DAY_OF_YEAR, 7);
+        }
+
+        long initialDelayMillis = targetTime.getTimeInMillis() - now.getTimeInMillis();
+
+        // 1주일마다 반복되는 작업 생성
+        PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
+                MealMenuCheckWorker.class,
+                7, TimeUnit.DAYS  // 1주일마다 실행
+        )
+        .setConstraints(constraints)
+        .setInitialDelay(initialDelayMillis, TimeUnit.MILLISECONDS)
+        .build();
+
+        // WorkManager에 작업 등록
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                workName,
+                ExistingPeriodicWorkPolicy.KEEP,
+                workRequest
+        );
+
+        Log.d("LoginActivity", "작업 예약: " + workName + " (초기 지연: " + (initialDelayMillis / 1000 / 60) + "분)");
     }
 }

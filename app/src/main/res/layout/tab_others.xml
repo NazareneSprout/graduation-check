@@ -32,381 +32,44 @@
                 android:layout_marginBottom="12dp" />
 
             <TextView
+                android:id="@+id/text_others_summary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="학점 이수 외 졸업을 위해 필요한 추가 요건들"
                 android:textSize="14sp"
                 android:textColor="@android:color/darker_gray"
-                android:gravity="center" />
-
-        </LinearLayout>
-
-        <!-- TLC (Teaching & Learning Center) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/spinner_background"
-            android:layout_marginBottom="12dp">
-
-            <!-- TLC 헤더 -->
-            <LinearLayout
-                android:id="@+id/accordion_tlc_header"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="16dp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-
-                <TextView
-                    android:id="@+id/text_tlc_header"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="🎓 TLC"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface" />
-
-                <TextView
-                    android:id="@+id/text_tlc_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="-"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#FF9800"
-                    android:layout_marginEnd="12dp" />
-
-                <TextView
-                    android:id="@+id/accordion_tlc_icon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="▶"
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface" />
-
-            </LinearLayout>
-
-            <!-- TLC 콘텐츠 -->
-            <LinearLayout
-                android:id="@+id/accordion_tlc_content"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:background="#F5F5F5"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="TLC는 총 6회 이수가 필요합니다."
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="12dp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="현재 진행률:"
-                        android:textSize="14sp"
-                        android:textColor="?attr/colorOnSurface"
-                        android:layout_marginEnd="12dp" />
-
-                    <ProgressBar
-                        android:id="@+id/progress_tlc"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="0dp"
-                        android:layout_height="8dp"
-                        android:layout_weight="1"
-                        android:progress="0"
-                        android:max="100"
-                        android:progressTint="#FF9800"
-                        android:progressBackgroundTint="#FFE0B2" />
-
-                    <TextView
-                        android:id="@+id/text_tlc_percentage"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="-%"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="#FF9800"
-                        android:layout_marginStart="12dp" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- 채플 (Chapel) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/spinner_background"
-            android:layout_marginBottom="12dp">
-
-            <!-- 채플 헤더 -->
-            <LinearLayout
-                android:id="@+id/accordion_chapel_header"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="16dp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-
-                <TextView
-                    android:id="@+id/text_chapel_header"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="⛪ 채플"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface" />
-
-                <TextView
-                    android:id="@+id/text_chapel_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="-"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#FF9800"
-                    android:layout_marginEnd="12dp" />
-
-                <TextView
-                    android:id="@+id/accordion_chapel_icon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="▶"
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface" />
-
-            </LinearLayout>
-
-            <!-- 채플 콘텐츠 -->
-            <LinearLayout
-                android:id="@+id/accordion_chapel_content"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:background="#F5F5F5"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="채플은 총 6회 이수가 필요합니다."
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="12dp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="현재 진행률:"
-                        android:textSize="14sp"
-                        android:textColor="?attr/colorOnSurface"
-                        android:layout_marginEnd="12dp" />
-
-                    <ProgressBar
-                        android:id="@+id/progress_chapel"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="0dp"
-                        android:layout_height="8dp"
-                        android:layout_weight="1"
-                        android:progress="0"
-                        android:max="100"
-                        android:progressTint="#FF9800"
-                        android:progressBackgroundTint="#FFE0B2" />
-
-                    <TextView
-                        android:id="@+id/text_chapel_percentage"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="-%"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="#FF9800"
-                        android:layout_marginStart="12dp" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- 1004 마일리지 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/spinner_background"
-            android:layout_marginBottom="12dp">
-
-            <!-- 1004 마일리지 헤더 -->
-            <LinearLayout
-                android:id="@+id/accordion_mileage_header"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="16dp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-
-                <TextView
-                    android:id="@+id/text_mileage_header"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="🏃 1004 마일리지"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface" />
-
-                <TextView
-                    android:id="@+id/text_mileage_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="-"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#4CAF50"
-                    android:layout_marginEnd="12dp" />
-
-                <TextView
-                    android:id="@+id/accordion_mileage_icon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="▶"
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface" />
-
-            </LinearLayout>
-
-            <!-- 1004 마일리지 콘텐츠 -->
-            <LinearLayout
-                android:id="@+id/accordion_mileage_content"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:background="#E8F5E8"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="1004 마일리지는 봉사활동 참여를 통해 달성하는 요건입니다."
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="12dp" />
-
-                <!-- 동적 콘텐츠가 여기에 추가됩니다 -->
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- 동적 추가 졸업 요건 (학부별) -->
-        <LinearLayout
-            android:id="@+id/layout_dynamic_extra_requirements"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-            <!-- 동적으로 추가될 학부별 요건들이 여기에 표시됩니다 -->
-        </LinearLayout>
-
-        <!-- 졸업 요건 완료 현황 요약 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/spinner_background"
-            android:padding="20dp">
+                android:gravity="center"
+                android:layout_marginBottom="8dp" />
 
             <TextView
+                android:id="@+id/text_others_progress"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="📊 기타 요건 완료 현황"
-                android:textSize="18sp"
+                android:text="0/0 완료"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="?attr/colorPrimary"
                 android:gravity="center"
-                android:layout_marginBottom="16dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="전체 진행률:"
-                    android:textSize="16sp"
-                    android:textColor="?attr/colorOnSurface" />
-
-                <TextView
-                    android:id="@+id/text_others_progress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="-"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorPrimary" />
-
-            </LinearLayout>
+                android:layout_marginTop="8dp" />
 
             <ProgressBar
                 android:id="@+id/progress_others_total"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="12dp"
+                android:layout_height="8dp"
+                android:layout_marginTop="8dp"
                 android:progress="0"
-                android:max="100"
-                android:progressTint="?attr/colorPrimary"
-                android:progressBackgroundTint="#E0E0E0" />
+                android:max="100" />
 
-            <TextView
-                android:id="@+id/text_others_summary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="기타 요건 완료 현황이 여기에 표시됩니다."
-                android:textSize="14sp"
-                android:textColor="@android:color/darker_gray"
-                android:gravity="center"
-                android:layout_marginTop="12dp" />
+        </LinearLayout>
 
+        <!-- 동적 기타 요건 컨테이너 -->
+        <LinearLayout
+            android:id="@+id/container_dynamic_others"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <!-- 동적으로 추가됨 -->
         </LinearLayout>
 
     </LinearLayout>

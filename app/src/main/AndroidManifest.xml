@@ -11,6 +11,18 @@
 
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Notification permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- 화면 크기 지원 설정 -->
+    <supports-screens
+        android:smallScreens="true"
+        android:normalScreens="true"
+        android:largeScreens="true"
+        android:xlargeScreens="true"
+        android:anyDensity="true" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -146,6 +158,10 @@
             android:name=".ChecklistActivity"
             android:theme="@style/Theme.SakMvp1"
             android:exported="false" />
+        <activity
+            android:name=".OtherRequirementsManageActivity"
+            android:theme="@style/Theme.SakMvp1"
+            android:exported="true" />
 
         <!-- FileProvider for file sharing -->
         <provider

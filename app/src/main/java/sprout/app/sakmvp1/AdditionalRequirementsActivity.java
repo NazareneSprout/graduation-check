@@ -76,21 +76,13 @@ public class AdditionalRequirementsActivity extends BaseActivity {
     public static final String EXTRA_REQUIREMENTS = "additionalRequirements";
 
     // ── SavedInstanceState 키 ─────────────────────────────────────────────────
-    private static final String S_TLC = "s_tlc";
-    private static final String S_CHAPEL = "s_chapel";
-    private static final String S_MILEAGE = "s_mileage";
-    private static final String S_EXTRA = "s_extra";
+    private static final String S_OTHER_REQS = "s_other_reqs";
 
     // ---------- UI 컴포넌트 ----------
     private TextView textViewStudentInfo;          // 상단 학번/학과/트랙 정보
-    private EditText editTlcCount;                 // TLC 이수 횟수 입력
-    private EditText editChapelCount;              // 채플 이수 학기 입력
-    private CheckBox checkboxMileageCompleted;     // 마일리지 달성 여부
     private Button btnNextToCourseInput;           // 다음(수강강의 입력) 화면 이동
     private Toolbar toolbar;                       // 상단 툴바(뒤로가기 포함)
     private LinearLayout layoutDynamicRequirements;// 동적 추가요건 컨테이너
-    private View dividerDynamic;                   // 동적 영역 구분선
-    private CheckBox checkboxExtraGrad;            // 동적 추가요건 체크박스(로드 시 생성)
 
     // ---------- 전달 데이터 ----------
     private String selectedYear, selectedDepartment, selectedTrack;
@@ -98,8 +90,11 @@ public class AdditionalRequirementsActivity extends BaseActivity {
     // ---------- 데이터 로더 ----------
     private FirebaseDataManager dataManager;
 
-    // ── 회전 복원용: 동적으로 만들어지는 체크박스 상태를 나중에 적용하기 위한 보관값 ──
-    private Boolean pendingExtraGradChecked = null;
+    // ── 동적 요건 입력 필드 저장 ──
+    private java.util.Map<String, View> otherRequirementInputs = new java.util.HashMap<>();
+
+    // ── 회전 복원용: 동적 요건 데이터 ──
+    private java.util.Map<String, Object> pendingOtherRequirements = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -143,16 +138,9 @@ public class AdditionalRequirementsActivity extends BaseActivity {
         // (11) 동적 추가 요건 로드(+ 중복 방지 및 회전 복원 지원)
         loadExtraGradRequirements();
 
-        // (2) 회전 복원: 즉시 복원 가능한 값들
+        // (2) 회전 복원: 동적 요건 데이터 보관
         if (savedInstanceState != null) {
-            String savedTlc = savedInstanceState.getString(S_TLC, "0");
-            String savedChapel = savedInstanceState.getString(S_CHAPEL, "0");
-            // 빈 문자열인 경우 기본값으로 설정
-            editTlcCount.setText(savedTlc.isEmpty() ? "0" : savedTlc);
-            editChapelCount.setText(savedChapel.isEmpty() ? "0" : savedChapel);
-            checkboxMileageCompleted.setChecked(savedInstanceState.getBoolean(S_MILEAGE, false));
-            // 동적 체크박스는 아직 생성 전일 수 있으므로 보관
-            pendingExtraGradChecked = savedInstanceState.getBoolean(S_EXTRA, false);
+            pendingOtherRequirements = (java.util.Map<String, Object>) savedInstanceState.getSerializable(S_OTHER_REQS);
         }
     }
 
@@ -197,32 +185,18 @@ public class AdditionalRequirementsActivity extends BaseActivity {
      */
     private void initViews() {
         textViewStudentInfo = findViewById(R.id.text_view_student_info);
-        editTlcCount = findViewById(R.id.edit_tlc_count);
-        editChapelCount = findViewById(R.id.edit_chapel_count);
-        checkboxMileageCompleted = findViewById(R.id.checkbox_mileage_completed);
         btnNextToCourseInput = findViewById(R.id.btn_next_to_course_input);
         toolbar = findViewById(R.id.toolbar_additional_requirements);
         layoutDynamicRequirements = findViewById(R.id.layout_dynamic_requirements);
-        dividerDynamic = findViewById(R.id.divider_dynamic);
-
-        // 기본값 설정 (사용자가 미완료 상태임을 명확히 표시)
-        editTlcCount.setText("0");
-        editChapelCount.setText("0");
-        // 마일리지 체크박스는 기본값 false(미체크)로 이미 적절함
 
         dataManager = FirebaseDataManager.getInstance();
     }
 
     /**
-     * 숫자 입력 UX 강화: 숫자 키패드 + 범위 필터(0~6)
+     * 숫자 입력 UX 강화: (동적 요건에서 처리하므로 메서드는 비움)
      */
     private void applyNumericInputEnhancements() {
-        editTlcCount.setInputType(InputType.TYPE_CLASS_NUMBER);
-        editChapelCount.setInputType(InputType.TYPE_CLASS_NUMBER);
-
-        InputFilter[] filters = new InputFilter[]{ new InputFilterMinMax(0, 6) };
-        editTlcCount.setFilters(filters);
-        editChapelCount.setFilters(filters);
+        // 동적 요건에서 각 입력 필드에 대해 필터 적용
     }
 
     /**
@@ -245,19 +219,9 @@ public class AdditionalRequirementsActivity extends BaseActivity {
             savedReqs = intent.getParcelableExtra(EXTRA_REQUIREMENTS);
         }
 
-        if (savedReqs != null) {
-            // TLC 횟수 설정
-            editTlcCount.setText(String.valueOf(savedReqs.getTlcCount()));
-
-            // 채플 횟수 설정
-            editChapelCount.setText(String.valueOf(savedReqs.getChapelCount()));
-
-            // 마일리지 체크박스 설정
-            checkboxMileageCompleted.setChecked(savedReqs.isMileageCompleted());
-
-            // 동적 추가 요건 체크박스는 아직 생성되지 않았을 수 있으므로 보관
-            // loadExtraGradRequirements()에서 나중에 적용됨
-            pendingExtraGradChecked = savedReqs.isExtraGradCompleted();
+        if (savedReqs != null && savedReqs.getOtherRequirements() != null) {
+            // 동적 요건 데이터 보관 (UI 생성 후 적용)
+            pendingOtherRequirements = savedReqs.getOtherRequirements();
 
             Toast.makeText(this, "저장된 추가 요건을 불러왔습니다", Toast.LENGTH_SHORT).show();
             Log.d(TAG, "저장된 요건 적용 완료: " + savedReqs.toString());
@@ -304,20 +268,10 @@ public class AdditionalRequirementsActivity extends BaseActivity {
     }
 
     /**
-     * 실시간 입력 검증 연결
+     * 실시간 입력 검증 연결 (동적 요건에서 처리)
      */
     private void setupInputValidation() {
-        editTlcCount.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) { validateTlcInput(s.toString()); }
-        });
-
-        editChapelCount.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) { validateChapelInput(s.toString()); }
-        });
+        // 동적 요건 입력 필드에서 검증 처리
     }
 
     /**
@@ -327,56 +281,63 @@ public class AdditionalRequirementsActivity extends BaseActivity {
      * - (3) 회전 복원: pendingExtraGradChecked 적용
      */
     private void loadExtraGradRequirements() {
-        if (selectedDepartment == null) return;
+        if (selectedYear == null || selectedDepartment == null || selectedTrack == null) return;
 
-        dataManager.loadExtraGradRequirements(selectedDepartment, new FirebaseDataManager.OnExtraGradRequirementsLoadedListener() {
+        // 새로운 other_requirements_groups 컬렉션에서 로드
+        dataManager.loadOtherRequirements(selectedYear, selectedDepartment, selectedTrack,
+                new FirebaseDataManager.OnOtherRequirementsLoadedListener() {
             @Override
-            public void onSuccess(String extraGradRequirement) {
+            public void onSuccess(sprout.app.sakmvp1.models.OtherRequirementGroup group) {
                 // (1) 중복 방지
                 layoutDynamicRequirements.removeAllViews();
-                checkboxExtraGrad = null;
+                otherRequirementInputs.clear();
 
-                if (extraGradRequirement != null && !extraGradRequirement.trim().isEmpty()) {
-                    addExtraGradRequirementToUI(extraGradRequirement);
-                    layoutDynamicRequirements.setVisibility(View.VISIBLE);
-                    dividerDynamic.setVisibility(View.VISIBLE);
-
-                    // (3) 회전 복원: 체크 상태 적용
-                    if (pendingExtraGradChecked != null && checkboxExtraGrad != null) {
-                        checkboxExtraGrad.setChecked(pendingExtraGradChecked);
+                if (group != null && group.getRequirements() != null && !group.getRequirements().isEmpty()) {
+                    // 각 요건을 UI에 추가
+                    for (sprout.app.sakmvp1.models.OtherRequirementGroup.RequirementItem item : group.getRequirements()) {
+                        addOtherRequirementToUI(item);
                     }
+                    layoutDynamicRequirements.setVisibility(View.VISIBLE);
+
+                    // 회전 복원 또는 저장된 데이터 적용
+                    applyPendingRequirements();
+
+                    Log.d(TAG, "기타 졸업요건 로드 완료: " + group.getRequirements().size() + "개");
                 } else {
                     layoutDynamicRequirements.setVisibility(View.GONE);
-                    dividerDynamic.setVisibility(View.GONE);
+                    Log.d(TAG, "기타 졸업요건 없음");
                 }
-                Log.d(TAG, "추가 졸업 요건 로드 완료");
             }
 
             @Override
             public void onFailure(Exception e) {
                 // (1) 중복 방지 및 숨김
                 layoutDynamicRequirements.removeAllViews();
-                checkboxExtraGrad = null;
+                otherRequirementInputs.clear();
 
                 layoutDynamicRequirements.setVisibility(View.GONE);
-                dividerDynamic.setVisibility(View.GONE);
-                Log.e(TAG, "추가 졸업 요건 로드 실패", e);
+                Log.e(TAG, "기타 졸업요건 로드 실패", e);
             }
         });
     }
 
     /**
-     * 동적 추가요건 카드 생성
+     * 기타 졸업요건 항목을 UI에 추가 (기존 TLC/채플 UI와 동일한 스타일)
      */
-    private void addExtraGradRequirementToUI(String requirementName) {
+    private void addOtherRequirementToUI(sprout.app.sakmvp1.models.OtherRequirementGroup.RequirementItem item) {
+        // 메인 컨테이너
         LinearLayout requirementLayout = new LinearLayout(this);
         requirementLayout.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
         requirementLayout.setOrientation(LinearLayout.VERTICAL);
-        requirementLayout.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(16));
+        requirementLayout.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20));
+        LinearLayout.LayoutParams containerParams = (LinearLayout.LayoutParams) requirementLayout.getLayoutParams();
+        containerParams.bottomMargin = dpToPx(16);
+        requirementLayout.setLayoutParams(containerParams);
 
+        // 헤더 레이아웃 (아이콘 + 제목 + 설명)
         LinearLayout headerLayout = new LinearLayout(this);
         headerLayout.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -385,63 +346,172 @@ public class AdditionalRequirementsActivity extends BaseActivity {
         headerLayout.setOrientation(LinearLayout.HORIZONTAL);
         headerLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
-        TextView iconView = new TextView(this);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        iconParams.setMargins(0, 0, dpToPx(12), 0);
-        iconView.setLayoutParams(iconParams);
-        iconView.setText("🎓");
-        iconView.setTextSize(24);
+        // 형식에 따라 입력 UI 추가
+        if ("횟수".equals(item.getFormat())) {
+            // 헤더에 아이콘과 제목만 (입력은 아래에)
+            LinearLayout.LayoutParams headerParams = (LinearLayout.LayoutParams) headerLayout.getLayoutParams();
+            headerParams.bottomMargin = dpToPx(16);
+            headerLayout.setLayoutParams(headerParams);
 
-        LinearLayout titleLayout = new LinearLayout(this);
-        LinearLayout.LayoutParams titleLayoutParams = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f
-        );
-        titleLayout.setLayoutParams(titleLayoutParams);
-        titleLayout.setOrientation(LinearLayout.VERTICAL);
+            TextView iconView = new TextView(this);
+            LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            iconParams.setMarginEnd(dpToPx(12));
+            iconView.setLayoutParams(iconParams);
+            iconView.setText("🎓");
+            iconView.setTextSize(24);
 
-        TextView titleView = new TextView(this);
-        titleView.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
-        titleView.setText(requirementName);
-        titleView.setTextSize(16);
-        titleView.setTypeface(null, android.graphics.Typeface.BOLD);
-        titleView.setTextColor(ContextCompat.getColor(this, android.R.color.black));
+            LinearLayout titleLayout = new LinearLayout(this);
+            LinearLayout.LayoutParams titleLayoutParams = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f
+            );
+            titleLayout.setLayoutParams(titleLayoutParams);
+            titleLayout.setOrientation(LinearLayout.VERTICAL);
 
-        TextView descView = new TextView(this);
-        LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        descParams.setMargins(0, dpToPx(2), 0, 0);
-        descView.setLayoutParams(descParams);
-        descView.setText("완료 여부를 체크해주세요");
-        descView.setTextSize(13);
-        descView.setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
+            TextView titleView = new TextView(this);
+            titleView.setText(item.getName());
+            titleView.setTextSize(16);
+            titleView.setTypeface(null, android.graphics.Typeface.BOLD);
+            int colorOnSurface = getResources().getColor(android.R.color.black);
+            titleView.setTextColor(colorOnSurface);
 
-        titleLayout.addView(titleView);
-        titleLayout.addView(descView);
+            TextView descView = new TextView(this);
+            LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            descParams.topMargin = dpToPx(2);
+            descView.setLayoutParams(descParams);
+            descView.setText("이수 필요 횟수: " + item.getDescription());
+            descView.setTextSize(13);
+            descView.setTextColor(getResources().getColor(android.R.color.darker_gray));
 
-        headerLayout.addView(iconView);
-        headerLayout.addView(titleLayout);
+            titleLayout.addView(titleView);
+            titleLayout.addView(descView);
 
-        checkboxExtraGrad = new CheckBox(this);
-        checkboxExtraGrad.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
-        checkboxExtraGrad.setText("완료");
-        checkboxExtraGrad.setTextSize(14);
-        checkboxExtraGrad.setTextColor(ContextCompat.getColor(this, android.R.color.black));
+            headerLayout.addView(iconView);
+            headerLayout.addView(titleLayout);
 
-        headerLayout.addView(checkboxExtraGrad);
+            requirementLayout.addView(headerLayout);
 
-        requirementLayout.addView(headerLayout);
+            // 입력 레이아웃 (TLC/채플과 동일한 형식)
+            LinearLayout inputLayout = new LinearLayout(this);
+            inputLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            ));
+            inputLayout.setOrientation(LinearLayout.HORIZONTAL);
+            inputLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+            TextView labelView = new TextView(this);
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            labelParams.setMarginEnd(dpToPx(12));
+            labelView.setLayoutParams(labelParams);
+            labelView.setText("이수 횟수:");
+            labelView.setTextSize(14);
+            labelView.setTextColor(colorOnSurface);
+
+            EditText countInput = new EditText(this);
+            countInput.setLayoutParams(new LinearLayout.LayoutParams(dpToPx(60), dpToPx(48)));
+            countInput.setBackground(ContextCompat.getDrawable(this, R.drawable.spinner_background));
+            countInput.setHint("0");
+            countInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+            countInput.setTextSize(16);
+            countInput.setGravity(android.view.Gravity.CENTER);
+            LinearLayout.LayoutParams countParams = (LinearLayout.LayoutParams) countInput.getLayoutParams();
+            countParams.setMarginEnd(dpToPx(8));
+            countInput.setLayoutParams(countParams);
+
+            // 최대값 필터 적용
+            int maxCount = Math.max(item.getCount() * 2, 99);
+            countInput.setFilters(new InputFilter[]{new InputFilterMinMax(0, maxCount)});
+
+            TextView unitView = new TextView(this);
+            unitView.setText("/ " + item.getDescription());
+            unitView.setTextSize(14);
+            unitView.setTextColor(getResources().getColor(android.R.color.darker_gray));
+
+            inputLayout.addView(labelView);
+            inputLayout.addView(countInput);
+            inputLayout.addView(unitView);
+
+            requirementLayout.addView(inputLayout);
+            otherRequirementInputs.put(item.getName(), countInput);
+
+        } else if ("통과".equals(item.getFormat())) {
+            // 통과 형식 (마일리지와 동일한 형식)
+            TextView iconView = new TextView(this);
+            LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            iconParams.setMarginEnd(dpToPx(12));
+            iconView.setLayoutParams(iconParams);
+            iconView.setText("🎓");
+            iconView.setTextSize(24);
+
+            LinearLayout titleLayout = new LinearLayout(this);
+            LinearLayout.LayoutParams titleLayoutParams = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f
+            );
+            titleLayout.setLayoutParams(titleLayoutParams);
+            titleLayout.setOrientation(LinearLayout.VERTICAL);
+
+            TextView titleView = new TextView(this);
+            titleView.setText(item.getName());
+            titleView.setTextSize(16);
+            titleView.setTypeface(null, android.graphics.Typeface.BOLD);
+            int colorOnSurface = getResources().getColor(android.R.color.black);
+            titleView.setTextColor(colorOnSurface);
+
+            TextView descView = new TextView(this);
+            LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            descParams.topMargin = dpToPx(2);
+            descView.setLayoutParams(descParams);
+            descView.setText("필요: " + item.getDescription());
+            descView.setTextSize(13);
+            descView.setTextColor(getResources().getColor(android.R.color.darker_gray));
+
+            titleLayout.addView(titleView);
+            titleLayout.addView(descView);
+
+            CheckBox passCheckbox = new CheckBox(this);
+            passCheckbox.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            ));
+            passCheckbox.setText("완료");
+            passCheckbox.setTextSize(14);
+            passCheckbox.setTextColor(colorOnSurface);
+
+            headerLayout.addView(iconView);
+            headerLayout.addView(titleLayout);
+            headerLayout.addView(passCheckbox);
+
+            requirementLayout.addView(headerLayout);
+            otherRequirementInputs.put(item.getName(), passCheckbox);
+        }
+
         layoutDynamicRequirements.addView(requirementLayout);
+
+        // 구분선 추가 (마지막 항목이 아니면)
+        View divider = new View(this);
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(1)
+        );
+        dividerParams.bottomMargin = dpToPx(16);
+        divider.setLayoutParams(dividerParams);
+        divider.setBackgroundColor(getResources().getColor(android.R.color.darker_gray));
+        layoutDynamicRequirements.addView(divider);
     }
 
     /** dp → px 변환 */
@@ -450,32 +520,30 @@ public class AdditionalRequirementsActivity extends BaseActivity {
         return Math.round(dp * density);
     }
 
-    /** TLC 입력값 검증: 숫자 & 최대 6회 제한(실시간) */
-    private void validateTlcInput(String input) {
-        if (!input.isEmpty()) {
-            try {
-                int count = Integer.parseInt(input);
-                if (count > 6) {
-                    editTlcCount.setError("TLC 이수 횟수는 6회를 초과할 수 없습니다.");
-                }
-            } catch (NumberFormatException e) {
-                editTlcCount.setError("올바른 숫자를 입력해주세요.");
-            }
+    /**
+     * 회전 복원 또는 저장된 데이터를 동적 요건 UI에 적용
+     */
+    private void applyPendingRequirements() {
+        if (pendingOtherRequirements == null || pendingOtherRequirements.isEmpty()) {
+            return;
         }
-    }
 
-    /** 채플 입력값 검증: 숫자 & 최대 6학기 제한(실시간) */
-    private void validateChapelInput(String input) {
-        if (!input.isEmpty()) {
-            try {
-                int count = Integer.parseInt(input);
-                if (count > 6) {
-                    editChapelCount.setError("채플 이수 학기는 6학기를 초과할 수 없습니다.");
+        for (java.util.Map.Entry<String, Object> entry : pendingOtherRequirements.entrySet()) {
+            String name = entry.getKey();
+            Object value = entry.getValue();
+            View inputView = otherRequirementInputs.get(name);
+
+            if (inputView != null) {
+                if (inputView instanceof EditText && value instanceof Number) {
+                    ((EditText) inputView).setText(String.valueOf(((Number) value).intValue()));
+                } else if (inputView instanceof CheckBox && value instanceof Boolean) {
+                    ((CheckBox) inputView).setChecked((Boolean) value);
                 }
-            } catch (NumberFormatException e) {
-                editChapelCount.setError("올바른 숫자를 입력해주세요.");
             }
         }
+
+        // 적용 완료 후 초기화
+        pendingOtherRequirements = null;
     }
 
     /**
@@ -534,41 +602,41 @@ public class AdditionalRequirementsActivity extends BaseActivity {
 
     /**
      * 현재 화면의 입력값을 읽어 AdditionalRequirements(Parcelable)로 구성
-     * - 숫자 범위/형식 검증
-     * - 동적 추가요건(체크박스)도 함께 포함
-     * - (9) 정책: 동적 요건 존재 시 완료 체크를 요구(필수 처리)
+     * - 동적 요건 데이터 수집 및 검증
      */
     private AdditionalRequirements collectAdditionalRequirements() {
         try {
-            // TLC 횟수 (0~6)
-            int tlcCount = 0;
-            String tlcInput = editTlcCount.getText().toString().trim();
-            if (!tlcInput.isEmpty()) {
-                tlcCount = Integer.parseInt(tlcInput);
-                if (tlcCount < 0 || tlcCount > 6) {
-                    Toast.makeText(this, "TLC 이수 횟수를 올바르게 입력해주세요 (0-6회)", Toast.LENGTH_SHORT).show();
-                    return null;
+            // 기타 졸업요건 데이터 수집
+            java.util.Map<String, Object> otherReqs = new java.util.HashMap<>();
+            for (java.util.Map.Entry<String, View> entry : otherRequirementInputs.entrySet()) {
+                String name = entry.getKey();
+                View inputView = entry.getValue();
+
+                if (inputView instanceof EditText) {
+                    // 횟수 형식
+                    EditText editText = (EditText) inputView;
+                    String countStr = editText.getText().toString().trim();
+                    if (!countStr.isEmpty()) {
+                        try {
+                            int count = Integer.parseInt(countStr);
+                            otherReqs.put(name, count);
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(this, name + "의 횟수를 올바르게 입력해주세요", Toast.LENGTH_SHORT).show();
+                            return null;
+                        }
+                    } else {
+                        otherReqs.put(name, 0); // 입력하지 않으면 0으로 처리
+                    }
+                } else if (inputView instanceof CheckBox) {
+                    // 통과 형식
+                    CheckBox checkBox = (CheckBox) inputView;
+                    otherReqs.put(name, checkBox.isChecked());
                 }
             }
 
-            // 채플 학기 (0~6)
-            int chapelCount = 0;
-            String chapelInput = editChapelCount.getText().toString().trim();
-            if (!chapelInput.isEmpty()) {
-                chapelCount = Integer.parseInt(chapelInput);
-                if (chapelCount < 0 || chapelCount > 6) {
-                    Toast.makeText(this, "채플 이수 학기를 올바르게 입력해주세요 (0-6학기)", Toast.LENGTH_SHORT).show();
-                    return null;
-                }
-            }
-
-            // 마일리지 달성 여부
-            boolean mileageCompleted = checkboxMileageCompleted.isChecked();
-
-            // 동적 추가요건 완료 여부 (체크하지 않으면 미완료로 처리)
-            boolean extraGradCompleted = (checkboxExtraGrad != null) && checkboxExtraGrad.isChecked();
-
-            return new AdditionalRequirements(tlcCount, chapelCount, mileageCompleted, extraGradCompleted);
+            AdditionalRequirements requirements = new AdditionalRequirements();
+            requirements.setOtherRequirements(otherReqs);
+            return requirements;
 
         } catch (NumberFormatException e) {
             Toast.makeText(this, "올바른 숫자를 입력해주세요.", Toast.LENGTH_SHORT).show();
@@ -580,16 +648,28 @@ public class AdditionalRequirementsActivity extends BaseActivity {
     // 추가 졸업 요건 데이터 모델 (Intent로 전달하기 위해 Parcelable 구현)
     // ─────────────────────────────────────────────────────────────────────────
     public static class AdditionalRequirements implements android.os.Parcelable {
-        private int tlcCount;              // TLC 이수 횟수
-        private int chapelCount;           // 채플 이수 학기
-        private boolean mileageCompleted;  // 마일리지 달성 여부
-        private boolean extraGradCompleted;// 동적 추가요건 달성 여부
+        @Deprecated private int tlcCount;
+        @Deprecated private int chapelCount;
+        @Deprecated private boolean mileageCompleted;
+        @Deprecated private boolean extraGradCompleted;
+        private java.util.Map<String, Object> otherRequirements; // 기타 졸업요건 (name -> count/isCompleted)
 
+        public AdditionalRequirements() {
+            this.otherRequirements = new java.util.HashMap<>();
+        }
+
+        @Deprecated
         public AdditionalRequirements(int tlcCount, int chapelCount, boolean mileageCompleted, boolean extraGradCompleted) {
             this.tlcCount = tlcCount;
             this.chapelCount = chapelCount;
             this.mileageCompleted = mileageCompleted;
             this.extraGradCompleted = extraGradCompleted;
+            this.otherRequirements = new java.util.HashMap<>();
+
+            // 기존 데이터를 otherRequirements로 변환
+            if (tlcCount > 0) otherRequirements.put("TLC", tlcCount);
+            if (chapelCount > 0) otherRequirements.put("채플", chapelCount);
+            if (mileageCompleted) otherRequirements.put("1004 마일리지", true);
         }
 
         protected AdditionalRequirements(android.os.Parcel in) {
@@ -597,6 +677,7 @@ public class AdditionalRequirementsActivity extends BaseActivity {
             chapelCount = in.readInt();
             mileageCompleted = in.readByte() != 0;
             extraGradCompleted = in.readByte() != 0;
+            otherRequirements = in.readHashMap(Object.class.getClassLoader());
         }
 
         public static final Creator<AdditionalRequirements> CREATOR = new Creator<AdditionalRequirements>() {
@@ -618,20 +699,22 @@ public class AdditionalRequirementsActivity extends BaseActivity {
             dest.writeInt(chapelCount);
             dest.writeByte((byte) (mileageCompleted ? 1 : 0));
             dest.writeByte((byte) (extraGradCompleted ? 1 : 0));
+            dest.writeMap(otherRequirements);
         }
 
-        // Getter
-        public int getTlcCount() { return tlcCount; }
-        public int getChapelCount() { return chapelCount; }
-        public boolean isMileageCompleted() { return mileageCompleted; }
-        public boolean isExtraGradCompleted() { return extraGradCompleted; }
+        // Getter / Setter
+        @Deprecated public int getTlcCount() { return tlcCount; }
+        @Deprecated public int getChapelCount() { return chapelCount; }
+        @Deprecated public boolean isMileageCompleted() { return mileageCompleted; }
+        @Deprecated public boolean isExtraGradCompleted() { return extraGradCompleted; }
+        public java.util.Map<String, Object> getOtherRequirements() { return otherRequirements; }
+        public void setOtherRequirements(java.util.Map<String, Object> otherRequirements) {
+            this.otherRequirements = otherRequirements;
+        }
 
         @Override
         public String toString() {
-            return String.format("AdditionalRequirements{TLC: %d회, Chapel: %d학기, Mileage: %s, ExtraGrad: %s}",
-                    tlcCount, chapelCount,
-                    mileageCompleted ? "완료" : "미완료",
-                    extraGradCompleted ? "완료" : "미완료");
+            return "AdditionalRequirements{otherRequirements: " + otherRequirements + "}";
         }
     }
 
@@ -639,10 +722,30 @@ public class AdditionalRequirementsActivity extends BaseActivity {
     @Override
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
-        out.putString(S_TLC, editTlcCount.getText().toString());
-        out.putString(S_CHAPEL, editChapelCount.getText().toString());
-        out.putBoolean(S_MILEAGE, checkboxMileageCompleted.isChecked());
-        out.putBoolean(S_EXTRA, checkboxExtraGrad != null && checkboxExtraGrad.isChecked());
+
+        // 현재 동적 요건 데이터 수집
+        java.util.Map<String, Object> currentData = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, View> entry : otherRequirementInputs.entrySet()) {
+            String name = entry.getKey();
+            View inputView = entry.getValue();
+
+            if (inputView instanceof EditText) {
+                String text = ((EditText) inputView).getText().toString().trim();
+                if (!text.isEmpty()) {
+                    try {
+                        currentData.put(name, Integer.parseInt(text));
+                    } catch (NumberFormatException e) {
+                        currentData.put(name, 0);
+                    }
+                } else {
+                    currentData.put(name, 0);
+                }
+            } else if (inputView instanceof CheckBox) {
+                currentData.put(name, ((CheckBox) inputView).isChecked());
+            }
+        }
+
+        out.putSerializable(S_OTHER_REQS, (java.io.Serializable) currentData);
     }
 
     // ── 숫자 범위 필터(0~6) ───────────────────────────────────────────────────

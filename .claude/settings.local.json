@@ -184,7 +184,9 @@
       "Bash(comm -23:*)",
       "Bash(git clone:*)",
       "Bash(cmd //c \"start /c/Program\\ Files/Android/Android\\ Studio/bin/studio64.exe .\")",
-      "Bash(explorer.exe C:/Users/jsk00/AndroidStudioProjects/Clud-Mangement)"
+      "Bash(explorer.exe C:/Users/jsk00/AndroidStudioProjects/Clud-Mangement)",
+      "Bash(grep:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

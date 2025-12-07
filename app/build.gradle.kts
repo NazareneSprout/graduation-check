@@ -94,6 +94,9 @@ dependencies {
     // PhotoView for zoomable images
     implementation("com.github.chrisbanes:PhotoView:2.3.0")
 
+    // WorkManager for background tasks
+    implementation("androidx.work:work-runtime:2.9.0")
+
     // Desugar library for Java 8+ API support on older Android versions
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 

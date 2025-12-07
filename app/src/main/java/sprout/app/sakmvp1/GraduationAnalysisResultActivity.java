@@ -235,15 +235,15 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
                     // 추가 요구사항 복원
                     java.util.Map<String, Object> additionalReqMap =
                             (java.util.Map<String, Object>) documentSnapshot.get("additionalRequirements");
-                    if (additionalReqMap != null) {
-                        additionalRequirements = new AdditionalRequirementsActivity.AdditionalRequirements(
-                                ((Number) additionalReqMap.getOrDefault("tlcCount", 0)).intValue(),
-                                ((Number) additionalReqMap.getOrDefault("chapelCount", 0)).intValue(),
-                                (Boolean) additionalReqMap.getOrDefault("mileageCompleted", false),
-                                (Boolean) additionalReqMap.getOrDefault("extraGradCompleted", false)
-                        );
+
+                    additionalRequirements = new AdditionalRequirementsActivity.AdditionalRequirements();
+
+                    if (additionalReqMap != null && !additionalReqMap.isEmpty()) {
+                        // 새로운 구조: otherRequirements Map을 직접 사용
+                        additionalRequirements.setOtherRequirements(additionalReqMap);
                     } else {
-                        additionalRequirements = new AdditionalRequirementsActivity.AdditionalRequirements(0, 0, false, false);
+                        // 기본값
+                        additionalRequirements.setOtherRequirements(new java.util.HashMap<>());
                     }
 
                     // 데이터 유효성 검사
@@ -374,14 +374,9 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         }
         graduationData.put("courses", coursesData);
 
-        // 추가 요건 저장
-        if (additionalRequirements != null) {
-            java.util.Map<String, Object> reqMap = new java.util.HashMap<>();
-            reqMap.put("tlcCount", additionalRequirements.getTlcCount());
-            reqMap.put("chapelCount", additionalRequirements.getChapelCount());
-            reqMap.put("mileageCompleted", additionalRequirements.isMileageCompleted());
-            reqMap.put("extraGradCompleted", additionalRequirements.isExtraGradCompleted());
-            graduationData.put("additionalRequirements", reqMap);
+        // 추가 요건 저장 (동적 요건 Map)
+        if (additionalRequirements != null && additionalRequirements.getOtherRequirements() != null) {
+            graduationData.put("additionalRequirements", additionalRequirements.getOtherRequirements());
         }
 
         // 진행 중 메시지 표시
@@ -1486,14 +1481,9 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         }
         graduationData.put("courses", coursesData);
 
-        // 추가 요건 저장
-        if (additionalRequirements != null) {
-            java.util.Map<String, Object> reqMap = new java.util.HashMap<>();
-            reqMap.put("tlcCount", additionalRequirements.getTlcCount());
-            reqMap.put("chapelCount", additionalRequirements.getChapelCount());
-            reqMap.put("mileageCompleted", additionalRequirements.isMileageCompleted());
-            reqMap.put("extraGradCompleted", additionalRequirements.isExtraGradCompleted());
-            graduationData.put("additionalRequirements", reqMap);
+        // 추가 요건 저장 (동적 요건 Map)
+        if (additionalRequirements != null && additionalRequirements.getOtherRequirements() != null) {
+            graduationData.put("additionalRequirements", additionalRequirements.getOtherRequirements());
         }
 
         // 진행 중 메시지 표시
@@ -3718,384 +3708,151 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
         }
     }
 
-    // 요약 탭 프래그먼트
+    // 기타 탭 프래그먼트
     public static class OthersTabFragment extends Fragment {
+        private LinearLayout containerDynamicOthers;
+        private TextView textOthersSummary;
+        private TextView textOthersProgress;
+        private android.widget.ProgressBar progressOthersTotal;
+
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             View view = inflater.inflate(R.layout.tab_others, container, false);
 
+            // View 초기화
+            containerDynamicOthers = view.findViewById(R.id.container_dynamic_others);
+            textOthersSummary = view.findViewById(R.id.text_others_summary);
+            textOthersProgress = view.findViewById(R.id.text_others_progress);
+            progressOthersTotal = view.findViewById(R.id.progress_others_total);
+
             // 기타 요건 UI 업데이트
-            updateOthersUI(view);
+            updateOthersUI();
 
             return view;
         }
 
-        private void updateOthersUI(View view) {
-            // 아코디언 클릭 리스너 설정
-            setupAccordionClickListeners(view);
-
-            // 학부별 추가 졸업 요건 로드
-            loadDepartmentExtraRequirements(view);
-
-            // 사용자 입력 데이터를 기반으로 기타 요건 상태 설정
-            updateOthersData(view);
-        }
-
-        private void setupAccordionClickListeners(View view) {
-            // TLC 아코디언
-            View tlcHeader = view.findViewById(R.id.accordion_tlc_header);
-            View tlcContent = view.findViewById(R.id.accordion_tlc_content);
-            TextView tlcIcon = view.findViewById(R.id.accordion_tlc_icon);
-
-            if (tlcHeader != null && tlcContent != null && tlcIcon != null) {
-                tlcHeader.setOnClickListener(v -> toggleAccordion(tlcContent, tlcIcon));
-            }
-
-            // 채플 아코디언
-            View chapelHeader = view.findViewById(R.id.accordion_chapel_header);
-            View chapelContent = view.findViewById(R.id.accordion_chapel_content);
-            TextView chapelIcon = view.findViewById(R.id.accordion_chapel_icon);
-
-            if (chapelHeader != null && chapelContent != null && chapelIcon != null) {
-                chapelHeader.setOnClickListener(v -> toggleAccordion(chapelContent, chapelIcon));
-            }
-
-            // 마일리지 아코디언
-            View mileageHeader = view.findViewById(R.id.accordion_mileage_header);
-            View mileageContent = view.findViewById(R.id.accordion_mileage_content);
-            TextView mileageIcon = view.findViewById(R.id.accordion_mileage_icon);
-
-            if (mileageHeader != null && mileageContent != null && mileageIcon != null) {
-                mileageHeader.setOnClickListener(v -> toggleAccordion(mileageContent, mileageIcon));
-            }
-        }
-
-        private void toggleAccordion(View content, TextView icon) {
-            if (content.getVisibility() == View.VISIBLE) {
-                content.setVisibility(View.GONE);
-                icon.setText("▶");
-            } else {
-                content.setVisibility(View.VISIBLE);
-                icon.setText("▼");
-            }
-        }
-
-        private void updateOthersData(View view) {
-            if (staticAdditionalRequirements == null) {
-                Log.w(TAG, "AdditionalRequirements 데이터가 없습니다");
+        private void updateOthersUI() {
+            if (staticAdditionalRequirements == null || containerDynamicOthers == null) {
+                Log.w(TAG, "AdditionalRequirements 또는 컨테이너가 null입니다");
                 return;
             }
 
-            // TLC 헤더와 상태 업데이트
-            updateTLCHeader(view);
-            TextView tlcStatus = view.findViewById(R.id.text_tlc_status);
-            if (tlcStatus != null) {
-                int tlcCount = staticAdditionalRequirements.getTlcCount();
-                tlcStatus.setText(tlcCount + "/6회");
-                updateStatusColor(tlcStatus, tlcCount, 6);
-            }
-
-            // 채플 헤더와 상태 업데이트
-            updateChapelHeader(view);
-            TextView chapelStatus = view.findViewById(R.id.text_chapel_status);
-            if (chapelStatus != null) {
-                int chapelCount = staticAdditionalRequirements.getChapelCount();
-                chapelStatus.setText(chapelCount + "/6학기");
-                updateStatusColor(chapelStatus, chapelCount, 6);
-            }
-
-            // 마일리지 헤더와 상태 업데이트
-            updateMileageHeader(view);
-            TextView mileageStatus = view.findViewById(R.id.text_mileage_status);
-            if (mileageStatus != null) {
-                boolean isCompleted = staticAdditionalRequirements.isMileageCompleted();
-                mileageStatus.setText(isCompleted ? "완료" : "미완료");
-                mileageStatus.setTextColor(isCompleted ? 0xFF4CAF50 : 0xFFFF9800);
-            }
-
-            // 전체 진행률 계산
-            int tlcCount = staticAdditionalRequirements.getTlcCount();
-            int chapelCount = staticAdditionalRequirements.getChapelCount();
-            boolean mileageCompleted = staticAdditionalRequirements.isMileageCompleted();
-            boolean extraGradCompleted = staticAdditionalRequirements.isExtraGradCompleted();
-
-            // 완료된 항목 수 계산
-            int completedCount = 0;
-            int totalCount = 3; // TLC, 채플, 마일리지
-
-            if (tlcCount >= 6) completedCount++;
-            if (chapelCount >= 6) completedCount++;
-            if (mileageCompleted) completedCount++;
-
-            // 추가 졸업 요건이 있는 경우 총 개수 증가
-            if (staticSelectedDepartment != null) {
-                totalCount = 4; // TLC, 채플, 마일리지, 추가요건
-                if (extraGradCompleted) completedCount++;
-            }
-
-            // 전체 진행률 업데이트
-            TextView othersProgress = view.findViewById(R.id.text_others_progress);
-            if (othersProgress != null) {
-                othersProgress.setText(completedCount + "/" + totalCount + " 완료");
-            }
-
-            // 진행바 업데이트
-            android.widget.ProgressBar tlcProgressBar = view.findViewById(R.id.progress_tlc);
-            if (tlcProgressBar != null) {
-                int tlcProgress = Math.min(100, (tlcCount * 100) / 6);
-                tlcProgressBar.setProgress(tlcProgress);
-            }
-
-            android.widget.ProgressBar chapelProgressBar = view.findViewById(R.id.progress_chapel);
-            if (chapelProgressBar != null) {
-                int chapelProgress = Math.min(100, (chapelCount * 100) / 6);
-                chapelProgressBar.setProgress(chapelProgress);
-            }
-
-            android.widget.ProgressBar othersProgressBar = view.findViewById(R.id.progress_others_total);
-            if (othersProgressBar != null) {
-                int totalProgress = (completedCount * 100) / totalCount;
-                othersProgressBar.setProgress(totalProgress);
-            }
-
-            // 퍼센티지 텍스트 업데이트
-            TextView tlcPercentage = view.findViewById(R.id.text_tlc_percentage);
-            if (tlcPercentage != null) {
-                int tlcProgress = Math.min(100, (tlcCount * 100) / 6);
-                tlcPercentage.setText(tlcProgress + "%");
-            }
-
-            TextView chapelPercentage = view.findViewById(R.id.text_chapel_percentage);
-            if (chapelPercentage != null) {
-                int chapelProgress = Math.min(100, (chapelCount * 100) / 6);
-                chapelPercentage.setText(chapelProgress + "%");
-            }
-
-            // 요약 메시지 업데이트
-            TextView othersSummary = view.findViewById(R.id.text_others_summary);
-            if (othersSummary != null) {
-                String summaryMessage = generateSummaryMessage(tlcCount, chapelCount, mileageCompleted, extraGradCompleted);
-                othersSummary.setText(summaryMessage);
-            }
-        }
-
-        private void updateTLCHeader(View view) {
-            TextView headerText = view.findViewById(R.id.text_tlc_header);
-
-            if (headerText != null && staticAdditionalRequirements != null) {
-                int tlcCount = staticAdditionalRequirements.getTlcCount();
-                Log.d(TAG, "updateTLCHeader: TLC 횟수 = " + tlcCount);
-                if (tlcCount >= 6) {
-                    headerText.setText("🎓 TLC (완료)");
-                    Log.d(TAG, "updateTLCHeader: TLC 헤더를 '완료'로 설정");
-                } else {
-                    int remaining = 6 - tlcCount;
-                    headerText.setText("🎓 TLC (" + remaining + "회 부족)");
-                    Log.d(TAG, "updateTLCHeader: TLC 헤더를 '" + remaining + "회 부족'으로 설정");
-                }
-            } else {
-                Log.w(TAG, "updateTLCHeader: headerText=" + (headerText != null) + ", staticAdditionalRequirements=" + (staticAdditionalRequirements != null));
-            }
-        }
-
-        private void updateChapelHeader(View view) {
-            TextView headerText = view.findViewById(R.id.text_chapel_header);
-
-            if (headerText != null && staticAdditionalRequirements != null) {
-                int chapelCount = staticAdditionalRequirements.getChapelCount();
-                Log.d(TAG, "updateChapelHeader: 채플 횟수 = " + chapelCount);
-                if (chapelCount >= 6) {
-                    headerText.setText("⛪ 채플 (완료)");
-                    Log.d(TAG, "updateChapelHeader: 채플 헤더를 '완료'로 설정");
-                } else {
-                    int remaining = 6 - chapelCount;
-                    headerText.setText("⛪ 채플 (" + remaining + "학기 부족)");
-                    Log.d(TAG, "updateChapelHeader: 채플 헤더를 '" + remaining + "학기 부족'으로 설정");
-                }
-            } else {
-                Log.w(TAG, "updateChapelHeader: headerText=" + (headerText != null) + ", staticAdditionalRequirements=" + (staticAdditionalRequirements != null));
-            }
-        }
-
-        private void updateMileageHeader(View view) {
-            TextView headerText = view.findViewById(R.id.text_mileage_header);
-
-            if (headerText != null && staticAdditionalRequirements != null) {
-                boolean isCompleted = staticAdditionalRequirements.isMileageCompleted();
-                Log.d(TAG, "updateMileageHeader: 마일리지 완료 = " + isCompleted);
-                if (isCompleted) {
-                    headerText.setText("🏃 1004 마일리지 (완료)");
-                    Log.d(TAG, "updateMileageHeader: 마일리지 헤더를 '완료'로 설정");
-                } else {
-                    headerText.setText("🏃 1004 마일리지 (미완료)");
-                    Log.d(TAG, "updateMileageHeader: 마일리지 헤더를 '미완료'로 설정");
-                }
-            } else {
-                Log.w(TAG, "updateMileageHeader: headerText=" + (headerText != null) + ", staticAdditionalRequirements=" + (staticAdditionalRequirements != null));
-            }
-        }
-
-        private void updateStatusColor(TextView statusView, int current, int required) {
-            if (current >= required) {
-                statusView.setTextColor(0xFF4CAF50); // 완료 - 녹색
-            } else {
-                statusView.setTextColor(0xFFFF9800); // 미완료 - 주황색
-            }
-        }
-
-        private String generateSummaryMessage(int tlcCount, int chapelCount, boolean mileageCompleted, boolean extraGradCompleted) {
-            java.util.List<String> remaining = new java.util.ArrayList<>();
-
-            if (tlcCount < 6) {
-                remaining.add("TLC " + (6 - tlcCount) + "회");
-            }
-            if (chapelCount < 6) {
-                remaining.add("채플 " + (6 - chapelCount) + "학기");
-            }
-            if (!mileageCompleted) {
-                remaining.add("1004 마일리지");
-            }
-            if (staticSelectedDepartment != null && !extraGradCompleted) {
-                remaining.add("추가 졸업 요건");
-            }
-
-            if (remaining.isEmpty()) {
-                return "🎉 모든 기타 졸업 요건을 완료했습니다!";
-            } else {
-                return String.join(", ", remaining) + " 더 완료하면 모든 기타 요건이 충족됩니다.";
-            }
-        }
-
-        private void loadDepartmentExtraRequirements(View view) {
-            if (staticSelectedDepartment == null) {
+            // 동적 요건 데이터 가져오기
+            java.util.Map<String, Object> otherReqs = staticAdditionalRequirements.getOtherRequirements();
+            if (otherReqs == null || otherReqs.isEmpty()) {
+                textOthersSummary.setText("등록된 기타 졸업 요건이 없습니다");
                 return;
             }
 
-            FirebaseDataManager dataManager = FirebaseDataManager.getInstance();
-            dataManager.loadExtraGradRequirements(staticSelectedDepartment, new FirebaseDataManager.OnExtraGradRequirementsLoadedListener() {
-                @Override
-                public void onSuccess(String extraGradRequirement) {
-                    if (extraGradRequirement != null && !extraGradRequirement.trim().isEmpty()) {
-                        // 동적 요건이 있으면 UI에 추가
-                        addExtraRequirementToOthersTab(view, extraGradRequirement);
-                        Log.d(TAG, "기타 탭에 추가 졸업 요건 UI 추가 완료: " + extraGradRequirement);
-                    } else {
-                        Log.d(TAG, "추가 졸업 요건 없음");
-                    }
-                }
+            // 동적 요건 UI 생성
+            createDynamicRequirementsUI(otherReqs);
 
-                @Override
-                public void onFailure(Exception e) {
-                    Log.e(TAG, "추가 졸업 요건 로드 실패", e);
-                }
-            });
+            // 진행률 업데이트
+            updateProgress(otherReqs);
         }
 
-        private void addExtraRequirementToOthersTab(View view, String requirementName) {
-            LinearLayout dynamicLayout = view.findViewById(R.id.layout_dynamic_extra_requirements);
-            if (dynamicLayout == null) {
-                return;
-            }
+        private void createDynamicRequirementsUI(java.util.Map<String, Object> requirements) {
+            containerDynamicOthers.removeAllViews();
 
-            // 동적 요건 아코디언 생성
-            LinearLayout requirementCard = new LinearLayout(getContext());
-            requirementCard.setLayoutParams(new LinearLayout.LayoutParams(
+            for (java.util.Map.Entry<String, Object> entry : requirements.entrySet()) {
+                String name = entry.getKey();
+                Object value = entry.getValue();
+
+                // 요건 카드 생성
+                LinearLayout card = createRequirementCard(name, value);
+                containerDynamicOthers.addView(card);
+            }
+        }
+
+        private LinearLayout createRequirementCard(String name, Object value) {
+            LinearLayout card = new LinearLayout(getContext());
+            card.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ));
-            requirementCard.setOrientation(LinearLayout.VERTICAL);
-            // 기존 아코디언들과 동일한 테마 적용
-            requirementCard.setBackgroundResource(R.drawable.spinner_background);
-
-            LinearLayout.LayoutParams cardParams = (LinearLayout.LayoutParams) requirementCard.getLayoutParams();
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackgroundResource(R.drawable.spinner_background);
+            LinearLayout.LayoutParams cardParams = (LinearLayout.LayoutParams) card.getLayoutParams();
             cardParams.setMargins(0, 0, 0, dpToPx(12));
 
-            // 헤더 레이아웃
-            LinearLayout headerLayout = new LinearLayout(getContext());
-            headerLayout.setLayoutParams(new LinearLayout.LayoutParams(
+            // 헤더
+            LinearLayout header = new LinearLayout(getContext());
+            header.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ));
-            headerLayout.setOrientation(LinearLayout.HORIZONTAL);
-            headerLayout.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
-            headerLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            headerLayout.setClickable(true);
-            headerLayout.setFocusable(true);
-            // selectableItemBackground을 올바르게 가져오기
-            android.util.TypedValue typedValue = new android.util.TypedValue();
-            getActivity().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true);
-            headerLayout.setBackgroundResource(typedValue.resourceId);
+            header.setOrientation(LinearLayout.HORIZONTAL);
+            header.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
+            header.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
             // 제목
-            TextView titleView = new TextView(getContext());
+            TextView title = new TextView(getContext());
             LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f
             );
-            titleView.setLayoutParams(titleParams);
-            titleView.setText("🎓 " + requirementName);
-            titleView.setTextSize(16);
-            titleView.setTypeface(null, android.graphics.Typeface.BOLD);
+            title.setLayoutParams(titleParams);
+            title.setText("🎓 " + name);
+            title.setTextSize(16);
+            title.setTypeface(null, android.graphics.Typeface.BOLD);
 
-            // 상태 텍스트
-            TextView statusView = new TextView(getContext());
-            LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            statusParams.setMargins(0, 0, dpToPx(12), 0);
-            statusView.setLayoutParams(statusParams);
-            // 실제 데이터로 상태 설정
-            boolean isExtraGradCompleted = (staticAdditionalRequirements != null) ?
-                staticAdditionalRequirements.isExtraGradCompleted() : false;
-            statusView.setText(isExtraGradCompleted ? "완료" : "미완료");
-            statusView.setTextSize(14);
-            statusView.setTypeface(null, android.graphics.Typeface.BOLD);
-            statusView.setTextColor(isExtraGradCompleted ? 0xFF4CAF50 : 0xFFFF9800);
-
-            // 아이콘
-            TextView iconView = new TextView(getContext());
-            iconView.setLayoutParams(new LinearLayout.LayoutParams(
+            // 상태
+            TextView status = new TextView(getContext());
+            status.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ));
-            iconView.setText("▶");
-            iconView.setTextSize(14);
+            status.setTextSize(14);
+            status.setTypeface(null, android.graphics.Typeface.BOLD);
 
-            headerLayout.addView(titleView);
-            headerLayout.addView(statusView);
-            headerLayout.addView(iconView);
+            if (value instanceof Number) {
+                int count = ((Number) value).intValue();
+                status.setText(count + "회");
+                status.setTextColor(count > 0 ? 0xFF4CAF50 : 0xFFFF9800);
+            } else if (value instanceof Boolean) {
+                boolean completed = (Boolean) value;
+                status.setText(completed ? "완료" : "미완료");
+                status.setTextColor(completed ? 0xFF4CAF50 : 0xFFFF9800);
+            }
 
-            // 콘텐츠 레이아웃
-            LinearLayout contentLayout = new LinearLayout(getContext());
-            contentLayout.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
-            contentLayout.setOrientation(LinearLayout.VERTICAL);
-            contentLayout.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
-            contentLayout.setBackgroundColor(0xFFF5F5F5);
-            contentLayout.setVisibility(View.GONE);
+            header.addView(title);
+            header.addView(status);
 
-            // 설명 텍스트
-            TextView descView = new TextView(getContext());
-            descView.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
-            descView.setText(requirementName + " 완료 여부를 확인해주세요.");
-            descView.setTextSize(14);
-            descView.setTextColor(0xFF000000);
+            card.addView(header);
 
-            contentLayout.addView(descView);
+            return card;
+        }
 
-            // 아코디언 토글 리스너 설정
-            headerLayout.setOnClickListener(v -> toggleAccordion(contentLayout, iconView));
+        private void updateProgress(java.util.Map<String, Object> requirements) {
+            int totalCount = requirements.size();
+            int completedCount = 0;
 
-            requirementCard.addView(headerLayout);
-            requirementCard.addView(contentLayout);
+            for (Object value : requirements.values()) {
+                if (value instanceof Number) {
+                    if (((Number) value).intValue() > 0) {
+                        completedCount++;
+                    }
+                } else if (value instanceof Boolean) {
+                    if ((Boolean) value) {
+                        completedCount++;
+                    }
+                }
+            }
 
-            dynamicLayout.addView(requirementCard);
-            dynamicLayout.setVisibility(View.VISIBLE);
+            // 진행률 업데이트
+            textOthersProgress.setText(completedCount + "/" + totalCount + " 완료");
+
+            if (totalCount > 0) {
+                int progress = (completedCount * 100) / totalCount;
+                progressOthersTotal.setProgress(progress);
+            }
+
+            // 요약 메시지 생성
+            if (completedCount == totalCount) {
+                textOthersSummary.setText("🎉 모든 기타 졸업 요건을 완료했습니다!");
+            } else {
+                int remaining = totalCount - completedCount;
+                textOthersSummary.setText(remaining + "개의 요건이 더 필요합니다");
+            }
         }
 
         private int dpToPx(int dp) {
@@ -4103,16 +3860,6 @@ public class GraduationAnalysisResultActivity extends BaseActivity {
             return Math.round(dp * density);
         }
     }
-
-    /**
-     * 레거시: Firestore에서 대체과목 데이터 로드 (더 이상 사용 안 함)
-     *
-     * 현재는 통합 졸업요건 시스템에서 GraduationRules.replacementRules로 처리됩니다.
-     * 별도의 replacement_courses 컬렉션을 사용하지 않습니다.
-     *
-     * @deprecated 이 메서드는 더 이상 사용되지 않습니다. GraduationRules 모델의 replacementRules를 사용하세요.
-     */
-    @Deprecated
     private void loadReplacementCourses(Runnable onComplete) {
         // 레거시 메서드 - 더 이상 사용하지 않음
         Log.d(TAG, "loadReplacementCourses: 레거시 메서드 (사용 안 함, GraduationRules.replacementRules 사용)");
