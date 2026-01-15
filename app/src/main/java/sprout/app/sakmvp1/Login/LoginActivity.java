@@ -1,8 +1,11 @@
 package sprout.app.sakmvp1.Login;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
@@ -11,7 +14,10 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -72,6 +78,10 @@ public class LoginActivity extends BaseActivity {
     // 자동 로그인 설정 저장용 SharedPreferences 키
     private static final String PREFS_NAME = "user_prefs";     // 프리퍼런스 파일명
     private static final String KEY_AUTO_LOGIN = "auto_login"; // 자동 로그인 여부 저장 키
+    private static final String KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"; // 알림 권한 요청 여부
+
+    // 알림 권한 요청 런처
+    private ActivityResultLauncher<String> notificationPermissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,6 +104,31 @@ public class LoginActivity extends BaseActivity {
 
         // Firebase 인증 인스턴스 획득
         mAuth = FirebaseAuth.getInstance();
+
+        // 로그인 화면에서는 접근성 설정 초기화 (로그인 후 Firestore에서 다시 불러옴)
+        // 이전 사용자가 앱을 로그아웃 없이 종료한 경우 설정이 남아있을 수 있으므로 초기화
+        SharedPreferences accessibilityPrefs = getSharedPreferences("accessibility_prefs", Context.MODE_PRIVATE);
+        accessibilityPrefs.edit().clear().apply();
+        Log.d("LoginActivity", "로그인 화면 진입 시 접근성 설정 초기화");
+
+        // 초기화 후 필터 제거 (BaseActivity의 onCreate에서 이미 적용되었을 수 있으므로)
+        refreshAccessibilitySettings();
+
+        // 알림 권한 요청 런처 초기화 (onCreate에서 등록해야 함)
+        notificationPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> {
+                    if (isGranted) {
+                        Log.d("LoginActivity", "알림 권한 허용됨");
+                        Toast.makeText(this, "학식 메뉴 업데이트 알림을 받을 수 있습니다", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Log.d("LoginActivity", "알림 권한 거부됨");
+                        Toast.makeText(this, "알림 권한이 거부되었습니다. 설정에서 변경할 수 있습니다.", Toast.LENGTH_LONG).show();
+                    }
+                    // 권한 요청 완료 후 메인으로 이동
+                    navigateToMain();
+                }
+        );
 
         // 레이아웃 내 위젯 참조
         etEmail = findViewById(R.id.etUserid);     // 이메일 입력란
@@ -310,8 +345,8 @@ public class LoginActivity extends BaseActivity {
                             // 학적정보가 없으면 입력 권유 Dialog 표시
                             showAcademicInfoDialog();
                         } else {
-                            // 학적정보가 있으면 바로 메인 화면으로 이동
-                            navigateToMain();
+                            // 학적정보가 있으면 알림 권한 확인 후 메인 화면으로 이동
+                            checkAndRequestNotificationPermission();
                         }
                     } else {
                         // 문서가 없으면 학적정보 입력 권유
@@ -341,7 +376,71 @@ public class LoginActivity extends BaseActivity {
                     finish();
                 })
                 .setNegativeButton("나중에", (dialog, which) -> {
-                    // 메인 화면으로 이동
+                    // 알림 권한 확인 후 메인 화면으로 이동
+                    checkAndRequestNotificationPermission();
+                })
+                .show();
+    }
+
+    /**
+     * 알림 권한 확인 및 요청
+     * Android 13 (API 33) 이상에서만 런타임 권한 요청
+     */
+    private void checkAndRequestNotificationPermission() {
+        Log.d("LoginActivity", "checkAndRequestNotificationPermission 호출됨");
+        Log.d("LoginActivity", "Android SDK 버전: " + Build.VERSION.SDK_INT);
+
+        // Android 13 미만이거나 이미 권한이 있으면 바로 메인으로 이동
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Log.d("LoginActivity", "Android 13 미만 - 권한 요청 건너뜀");
+            navigateToMain();
+            return;
+        }
+
+        // 이미 권한이 허용되어 있으면 바로 메인으로 이동
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+            Log.d("LoginActivity", "알림 권한 이미 허용됨");
+            navigateToMain();
+            return;
+        }
+
+        // 이미 권한 요청을 한 적이 있는지 확인 (첫 로그인 시에만 요청)
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean alreadyRequested = prefs.getBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, false);
+
+        Log.d("LoginActivity", "권한 요청 이력: " + alreadyRequested);
+
+        if (alreadyRequested) {
+            // 이미 요청했으면 바로 메인으로 이동 (사용자가 거부한 경우)
+            Log.d("LoginActivity", "이미 권한 요청했음 - 메인으로 이동");
+            navigateToMain();
+            return;
+        }
+
+        Log.d("LoginActivity", "알림 권한 안내 다이얼로그 표시");
+
+        // 권한 요청 전 설명 다이얼로그 표시
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("알림 권한 안내")
+                .setMessage("학식 메뉴가 업데이트되면 알림으로 알려드립니다.\n\n알림을 받으시겠습니까?")
+                .setCancelable(false)
+                .setPositiveButton("허용", (dialog, which) -> {
+                    // 권한 요청 기록
+                    prefs.edit()
+                            .putBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, true)
+                            .apply();
+
+                    // 권한 요청
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+                })
+                .setNegativeButton("거부", (dialog, which) -> {
+                    // 권한 요청 기록 (다시 묻지 않음)
+                    prefs.edit()
+                            .putBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, true)
+                            .apply();
+
+                    Toast.makeText(this, "알림을 받지 않습니다. 설정에서 변경할 수 있습니다.", Toast.LENGTH_LONG).show();
                     navigateToMain();
                 })
                 .show();

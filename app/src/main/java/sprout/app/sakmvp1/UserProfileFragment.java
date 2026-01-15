@@ -1,6 +1,8 @@
 package sprout.app.sakmvp1;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -461,7 +463,14 @@ public class UserProfileFragment extends Fragment {
                 .setTitle("로그아웃")
                 .setMessage("로그아웃 하시겠습니까?")
                 .setPositiveButton("로그아웃", (dialog, which) -> {
+                    // Firebase 로그아웃
                     auth.signOut();
+
+                    // 접근성 설정 초기화 (흑백필터 등)
+                    SharedPreferences accessibilityPrefs = requireContext().getSharedPreferences("accessibility_prefs", Context.MODE_PRIVATE);
+                    accessibilityPrefs.edit().clear().apply();
+                    Log.d(TAG, "로그아웃 시 접근성 설정 초기화 완료");
+
                     Toast.makeText(requireContext(), "로그아웃 되었습니다", Toast.LENGTH_SHORT).show();
 
                     Intent intent = new Intent(requireContext(), sprout.app.sakmvp1.Login.LoginActivity.class);

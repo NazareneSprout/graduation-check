@@ -60,7 +60,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="졸업요건 관리"
+                android:text="어플 관리 시스템"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="?attr/colorPrimary"
@@ -69,7 +69,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="모든 졸업요건 데이터를 한 곳에서 관리하세요"
+                android:text="어플 내 모든 기능을 이곳에서 관리하세요"
                 android:textSize="14sp"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:layout_marginBottom="12dp"/>

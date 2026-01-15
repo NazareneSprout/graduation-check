@@ -400,18 +400,78 @@ public class OtherRequirementsManageActivity extends AppCompatActivity {
         List<Spinner> formatSpinners = new ArrayList<>();
         List<TextInputEditText> countInputs = new ArrayList<>();
         List<com.google.android.material.checkbox.MaterialCheckBox> passCheckboxes = new ArrayList<>();
+        List<LinearLayout> requirementContainers = new ArrayList<>(); // 각 요건의 컨테이너를 저장
 
         // 기존 요건 표시
         for (int i = 0; i < requirements.size(); i++) {
             OtherRequirementGroup.RequirementItem item = requirements.get(i);
 
-            // 요건 번호 표시
+            // 각 요건을 담을 컨테이너 생성
+            LinearLayout requirementContainer = new LinearLayout(this);
+            requirementContainer.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            if (i > 0) containerParams.topMargin = 30;
+            requirementContainer.setLayoutParams(containerParams);
+            layout.addView(requirementContainer);
+            requirementContainers.add(requirementContainer);
+
+            // 요건 번호 + 삭제 버튼을 가로로 배치
+            LinearLayout headerLayout = new LinearLayout(this);
+            headerLayout.setOrientation(LinearLayout.HORIZONTAL);
+            headerLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+
             TextView tvNumber = new TextView(this);
             tvNumber.setText("요건 " + (i + 1));
             tvNumber.setTextSize(14);
             tvNumber.setTextColor(getResources().getColor(android.R.color.darker_gray));
-            tvNumber.setPadding(0, i > 0 ? 30 : 10, 0, 8);
-            layout.addView(tvNumber);
+            tvNumber.setPadding(0, 0, 0, 8);
+            LinearLayout.LayoutParams numberParams = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            numberParams.weight = 1;
+            tvNumber.setLayoutParams(numberParams);
+            headerLayout.addView(tvNumber);
+
+            // 삭제 버튼 추가
+            MaterialButton btnDeleteRequirement = new MaterialButton(this,
+                    null,
+                    com.google.android.material.R.attr.materialButtonOutlinedStyle);
+            btnDeleteRequirement.setText("삭제");
+            btnDeleteRequirement.setTextSize(12);
+            btnDeleteRequirement.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            btnDeleteRequirement.setLayoutParams(deleteParams);
+
+            final int currentIndex = i;
+            btnDeleteRequirement.setOnClickListener(v -> {
+                // 삭제 확인 다이얼로그
+                new AlertDialog.Builder(this)
+                        .setTitle("요건 삭제")
+                        .setMessage("이 요건을 삭제하시겠습니까?\n\n" + nameInputs.get(currentIndex).getText().toString())
+                        .setPositiveButton("삭제", (d, w) -> {
+                            // UI에서 제거
+                            layout.removeView(requirementContainer);
+                            // 리스트에서도 제거 (인덱스 관리를 위해)
+                            requirementContainers.remove(requirementContainer);
+                            nameInputs.remove(currentIndex);
+                            formatSpinners.remove(currentIndex);
+                            countInputs.remove(currentIndex);
+                            passCheckboxes.remove(currentIndex);
+
+                            Toast.makeText(this, "요건이 삭제되었습니다. 저장 버튼을 눌러주세요.", Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("취소", null)
+                        .show();
+            });
+            headerLayout.addView(btnDeleteRequirement);
+
+            requirementContainer.addView(headerLayout);
 
             // 요건 이름 입력
             com.google.android.material.textfield.TextInputLayout nameLayout =
@@ -424,7 +484,7 @@ public class OtherRequirementsManageActivity extends AppCompatActivity {
             nameInput.setText(item.getName());
             nameInput.setSingleLine(true);
             nameLayout.addView(nameInput);
-            layout.addView(nameLayout);
+            requirementContainer.addView(nameLayout);
             nameInputs.add(nameInput);
 
             // 형식 선택
@@ -436,7 +496,7 @@ public class OtherRequirementsManageActivity extends AppCompatActivity {
                     LinearLayout.LayoutParams.WRAP_CONTENT);
             formatLabelParams.topMargin = 16;
             tvFormatLabel.setLayoutParams(formatLabelParams);
-            layout.addView(tvFormatLabel);
+            requirementContainer.addView(tvFormatLabel);
 
             Spinner formatSpinner = new Spinner(this);
             String[] formats = {"횟수", "통과"};
@@ -445,7 +505,7 @@ public class OtherRequirementsManageActivity extends AppCompatActivity {
             formatAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             formatSpinner.setAdapter(formatAdapter);
             formatSpinner.setSelection("통과".equals(item.getFormat()) ? 1 : 0);
-            layout.addView(formatSpinner);
+            requirementContainer.addView(formatSpinner);
             formatSpinners.add(formatSpinner);
 
             // 횟수 입력 (조건부)
@@ -470,7 +530,7 @@ public class OtherRequirementsManageActivity extends AppCompatActivity {
                 countLayout.setVisibility(View.GONE);
             }
             countLayout.addView(countInput);
-            layout.addView(countLayout);
+            requirementContainer.addView(countLayout);
             countInputs.add(countInput);
 
             // 통과 여부는 자동으로 true로 설정되므로 체크박스 불필요
